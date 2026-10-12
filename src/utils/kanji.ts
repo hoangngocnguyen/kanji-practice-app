@@ -41,7 +41,7 @@ export function extractUniqueKanji(text: string): KanjiItem[] {
         seen.add(char);
         const codePoint = char.codePointAt(0) ?? char.charCodeAt(0);
         const hex = codePoint.toString(16).toLowerCase().padStart(5, '0');
-        const svgUrl = `https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/${hex}.svg`;
+        const svgUrl = `/kanji/${hex}.svg`;
 
         list.push({
           id: list.length + 1,
