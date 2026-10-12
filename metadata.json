@@ -1,0 +1,6 @@
+{
+  "name": "Kanji Stroke Order Tool",
+  "description": "Công cụ tách lọc và tra cứu thứ tự nét viết chữ Hán Kanji, sao chép hình ảnh nét vẽ kèm thứ tự trực tiếp vào bộ nhớ tạm Clipboard cho Anki, Word và Obsidian.",
+  "requestFramePermissions": ["clipboard-write", "clipboard-read"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
