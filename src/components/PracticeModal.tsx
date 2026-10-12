@@ -16,9 +16,12 @@ import { StrokeAnimation } from './StrokeAnimation';
 import { getFullKanjiDetail } from '../utils/kanjiApi';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
+import { KanjiGridOverlay } from './KanjiGridOverlay';
 
 interface PracticeModalProps {
   item: KanjiItem | null;
+  showGrid?: boolean;
+  onToggleGrid?: (show: boolean) => void;
   onClose: () => void;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
@@ -28,6 +31,8 @@ type TabType = 'animation' | 'dictionary' | 'practice';
 
 export const PracticeModal: React.FC<PracticeModalProps> = ({
   item,
+  showGrid = false,
+  onToggleGrid,
   onClose,
   onCopyImage,
   onDownloadPng,
@@ -239,7 +244,13 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           {/* TAB 1: STROKE ANIMATION */}
           {activeTab === 'animation' && (
             <div className="space-y-5">
-              <StrokeAnimation svgUrl={item.svgUrl} kanji={item.kanji} size={280} />
+              <StrokeAnimation
+                svgUrl={item.svgUrl}
+                kanji={item.kanji}
+                size={280}
+                showGrid={showGrid}
+                onToggleGrid={onToggleGrid}
+              />
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-3 pt-2">
@@ -383,6 +394,9 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           {activeTab === 'practice' && (
             <div className="space-y-4">
               <div className="relative w-full aspect-square max-w-[280px] mx-auto bg-white rounded-2xl border-2 border-slate-200 p-2 shadow-inner flex items-center justify-center overflow-hidden">
+                {/* Lưới ô nét đứt nếu bật Kèm lưới */}
+                {showGrid && <KanjiGridOverlay />}
+
                 {/* SVG Background template */}
                 <img
                   src={item.svgUrl}

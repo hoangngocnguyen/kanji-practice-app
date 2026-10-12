@@ -11,10 +11,12 @@ import {
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
+import { KanjiGridOverlay } from './KanjiGridOverlay';
 
 interface KanjiTableProps {
   kanjiList: KanjiItem[];
   copyStatus: Record<string, CopyStatus>;
+  showGrid?: boolean;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
@@ -23,6 +25,7 @@ interface KanjiTableProps {
 export const KanjiTable: React.FC<KanjiTableProps> = ({
   kanjiList,
   copyStatus,
+  showGrid = false,
   onCopyImage,
   onDownloadPng,
   onInspect,
@@ -116,11 +119,14 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       className="relative w-32 h-32 sm:w-36 sm:h-36 shrink-0 bg-white rounded-2xl border-2 border-slate-200/90 p-2 shadow-xs hover:shadow-md hover:border-teal-500 transition-all cursor-pointer group/img flex items-center justify-center overflow-hidden"
                       title={`Click để xem Hoạt ảnh nét vẽ (Animation) và tra cứu chi tiết`}
                     >
+                      {/* Lưới ô chữ điền nếu bật Kèm lưới (+ Grid) */}
+                      {showGrid && <KanjiGridOverlay />}
+
                       <img
                         src={item.svgUrl}
                         alt={`Thứ tự nét viết chữ ${item.kanji}`}
                         loading="lazy"
-                        className="w-full h-full object-contain filter contrast-125 transform group-hover/img:scale-105 transition-transform"
+                        className="w-full h-full object-contain filter contrast-125 transform group-hover/img:scale-105 transition-transform relative z-0"
                         onError={(e) => {
                           (e.target as HTMLElement).style.display = 'none';
                           const parent = (e.target as HTMLElement).parentElement;

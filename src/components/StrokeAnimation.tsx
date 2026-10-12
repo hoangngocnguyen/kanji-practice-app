@@ -12,6 +12,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { speakJapanese } from '../utils/speech';
+import { KanjiGridOverlay } from './KanjiGridOverlay';
 
 interface StrokeItem {
   id: string;
@@ -28,12 +29,16 @@ interface StrokeAnimationProps {
   svgUrl: string;
   kanji: string;
   size?: number;
+  showGrid?: boolean;
+  onToggleGrid?: (show: boolean) => void;
 }
 
 export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   svgUrl,
   kanji,
   size = 320,
+  showGrid: showGridProp,
+  onToggleGrid,
 }) => {
   const [strokes, setStrokes] = useState<StrokeItem[]>([]);
   const [strokeNumbers, setStrokeNumbers] = useState<StrokeNumber[]>([]);
@@ -46,7 +51,16 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   const [currentProgress, setCurrentProgress] = useState<number>(0); // 0 to 1 for current stroke
   const [speed, setSpeed] = useState<number>(1.0);
   const [showNumbers, setShowNumbers] = useState<boolean>(true);
-  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [internalShowGrid, setInternalShowGrid] = useState<boolean>(true);
+
+  const showGrid = showGridProp !== undefined ? showGridProp : internalShowGrid;
+  const handleToggleGrid = () => {
+    if (onToggleGrid) {
+      onToggleGrid(!showGrid);
+    } else {
+      setInternalShowGrid(!internalShowGrid);
+    }
+  };
 
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
@@ -259,16 +273,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
         style={{ width: size, height: size }}
       >
         {/* Practice Grid */}
-        {showGrid && (
-          <div className="absolute inset-0 pointer-events-none">
-            {/* Trục ngang */}
-            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-slate-200 -translate-y-1/2"></div>
-            {/* Trục dọc */}
-            <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-slate-200 -translate-x-1/2"></div>
-            {/* Viền ngoài */}
-            <div className="absolute inset-2 border border-slate-200/80 rounded-2xl"></div>
-          </div>
-        )}
+        {showGrid && <KanjiGridOverlay />}
 
         {/* SVG Drawing Canvas */}
         <svg
@@ -400,7 +405,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
         {/* Sub toggles: Grid & Numbers */}
         <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 px-1 text-xs text-slate-600">
           <button
-            onClick={() => setShowGrid(!showGrid)}
+            onClick={handleToggleGrid}
             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
               showGrid ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
             }`}

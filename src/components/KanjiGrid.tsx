@@ -10,10 +10,12 @@ import {
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
+import { KanjiGridOverlay } from './KanjiGridOverlay';
 
 interface KanjiGridProps {
   kanjiList: KanjiItem[];
   copyStatus: Record<string, CopyStatus>;
+  showGrid?: boolean;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
@@ -22,6 +24,7 @@ interface KanjiGridProps {
 export const KanjiGrid: React.FC<KanjiGridProps> = ({
   kanjiList,
   copyStatus,
+  showGrid = false,
   onCopyImage,
   onDownloadPng,
   onInspect,
@@ -93,10 +96,13 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
               className="relative w-full aspect-square max-w-[190px] bg-white rounded-2xl border-2 border-slate-100 p-2 shadow-inner flex items-center justify-center cursor-pointer hover:border-teal-300 transition-colors overflow-hidden group/box"
               title={`Click để xem hoạt ảnh vẽ nét và tra nghĩa chữ ${item.kanji}`}
             >
+              {/* Lưới ô chữ điền nếu bật Kèm lưới */}
+              {showGrid && <KanjiGridOverlay />}
+
               <img
                 src={item.svgUrl}
                 alt={`Thứ tự nét ${item.kanji}`}
-                className="w-full h-full object-contain filter contrast-125 transform group-hover/box:scale-105 transition-transform"
+                className="w-full h-full object-contain filter contrast-125 transform group-hover/box:scale-105 transition-transform relative z-0"
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/box:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-2xs">

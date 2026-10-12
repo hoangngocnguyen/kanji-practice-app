@@ -98,26 +98,49 @@ export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boole
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, size, size);
 
-        // Kèm lưới ô vuông chữ điền nếu người dùng bật
+        // Kèm lưới ô vuông chữ điền / chữ Mễ nếu người dùng bật (+ Grid)
         if (addPracticeGrid) {
+          const margin = 20;
+
+          // 1. Đường chéo chữ Mễ (Mizi ge) nét chấm mờ
           ctx.strokeStyle = '#E2E8F0';
           ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 8]);
+          ctx.beginPath();
+          ctx.moveTo(margin, margin);
+          ctx.lineTo(size - margin, size - margin);
+          ctx.moveTo(size - margin, margin);
+          ctx.lineTo(margin, size - margin);
+          ctx.stroke();
+
+          // 2. Trục ngang & dọc chữ Điền (Tianzi ge) nét đứt rõ nét
+          ctx.strokeStyle = '#94A3B8';
+          ctx.lineWidth = 2.2;
           ctx.setLineDash([8, 8]);
+
           // Kẻ trục ngang giữa
           ctx.beginPath();
-          ctx.moveTo(0, size / 2);
-          ctx.lineTo(size, size / 2);
+          ctx.moveTo(margin, size / 2);
+          ctx.lineTo(size - margin, size / 2);
           ctx.stroke();
+
           // Kẻ trục dọc giữa
           ctx.beginPath();
-          ctx.moveTo(size / 2, 0);
-          ctx.lineTo(size / 2, size);
+          ctx.moveTo(size / 2, margin);
+          ctx.lineTo(size / 2, size - margin);
           ctx.stroke();
-          // Viền ngoài
+
+          // 3. Viền khung chữ điền
           ctx.setLineDash([]);
           ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(2, 2, size - 4, size - 4);
+          ctx.lineWidth = 2.8;
+          ctx.strokeRect(margin, margin, size - margin * 2, size - margin * 2);
+
+          // 4. Tâm giao nhau
+          ctx.fillStyle = '#94A3B8';
+          ctx.beginPath();
+          ctx.arc(size / 2, size / 2, 3, 0, Math.PI * 2);
+          ctx.fill();
         }
 
         // Vẽ ảnh nét vẽ ở giữa với lề thoáng

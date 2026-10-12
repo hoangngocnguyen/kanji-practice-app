@@ -4,11 +4,12 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Search, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import { Search, LayoutGrid, Table as TableIcon, Grid } from 'lucide-react';
 import { KanjiItem, CopyStatus, ToastInfo } from './types/kanji';
 import { extractUniqueKanji, convertSvgToPngBlob, downloadBlob } from './utils/kanji';
 import { Header } from './components/Header';
 import { InputSection } from './components/InputSection';
+import { RecentlyViewedKanji } from './components/RecentlyViewedKanji';
 import { KanjiTable } from './components/KanjiTable';
 import { KanjiGrid } from './components/KanjiGrid';
 import { PracticeModal } from './components/PracticeModal';
@@ -39,6 +40,22 @@ export default function App() {
 
   // Modal inspection
   const [inspectedKanji, setInspectedKanji] = useState<KanjiItem | null>(null);
+
+  // Recently viewed Kanji (Max 15 items, persistent in localStorage)
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('kanji_recently_viewed_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((c) => typeof c === 'string' && c.length === 1).slice(0, 15);
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc lịch sử tra cứu từ localStorage:', e);
+    }
+    return [];
+  });
 
   // License Modal state
   const [isLicenseOpen, setIsLicenseOpen] = useState<boolean>(false);
@@ -156,6 +173,56 @@ export default function App() {
     showToast('Đã xuất file CSV (kèm Hán-Việt & Nghĩa) cho Anki thành công!', 'success');
   };
 
+  // Save single Kanji to recently viewed history (Max 15, no duplicates, newest first)
+  const saveToRecentHistory = useCallback((kanjiChar: string) => {
+    if (!kanjiChar || kanjiChar.trim().length === 0) return;
+    setRecentlyViewed((prev) => {
+      const updated = [kanjiChar, ...prev.filter((c) => c !== kanjiChar)].slice(0, 15);
+      try {
+        localStorage.setItem('kanji_recently_viewed_history', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Lỗi lưu lịch sử tra cứu:', e);
+      }
+      return updated;
+    });
+  }, []);
+
+  // Inspect Kanji and record to history
+  const handleInspectKanji = useCallback(
+    (item: KanjiItem) => {
+      setInspectedKanji(item);
+      saveToRecentHistory(item.kanji);
+    },
+    [saveToRecentHistory]
+  );
+
+  // Select Kanji from recently viewed history chips
+  const handleSelectRecentKanji = useCallback(
+    (char: string) => {
+      // Find in current extracted list
+      const found = extractedKanjiList.find((k) => k.kanji === char);
+      if (found) {
+        handleInspectKanji(found);
+      } else {
+        // Create single Kanji item from helper
+        const created = extractUniqueKanji(char);
+        if (created.length > 0) {
+          handleInspectKanji(created[0]);
+        }
+      }
+    },
+    [extractedKanjiList, handleInspectKanji]
+  );
+
+  // Clear all recent history
+  const handleClearRecentHistory = useCallback(() => {
+    setRecentlyViewed([]);
+    try {
+      localStorage.removeItem('kanji_recently_viewed_history');
+    } catch (e) {}
+    showToast('Đã xóa toàn bộ lịch sử tra cứu Kanji', 'info');
+  }, [showToast]);
+
   // Clear text
   const handleClear = () => {
     setInputText('');
@@ -172,6 +239,17 @@ export default function App() {
       <Header
         onPrint={() => window.print()}
         kanjiCount={extractedKanjiList.length}
+        historyCount={recentlyViewed.length}
+        onOpenHistory={() => {
+          const el = document.getElementById('recently-viewed-section');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-teal-400');
+            setTimeout(() => {
+              el.classList.remove('ring-2', 'ring-teal-400');
+            }, 1800);
+          }
+        }}
       />
 
       {/* Main Content */}
@@ -184,6 +262,13 @@ export default function App() {
           onClear={handleClear}
           onCopyAllText={handleCopyAllText}
           onExportCsv={handleExportCsv}
+        />
+
+        {/* Recently Viewed Kanji History */}
+        <RecentlyViewedKanji
+          recentList={recentlyViewed}
+          onSelectKanji={handleSelectRecentKanji}
+          onClearHistory={handleClearRecentHistory}
         />
 
         {/* Kanji Stroke Order Section */}
@@ -216,15 +301,35 @@ export default function App() {
               </div>
 
               {/* Grid background toggle */}
-              <label className="flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 cursor-pointer select-none transition-colors">
-                <input
-                  type="checkbox"
-                  checked={includeGrid}
-                  onChange={(e) => setIncludeGrid(e.target.checked)}
-                  className="rounded text-teal-700 focus:ring-teal-600 h-4 w-4 border-slate-300"
-                />
-                <span>Kèm lưới (+ Grid)</span>
-              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextVal = !includeGrid;
+                  setIncludeGrid(nextVal);
+                  showToast(
+                    nextVal
+                      ? 'Đã BẬT lưới nét đứt chữ Mễ/Điền (hiển thị trên ảnh và khi sao chép/tải PNG)'
+                      : 'Đã TẮT lưới nét đứt',
+                    'info'
+                  );
+                }}
+                className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none ${
+                  includeGrid
+                    ? 'bg-teal-50 border-teal-500 text-teal-800 ring-2 ring-teal-500/20 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
+                }`}
+                title="Bật/tắt đường lưới ô nét đứt chuẩn thư pháp trong toàn bộ ứng dụng và khi tải/sao chép ảnh"
+              >
+                <Grid className={`w-4 h-4 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
+                <span>Kèm lưới</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    includeGrid ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {includeGrid ? 'BẬT' : 'TẮT'}
+                </span>
+              </button>
 
               {/* View Switcher: Table vs Cards */}
               <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
@@ -273,17 +378,19 @@ export default function App() {
             <KanjiTable
               kanjiList={filteredKanjiList}
               copyStatus={copyStatus}
+              showGrid={includeGrid}
               onCopyImage={handleCopyImage}
               onDownloadPng={handleDownloadPng}
-              onInspect={(item) => setInspectedKanji(item)}
+              onInspect={handleInspectKanji}
             />
           ) : (
             <KanjiGrid
               kanjiList={filteredKanjiList}
               copyStatus={copyStatus}
+              showGrid={includeGrid}
               onCopyImage={handleCopyImage}
               onDownloadPng={handleDownloadPng}
-              onInspect={(item) => setInspectedKanji(item)}
+              onInspect={handleInspectKanji}
             />
           )}
         </section>
@@ -292,6 +399,8 @@ export default function App() {
       {/* Practice / Inspection Modal */}
       <PracticeModal
         item={inspectedKanji}
+        showGrid={includeGrid}
+        onToggleGrid={(val) => setIncludeGrid(val)}
         onClose={() => setInspectedKanji(null)}
         onCopyImage={handleCopyImage}
         onDownloadPng={handleDownloadPng}

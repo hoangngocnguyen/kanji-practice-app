@@ -37,16 +37,24 @@ Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji
   - **Bảng luyện viết tay:** Vẽ trực tiếp bằng chuột, bút cảm ứng hoặc ngón tay trên màn hình cảm ứng, có tính năng ẩn/hiện chữ mờ để tập đồ nét, đổi màu cọ và xoá bảng.
   - **Ý nghĩa & Ví dụ:** Đọc sâu về ngữ nghĩa và các từ vựng mở rộng.
 
-### 5. 📋 Sao chép ảnh nét vẽ vào Clipboard chỉ với 1 cú click
+### 5. 📋 Sao chép ảnh nét vẽ vào Clipboard chỉ với 1 cú click (Có hỗ trợ Lưới ô)
 - Render ảnh nét vẽ từ vector SVG sang định dạng **PNG độ nét cao có nền trắng tinh khiết**.
+- **Kèm lưới ô chữ điền:** Khi bật chế độ `Kèm lưới (+ Grid)`, ảnh xuất ra sẽ được tự động vẽ kèm lưới nét đứt chuẩn thư pháp màu nhã nhặn `#e2e8f0` chia 4 phần.
 - Ghi trực tiếp vào bộ nhớ tạm (Clipboard), sẵn sàng dán ngay (`Ctrl + V` / `Cmd + V`) vào:
   - **Anki** (để tạo thẻ flashcard cực nhanh)
   - **Notion**, **GoodNotes**, **OneNote**
   - **Microsoft Word**, **Google Docs** hoặc slide bài giảng.
 - Giao diện nút bấm tinh gọn, hiển thị thông báo toast xác nhận trực quan.
 
-### 6. 🎨 Giao diện hiện đại & Thẩm mỹ cao (UI/UX)
+### 6. 🕒 Lịch sử tra cứu Kanji (Recently Viewed Kanji)
+- Tự động ghi nhớ các chữ Kanji đơn lẻ mà người dùng đã bấm xem chi tiết hoặc mở modal hoạt ảnh nét vẽ.
+- Lưu trữ bền vững trong `localStorage` (tối đa 15 chữ gần nhất, tự động khử trùng lặp, chữ mới xem luôn đẩy lên đầu).
+- Dải chip chữ Hán trực quan hiển thị ngay trên danh sách: click vào chữ bất kỳ để mở lại ngay hoạt ảnh và từ điển.
+- Nút biểu tượng thùng rác giúp dọn dẹp và xóa nhanh toàn bộ lịch sử khi cần.
+
+### 7. 🎨 Giao diện hiện đại & Thẩm mỹ cao (UI/UX)
 - Thiết kế theo phong cách tối giản, hiện đại với dải màu **Emerald / Teal** dịu mắt, thư thái khi học tập lâu dài.
+- Đồng bộ hiển thị lưới ô nét đứt (`+ Grid`) xuyên suốt: từ **Dạng Bảng (Table)**, **Dạng Thẻ (Grid)**, cho đến **Modal Hoạt ảnh** và **Bảng vẽ tay**.
 - Hai chế độ hiển thị linh hoạt: **Dạng bảng chi tiết (Table)** và **Dạng lưới thẻ (Grid cards)**.
 - Tương thích hoàn hảo trên cả máy tính để bàn, máy tính bảng và điện thoại di động.
 
