@@ -37,38 +37,38 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ isOpen, onClose }) =
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4"
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-100 bg-slate-50/80">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-teal-50 text-teal-800 rounded-xl border border-teal-200">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-slate-100 bg-slate-50/80">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 bg-teal-50 text-teal-800 rounded-xl border border-teal-200 shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-800">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 truncate">
                 Tuân thủ Bản quyền & Giấy phép Nguồn Dữ liệu
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 hidden sm:block">
                 Công bố đầy đủ nguồn cấp API, tác giả dữ liệu vector và điều khoản pháp lý
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 leading-relaxed">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5 text-xs text-slate-600 leading-relaxed">
           {/* Section 1: KanjiVG (CC BY-SA 3.0) */}
           <div className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-4.5 space-y-2.5">
             <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">

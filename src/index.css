@@ -161,3 +161,32 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Touch & Mobile UX Optimizations */
+@media (max-width: 640px) {
+  input, textarea, select, button {
+    font-size: 14px; /* Prevents auto-zoom on iOS Safari */
+  }
+}
+
+/* Print View Styles */
+@media print {
+  header, footer, #recently-viewed-section, .no-print, button {
+    display: none !important;
+  }
+
+  body, main {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .shadow-xs, .shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl {
+    box-shadow: none !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+}

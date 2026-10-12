@@ -99,7 +99,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
   if (!item) return null;
 
-  // Drawing handlers for Practice tab
+  // Drawing handlers for Practice tab with responsive canvas scaling
   const startDrawing = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => {
@@ -109,10 +109,13 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
+    ctx.moveTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
     setIsDrawing(true);
   };
 
@@ -126,13 +129,16 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = penColor;
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
+    ctx.lineTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY);
     ctx.stroke();
   };
 
@@ -150,30 +156,30 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header with Kanji & Sino-Vietnamese Reading */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/80">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <span
               onClick={() => speakJapanese(item.kanji)}
-              className="font-kanji font-black text-4xl sm:text-5xl text-teal-700 leading-none cursor-pointer hover:scale-105 transition-transform"
+              className="font-kanji font-black text-3xl sm:text-5xl text-teal-700 leading-none cursor-pointer hover:scale-105 transition-transform shrink-0"
               title="Click để nghe phát âm tiếng Nhật"
             >
               {item.kanji}
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-wide">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h4 className="text-sm sm:text-lg font-black text-slate-900 tracking-wide truncate">
                   {detail?.hanViet ? `Hán-Việt: ${detail.hanViet}` : `Chữ ${item.kanji}`}
                 </h4>
                 {detail?.jlpt && (
-                  <span className={`px-2 py-0.5 text-[11px] font-bold rounded-md border ${getJlptBadgeClass(detail.jlpt)}`}>
+                  <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md border ${getJlptBadgeClass(detail.jlpt)}`}>
                     {detail.jlpt}
                   </span>
                 )}
@@ -182,11 +188,11 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                   className="p-1 rounded-lg text-teal-700 hover:bg-teal-100 transition-colors cursor-pointer"
                   title="Nghe phát âm"
                 >
-                  <Volume2 className="w-4 h-4" />
+                  <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
-              <p className="text-xs font-mono text-slate-400">
-                U+{item.hex.toUpperCase()} • Thứ tự #{item.id}
+              <p className="text-[11px] sm:text-xs font-mono text-slate-400 truncate">
+                U+{item.hex.toUpperCase()} • #{item.id}
                 {detail?.strokeCount ? ` • ${detail.strokeCount} nét` : ''}
               </p>
             </div>
@@ -194,56 +200,59 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Navigation with color indicators */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1.5 gap-1 text-xs font-semibold">
+        <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('animation')}
-            className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               activeTab === 'animation'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <PlayCircle className="w-4 h-4 text-teal-600" />
-            <span>Hoạt ảnh nét vẽ</span>
+            <PlayCircle className="w-4 h-4 text-teal-600 shrink-0" />
+            <span className="hidden sm:inline">Hoạt ảnh nét vẽ</span>
+            <span className="sm:hidden text-[11px]">Hoạt ảnh</span>
           </button>
 
           <button
             onClick={() => setActiveTab('dictionary')}
-            className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               activeTab === 'dictionary'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BookOpen className="w-4 h-4 text-teal-600" />
-            <span>Nghĩa & Từ ghép</span>
+            <BookOpen className="w-4 h-4 text-teal-600 shrink-0" />
+            <span className="hidden sm:inline">Nghĩa & Từ ghép</span>
+            <span className="sm:hidden text-[11px]">Tra nghĩa</span>
           </button>
 
           <button
             onClick={() => setActiveTab('practice')}
-            className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               activeTab === 'practice'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <PenTool className="w-4 h-4 text-teal-600" />
-            <span>Tập viết tay</span>
+            <PenTool className="w-4 h-4 text-teal-600 shrink-0" />
+            <span className="hidden sm:inline">Tập viết tay</span>
+            <span className="sm:hidden text-[11px]">Viết tay</span>
           </button>
         </div>
 
         {/* Tab Content Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-5">
           {/* TAB 1: STROKE ANIMATION */}
           {activeTab === 'animation' && (
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               <StrokeAnimation
                 svgUrl={item.svgUrl}
                 kanji={item.kanji}
@@ -253,20 +262,20 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
               />
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
                 <button
                   onClick={() => onCopyImage(item)}
-                  className="py-3 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-95 transition-all"
+                  className="py-2.5 sm:py-3 px-3 sm:px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs cursor-pointer active:scale-95 transition-all min-h-[40px]"
                 >
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-4 h-4 shrink-0" />
                   <span>Sao chép ảnh</span>
                 </button>
 
                 <button
                   onClick={() => onDownloadPng(item)}
-                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors border border-slate-200/80"
+                  className="py-2.5 sm:py-3 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer transition-colors border border-slate-200/80 min-h-[40px]"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-4 h-4 shrink-0" />
                   <span>Tải ảnh PNG</span>
                 </button>
               </div>
@@ -422,10 +431,10 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
               </div>
 
               {/* Canvas Controls */}
-              <div className="flex items-center justify-between text-xs border-y border-slate-100 py-3 px-1">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs border-y border-slate-100 py-3 px-1">
+                <div className="flex items-center gap-2.5">
                   <span className="text-slate-500 font-medium">Màu mực:</span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     {[
                       { color: '#0f766e', label: 'Xanh ngọc bích thư pháp' },
                       { color: '#2563eb', label: 'Xanh dương đại dương' },
@@ -436,8 +445,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                         key={color}
                         onClick={() => setPenColor(color)}
                         style={{ backgroundColor: color }}
-                        className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
-                          penColor === color ? 'scale-125 border-white ring-2 ring-teal-600' : 'border-transparent'
+                        className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full border-2 transition-transform cursor-pointer ${
+                          penColor === color ? 'scale-115 border-white ring-2 ring-teal-600' : 'border-transparent'
                         }`}
                         title={label}
                       />
@@ -447,7 +456,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
                 <button
                   onClick={clearCanvas}
-                  className="inline-flex items-center gap-1.5 text-slate-500 hover:text-rose-600 font-semibold cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1.5 text-slate-500 hover:text-rose-600 font-semibold cursor-pointer transition-colors py-1 px-2 rounded-lg hover:bg-rose-50"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Xóa nét vẽ tay</span>

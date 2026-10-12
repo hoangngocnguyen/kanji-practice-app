@@ -272,89 +272,91 @@ export default function App() {
         />
 
         {/* Kanji Stroke Order Section */}
-        <section className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-7 space-y-6">
+        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
           {/* Section Toolbar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4 sm:pb-5">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-slate-800">
+                <h3 className="text-base sm:text-lg font-bold text-slate-800">
                   2. Tra cứu nét vẽ & Nghĩa Kanji ({filteredKanjiList.length}/{extractedKanjiList.length})
                 </h3>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Ảnh nét vẽ lớn, hoạt ảnh vẽ nét động, âm Hán-Việt & nghĩa tiếng Việt, phát âm và sao chép 1-click
               </p>
             </div>
 
             {/* Filter & View Switcher */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto">
               {/* Search input */}
-              <div className="relative min-w-[240px]">
+              <div className="relative w-full sm:w-64 md:w-60 lg:w-72">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Lọc Kanji, Hán-Việt (vd: NHẬT), nghĩa, N5..."
-                  className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium"
+                  placeholder="Lọc Kanji, Hán-Việt (vd: NHẬT), nghĩa..."
+                  className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[38px]"
                 />
               </div>
 
-              {/* Grid background toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  const nextVal = !includeGrid;
-                  setIncludeGrid(nextVal);
-                  showToast(
-                    nextVal
-                      ? 'Đã BẬT lưới nét đứt chữ Mễ/Điền (hiển thị trên ảnh và khi sao chép/tải PNG)'
-                      : 'Đã TẮT lưới nét đứt',
-                    'info'
-                  );
-                }}
-                className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none ${
-                  includeGrid
-                    ? 'bg-teal-50 border-teal-500 text-teal-800 ring-2 ring-teal-500/20 shadow-xs'
-                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
-                }`}
-                title="Bật/tắt đường lưới ô nét đứt chuẩn thư pháp trong toàn bộ ứng dụng và khi tải/sao chép ảnh"
-              >
-                <Grid className={`w-4 h-4 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
-                <span>Kèm lưới</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                    includeGrid ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-600'
+              <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start">
+                {/* Grid background toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextVal = !includeGrid;
+                    setIncludeGrid(nextVal);
+                    showToast(
+                      nextVal
+                        ? 'Đã BẬT lưới nét đứt chữ Mễ/Điền (hiển thị trên ảnh và khi sao chép/tải PNG)'
+                        : 'Đã TẮT lưới nét đứt',
+                      'info'
+                    );
+                  }}
+                  className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none min-h-[38px] ${
+                    includeGrid
+                      ? 'bg-teal-50 border-teal-500 text-teal-800 ring-2 ring-teal-500/20 shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
                   }`}
+                  title="Bật/tắt đường lưới ô nét đứt chuẩn thư pháp trong toàn bộ ứng dụng và khi tải/sao chép ảnh"
                 >
-                  {includeGrid ? 'BẬT' : 'TẮT'}
-                </span>
-              </button>
+                  <Grid className={`w-4 h-4 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
+                  <span>Kèm lưới</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      includeGrid ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {includeGrid ? 'BẬT' : 'TẮT'}
+                  </span>
+                </button>
 
-              {/* View Switcher: Table vs Cards */}
-              <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    viewMode === 'table'
-                      ? 'bg-white text-slate-900 shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <TableIcon className="w-3.5 h-3.5" />
-                  <span>Dạng Bảng</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    viewMode === 'grid'
-                      ? 'bg-white text-slate-900 shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>Dạng Thẻ</span>
-                </button>
+                {/* View Switcher: Table vs Cards */}
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 min-h-[38px]">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'table'
+                        ? 'bg-white text-slate-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <TableIcon className="w-3.5 h-3.5" />
+                    <span>Bảng</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-white text-slate-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Thẻ</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

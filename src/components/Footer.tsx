@@ -7,17 +7,17 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenLicenseModal }) => {
   return (
-    <footer className="mt-16 border-t border-slate-200/90 bg-white/80 backdrop-blur-md py-10 text-slate-600 text-xs">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
+    <footer className="mt-12 sm:mt-16 border-t border-slate-200/90 bg-white/80 backdrop-blur-md py-8 sm:py-10 text-slate-600 text-xs">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 space-y-5 sm:space-y-6">
         {/* Centralized Attribution & License Hub */}
-        <div className="bg-slate-50/80 border border-slate-200 rounded-3xl p-5 sm:p-7 space-y-5 shadow-xs">
+        <div className="bg-slate-50/80 border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-7 space-y-4 sm:space-y-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/70 pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-teal-50 text-teal-800 rounded-xl border border-teal-200/60">
+              <div className="p-2 bg-teal-50 text-teal-800 rounded-xl border border-teal-200/60 shrink-0">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-900">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900">
                   Trung tâm Ghi nhận Bản quyền & Nguồn Dữ liệu (License & Data Attribution)
                 </h4>
                 <p className="text-[11px] text-slate-500">
@@ -26,10 +26,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLicenseModal }) => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={onOpenLicenseModal}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl font-bold text-[11px] border border-emerald-300 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-xl font-bold text-[11px] border border-emerald-300 transition-colors cursor-pointer"
                 title="Xem điều khoản bản quyền Creative Commons CC BY-SA 3.0"
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

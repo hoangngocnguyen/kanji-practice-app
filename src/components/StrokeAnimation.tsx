@@ -269,8 +269,8 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
       {/* SVG Canvas Box */}
       <div
-        className="relative bg-white rounded-3xl border-2 border-slate-200 shadow-sm flex items-center justify-center overflow-hidden"
-        style={{ width: size, height: size }}
+        className="relative w-full aspect-square bg-white rounded-3xl border-2 border-slate-200 shadow-sm flex items-center justify-center overflow-hidden mx-auto"
+        style={{ maxWidth: size, maxHeight: size }}
       >
         {/* Practice Grid */}
         {showGrid && <KanjiGridOverlay />}
@@ -278,8 +278,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
         {/* SVG Drawing Canvas */}
         <svg
           viewBox="0 0 109 109"
-          className="w-full h-full p-4 transform"
-          style={{ width: size, height: size }}
+          className="w-full h-full p-3 sm:p-4 transform"
         >
           {/* 1. Nét phác thảo mờ (Guide outlines) */}
           <g style={{ fill: 'none', stroke: '#f1f5f9', strokeWidth: 3.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
