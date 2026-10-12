@@ -14,7 +14,7 @@ export const Toast: React.FC<ToastProps> = ({ toast }) => {
       <div
         className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-semibold border backdrop-blur-md pointer-events-auto ${
           toast.type === 'success'
-            ? 'bg-blue-600 text-white border-blue-500 shadow-blue-500/25'
+            ? 'bg-teal-800 text-white border-teal-700 shadow-teal-950/25'
             : toast.type === 'error'
             ? 'bg-rose-600 text-white border-rose-500 shadow-rose-500/25'
             : 'bg-slate-800 text-white border-slate-700 shadow-slate-900/30'

@@ -1,8 +1,144 @@
 @import "tailwindcss";
 
+/* 1. MẪU MẶC ĐỊNH & HỆ THỐNG BIẾN MÀU ĐA DẠNG (JAPANESE TRADITIONAL & MODERN PALETTE) */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Primary Brand: Refined Emerald / Teal */
+  --color-primary-val: #0f766e;
+  --color-primary-hover-val: #115e59;
+  --color-primary-light-val: #f0fdfa;
+  --color-primary-contrast-val: #ffffff;
+
+  /* Accent: Warm Amber */
+  --color-accent-val: #d97706;
+  --color-accent-hover-val: #b45309;
+  --color-accent-light-val: #fef3c7;
+
+  /* Traditional Ink Vermilion: Chu sa thư pháp (Nét vẽ & Điểm nhấn) */
+  --color-vermilion-val: #dc2626;
+  --color-vermilion-light-val: #fef2f2;
+
+  /* Purple / Fuji-iro: Yojijukugo */
+  --color-purple-val: #6366f1;
+  --color-purple-light-val: #eef2ff;
+
+  /* Forest Emerald: Kunyomi & N5 */
+  --color-emerald-val: #059669;
+  --color-emerald-light-val: #ecfdf5;
+
+  /* Sky / Sora-iro: N3 & Tiện ích */
+  --color-sky-val: #0284c7;
+  --color-sky-light-val: #f0f9ff;
+
+  /* Blue / Indigo: N2 & N1 */
+  --color-blue-val: #2563eb;
+  --color-blue-light-val: #eff6ff;
+
+  /* Surface & Border Tokens */
+  --color-surface-bg-val: #f8fafc;
+  --color-surface-card-val: #ffffff;
+  --color-surface-border-val: #e2e8f0;
+  --color-surface-hover-val: #f1f5f9;
+  --color-surface-active-val: #e2e8f0;
+
+  /* Text Tokens */
+  --color-text-main-val: #0f172a;
+  --color-text-sub-val: #475569;
+  --color-text-muted-val: #94a3b8;
+  --color-text-disabled-val: #cbd5e1;
+
+  /* Status Tokens */
+  --color-success-val: #10b981;
+  --color-success-bg-val: #ecfdf5;
+  --color-warning-val: #f59e0b;
+  --color-warning-bg-val: #fffbeb;
+  --color-error-val: #ef4444;
+  --color-error-bg-val: #fef2f2;
+  --color-info-val: #0284c7;
+  --color-info-bg-val: #f0f9ff;
+
+  /* Interactive Controls */
+  --color-ring-val: #0f766e;
+  --shadow-color-val: rgba(15, 118, 110, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* 2. TAILWIND V4 THEME CONFIG */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* Primary & Accent */
+  --color-primary: var(--color-primary-val);
+  --color-primary-hover: var(--color-primary-hover-val);
+  --color-primary-light: var(--color-primary-light-val);
+  --color-primary-contrast: var(--color-primary-contrast-val);
+
+  --color-accent: var(--color-accent-val);
+  --color-accent-hover: var(--color-accent-hover-val);
+  --color-accent-light: var(--color-accent-light-val);
+
+  /* Extended Traditional Palette */
+  --color-vermilion: var(--color-vermilion-val);
+  --color-vermilion-light: var(--color-vermilion-light-val);
+  --color-purple: var(--color-purple-val);
+  --color-purple-light: var(--color-purple-light-val);
+  --color-emerald: var(--color-emerald-val);
+  --color-emerald-light: var(--color-emerald-light-val);
+  --color-sky: var(--color-sky-val);
+  --color-sky-light: var(--color-sky-light-val);
+  --color-rose: var(--color-rose-val);
+  --color-rose-light: var(--color-rose-light-val);
+
+  /* Surface */
+  --color-surface-bg: var(--color-surface-bg-val);
+  --color-surface-card: var(--color-surface-card-val);
+  --color-surface-border: var(--color-surface-border-val);
+  --color-surface-hover: var(--color-surface-hover-val);
+  --color-surface-active: var(--color-surface-active-val);
+
+  /* Text */
+  --color-text-main: var(--color-text-main-val);
+  --color-text-sub: var(--color-text-sub-val);
+  --color-text-muted: var(--color-text-muted-val);
+  --color-text-disabled: var(--color-text-disabled-val);
+
+  /* Status */
+  --color-status-success: var(--color-success-val);
+  --color-status-success-bg: var(--color-success-bg-val);
+  --color-status-warning: var(--color-warning-val);
+  --color-status-warning-bg: var(--color-warning-bg-val);
+  --color-status-error: var(--color-error-val);
+  --color-status-error-bg: var(--color-error-bg-val);
+  --color-status-info: var(--color-info-val);
+  --color-status-info-bg: var(--color-info-bg-val);
+
+  /* Focus Ring */
+  --color-ring-brand: var(--color-ring-val);
+
+  /* Dynamic Shadows */
+  --shadow-brand-sm: 0 2px 8px -1px var(--shadow-color-val);
+  --shadow-brand-md: 0 8px 24px -4px var(--shadow-color-val);
+}
+
+/* 3. BASE STYLES */
 @layer base {
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-surface-bg-val);
+    color: var(--color-text-main-val);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 

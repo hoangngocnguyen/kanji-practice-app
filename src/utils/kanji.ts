@@ -1,4 +1,5 @@
 import { KanjiItem, SamplePreset } from '../types/kanji';
+import { getKanjiInfo } from '../data/kanjiDictionary';
 
 export const SAMPLE_PRESETS: SamplePreset[] = [
   {
@@ -48,6 +49,7 @@ export function extractUniqueKanji(text: string): KanjiItem[] {
           hex,
           svgUrl,
           unicodeDecimal: codePoint,
+          detail: getKanjiInfo(char),
         });
       }
     }
