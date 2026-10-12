@@ -29,6 +29,11 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   }, [item]);
 
   useEffect(() => {
+    if (!item) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -36,8 +41,12 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [item, onClose]);
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
@@ -101,7 +110,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
@@ -128,9 +137,9 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Large image & practice canvas (380x380 px) */}
-          <div className="relative w-full aspect-square max-w-[380px] mx-auto bg-white rounded-2xl border-2 border-slate-200 p-2 shadow-inner flex items-center justify-center overflow-hidden">
+          <div className="relative w-full aspect-square max-w-[300px] mx-auto bg-white rounded-2xl border-2 border-slate-200 p-2 shadow-inner flex items-center justify-center overflow-hidden">
             {/* SVG Background */}
             <img
               src={item.svgUrl}
@@ -141,8 +150,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
             {/* Tracing canvas */}
             <canvas
               ref={canvasRef}
-              width={380}
-              height={380}
+              width={300}
+              height={300}
               onMouseDown={startDrawing}
               onMouseMove={draw}
               onMouseUp={stopDrawing}
