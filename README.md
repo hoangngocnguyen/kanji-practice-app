@@ -1,8 +1,8 @@
 # 🌸 Kanji Stroke Order & Dictionary Tool (漢字書き順・辞書ツール)
 
-Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji, tự động giải mã thứ tự nét vẽ (Stroke Order), phát hoạt ảnh nét động (Stroke Animation), luyện viết chữ Hán và tra cứu nghĩa tiếng Việt, âm Hán-Việt, On/Kun, JLPT và từ vựng ví dụ.
+Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji, tự động giải mã thứ tự nét vẽ (Stroke Order), phát hoạt ảnh nét động (Stroke Animation), luyện viết chữ Hán, phiên âm Hiragana (Furigana), dịch nghĩa từng chữ và dịch toàn bộ câu tiếng Nhật sang tiếng Việt.
 
-Được tối ưu hoá đặc biệt cho người học tiếng Nhật, giáo viên và người soạn thẻ Anki, flashcard, tài liệu giảng dạy.
+Được tối ưu hoá đặc biệt cho người học tiếng Nhật, giáo viên và người soạn thẻ Anki, flashcard, tài liệu giảng dạy, hỗ trợ in ấn phiếu tập viết A4 chuẩn mực.
 
 ---
 
@@ -11,52 +11,45 @@ Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji
 ### 1. 🔍 Trích xuất & Lọc Kanji thông minh
 - Tự động nhận diện và trích xuất mọi chữ Kanji từ văn bản hỗn hợp (Nhật - Việt - Anh).
 - Tự động loại bỏ chữ trùng lặp mà vẫn giữ nguyên thứ tự xuất hiện ban đầu.
-- Hỗ trợ các bộ mẫu nhanh theo cấp độ JLPT (N5, N4, N3) và mẫu cụm từ thông dụng.
+- Hỗ trợ các bộ mẫu nhanh: Danh ngôn, Thành ngữ 4 chữ Yojijukugo, JLPT N3/N2, Từ vựng cao cấp N1.
+- **Thanh công cụ ghim (Sticky Toolbar):** Luôn cố định khi cuộn trang, cho phép tra cứu, tìm kiếm và thêm chữ liên tục mà không cần kéo lên xuống.
 
-### 2. 📖 Tra cứu từ điển Kanji toàn diện (Tiếng Việt)
-- **Âm Hán-Việt:** Hiển thị rõ ràng, chuẩn xác (ví dụ: 日 - NHẬT, 月 - NGUYỆT, 水 - THỦY...).
-- **Nghĩa tiếng Việt:** Giải nghĩa súc tích, dễ hiểu theo ngữ cảnh.
-- **Âm On / Âm Kun:** Trình bày bằng Katakana và Hiragana với màu sắc phân biệt trực quan.
-- **Cấp độ JLPT:** Phân loại từ N5 đến N1 kèm mã màu nhã nhặn, hài hòa.
-- **Từ vựng ví dụ phong phú:** Mỗi chữ đi kèm các từ ghép thực tế, phiên âm Furigana và nghĩa tiếng Việt tương ứng.
-- **Phát âm tiếng Nhật chuẩn:** Tích hợp Web Speech API cho phép nghe phát âm trực tiếp từng chữ.
+### 2. 🔤 Phiên âm Hiragana (Furigana) & Dịch nghĩa Tiếng Việt từng chữ
+- **Chuẩn HTML5 `<ruby>` & `<rt>`:** Hiển thị chữ Hiragana nhỏ nhắn, căn giữa trang nhã ngay trên đầu chữ Kanji.
+- **Dịch nghĩa tiếng Việt bên dưới:** Hiển thị nhãn nghĩa tiếng Việt thông dụng và âm Hán-Việt ngay dưới chân chữ.
+- **Tùy chọn Bật/Tắt độc lập:** Người dùng có thể linh hoạt bật/tắt hiển thị Hiragana trên đầu hoặc nghĩa tiếng Việt bên dưới tùy nhu cầu học tập.
+- **Thẻ xem trước trực tiếp tại ô tìm kiếm:** Khi gõ hoặc tìm chữ Kanji, hệ thống hiển thị ngay phiên âm Hiragana và nghĩa tiếng Việt tương ứng.
 
-### 3. ✍️ Hoạt ảnh thứ tự nét vẽ (Stroke Animation)
-- Mô phỏng quá trình viết chữ từng nét tự nhiên với dữ liệu vector vector chuẩn xác.
-- **Trình điều khiển hoạt ảnh linh hoạt:**
-  - Phát / Tạm dừng / Phát lại (Replay).
-  - Tua tiến / lùi từng nét riêng biệt (`Step back` / `Step forward`).
-  - Thanh trượt điều chỉnh tốc độ hoạt ảnh mượt mà từ 0.5x đến 2.5x.
-  - Bật/tắt số thứ tự nét vẽ (Stroke Numbers).
-  - Bật/tắt lưới hướng dẫn chữ điền (Lưới chữ Điền / Ô chia tâm).
-  - Bộ chọn bảng màu nét vẽ trực quan (Đen truyền thống, Xanh ngọc bích, Chàm thư pháp, Đỏ chu sa...).
+### 3. 🌐 Dịch toàn bộ câu / đoạn văn (Tiếng Nhật ➔ Tiếng Việt)
+- Tính năng **"Dịch cả câu"** sử dụng dịch vụ MyMemory API hỗ trợ chuyển ngữ trọn vẹn đoạn văn sang tiếng Việt mượt mà, chuẩn ngữ cảnh.
+- Tích hợp một chạm: **Nghe phát âm toàn bộ câu tiếng Nhật**, **Sao chép bản dịch** và **Dịch lại**.
+- Bộ nhớ đệm kép (Memory & localStorage) giúp dịch tức thì các mẫu câu quen thuộc mà không tốn dung lượng mạng.
 
-### 4. 🖌️ Chế độ Luyện viết tương tác (Canvas Practice)
-- Modal tương tác chuyên sâu với 3 tab:
-  - **Hoạt ảnh nét vẽ:** Xem chi tiết từng nét chuyển động.
-  - **Bảng luyện viết tay:** Vẽ trực tiếp bằng chuột, bút cảm ứng hoặc ngón tay trên màn hình cảm ứng, có tính năng ẩn/hiện chữ mờ để tập đồ nét, đổi màu cọ và xoá bảng.
-  - **Ý nghĩa & Ví dụ:** Đọc sâu về ngữ nghĩa và các từ vựng mở rộng.
+### 4. 📷 Quét ảnh trích xuất chữ Kanji (OCR Client-side)
+- Tích hợp công nghệ nhận diện ký tự quang học **Tesseract.js** chạy 100% trên trình duyệt (WebAssembly).
+- Hỗ trợ tải tệp ảnh từ máy, kéo thả ảnh hoặc **dán trực tiếp ảnh chụp màn hình (`Ctrl + V`)**.
+- Tự động lọc các ký tự Kanji từ hình ảnh và áp dụng trực tiếp vào ô nhập liệu hoặc thanh tìm kiếm.
 
-### 5. 📋 Sao chép ảnh nét vẽ vào Clipboard chỉ với 1 cú click (Có hỗ trợ Lưới ô)
-- Render ảnh nét vẽ từ vector SVG sang định dạng **PNG độ nét cao có nền trắng tinh khiết**.
-- **Kèm lưới ô chữ điền:** Khi bật chế độ `Kèm lưới (+ Grid)`, ảnh xuất ra sẽ được tự động vẽ kèm lưới nét đứt chuẩn thư pháp màu nhã nhặn `#e2e8f0` chia 4 phần.
-- Ghi trực tiếp vào bộ nhớ tạm (Clipboard), sẵn sàng dán ngay (`Ctrl + V` / `Cmd + V`) vào:
-  - **Anki** (để tạo thẻ flashcard cực nhanh)
-  - **Notion**, **GoodNotes**, **OneNote**
-  - **Microsoft Word**, **Google Docs** hoặc slide bài giảng.
-- Giao diện nút bấm tinh gọn, hiển thị thông báo toast xác nhận trực quan.
+### 5. ✍️ Hoạt ảnh thứ tự nét vẽ (Stroke Animation)
+- Mô phỏng quá trình viết chữ từng nét tự nhiên với dữ liệu vector vector chuẩn xác từ KanjiVG.
+- **Vẽ liên tục (Auto-loop mode):** Tự động vẽ từ nét đầu đến nét cuối, dừng nghỉ ngắn để người dùng ngắm chữ hoàn chỉnh, sau đó tự động lặp lại từ nét 1.
+- Trình điều khiển hoạt ảnh linh hoạt: Phát / Tạm dừng / Phát lại / Tua từng nét / Thay đổi tốc độ phát (0.5x - 2.0x) / Bật tắt số nét và lưới ô.
+- Phát âm tiếng Nhật chuẩn bản xứ cho từng chữ Kanji qua Web Speech API.
 
-### 6. 🕒 Lịch sử tra cứu Kanji (Recently Viewed Kanji)
-- Tự động ghi nhớ các chữ Kanji đơn lẻ mà người dùng đã bấm xem chi tiết hoặc mở modal hoạt ảnh nét vẽ.
-- Lưu trữ bền vững trong `localStorage` (tối đa 15 chữ gần nhất, tự động khử trùng lặp, chữ mới xem luôn đẩy lên đầu).
-- Dải chip chữ Hán trực quan hiển thị ngay trên danh sách: click vào chữ bất kỳ để mở lại ngay hoạt ảnh và từ điển.
-- Nút biểu tượng thùng rác giúp dọn dẹp và xóa nhanh toàn bộ lịch sử khi cần.
+### 6. 🖨️ Bảng in A4 chuyên nghiệp (Kanji Practice Worksheet)
+- Tối ưu hóa chuyên dụng cho in ấn (`@media print`) hoặc lưu file PDF:
+  - Tự động ẩn toàn bộ giao diện web thừa (thanh công cụ, ô nhập liệu dài dòng, nút bấm).
+  - Trình bày dạng bảng in chuẩn A4 không bao giờ bị cắt rách chữ giữa 2 trang (`page-break-inside: avoid`).
+  - Bao gồm: STT, Kanji to rõ nét + Hiragana + Hán-Việt + JLPT, sơ đồ nét vẽ, âm On/Kun và **4 ô kẻ chữ điền (Genkouyoushi)** có nét đứt chữ thập `+` để người học tự tay cầm bút luyện viết chữ đẹp.
 
-### 7. 🎨 Giao diện hiện đại & Thẩm mỹ cao (UI/UX)
-- Thiết kế theo phong cách tối giản, hiện đại với dải màu **Emerald / Teal** dịu mắt, thư thái khi học tập lâu dài.
-- Đồng bộ hiển thị lưới ô nét đứt (`+ Grid`) xuyên suốt: từ **Dạng Bảng (Table)**, **Dạng Thẻ (Grid)**, cho đến **Modal Hoạt ảnh** và **Bảng vẽ tay**.
-- Hai chế độ hiển thị linh hoạt: **Dạng bảng chi tiết (Table)** và **Dạng lưới thẻ (Grid cards)**.
-- Tương thích hoàn hảo trên cả máy tính để bàn, máy tính bảng và điện thoại di động.
+### 7. 📋 Xuất dữ liệu & Tạo thẻ Anki
+- **Chép ảnh nét vẽ có nền trắng và lưới ô:** Chuyển đổi SVG sang PNG độ phân giải 600×600px sắc nét với 1 cú click để dán vào Anki, Notion, Word, GoodNotes.
+- **Xuất file CSV:** Định dạng chuẩn sẵn sàng nhập trực tiếp vào phần mềm Anki (gồm STT, Kanji, Hán-Việt, On, Kun, Nghĩa, JLPT, URL ảnh).
+
+### 8. 🎨 Giao diện & Nút bấm trực quan
+- Hệ thống màu sắc phân tách rõ rệt:
+  - **Nút Bật/Tắt (Toggle):** Phân biệt rõ trạng thái **`✓ BẬT`** (nền xanh viền đậm) và **`○ TẮT`** (nền xám viền nhạt).
+  - **Nút Hành động:** Phân biệt rõ giữa trạng thái sẵn sàng và trạng thái vô hiệu hóa (`disabled`).
 
 ---
 
@@ -66,8 +59,24 @@ Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji
 - **Build Tool:** [Vite 8](https://vitejs.dev/)
 - **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
 - **Icons:** [Lucide React](https://lucide.dev/)
-- **Animation:** Motion / CSS Transitions
-- **Audio:** Web Speech Synthesis API (Native Browser Engine)
+- **Animation Engine:** SVG `strokeDashoffset` + `requestAnimationFrame` (60fps)
+- **Audio:** Web Speech Synthesis API (Native Browser Speech Engine)
+
+---
+
+## 🌐 Các thư viện, API & Nguồn tài nguyên bên ngoài (External Dependencies & APIs)
+
+Dự án sử dụng và tích hợp các tài nguyên, dịch vụ mở bên ngoài sau:
+
+| Dịch vụ / Thư viện | Loại | Mục đích sử dụng | Giấy phép / Bản quyền |
+| :--- | :--- | :--- | :--- |
+| **[KanjiVG](https://github.com/KanjiVG/kanjivg)** | Dữ liệu Vector SVG | Cung cấp dữ liệu thứ tự từng nét vẽ vector XML/SVG cho hơn 6.000 chữ Kanji qua mạng phân phối jsDelivr CDN (`https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/{hex}.svg`) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) (Bản quyền Ulrich Apel) |
+| **[kanjiapi.dev](https://kanjiapi.dev/)** | REST API | Tra cứu thông tin chuyên sâu: âm Onyomi, Kunyomi, cấp độ JLPT, số nét cho từng chữ Hán | Miễn phí / Open Source |
+| **[Tesseract.js](https://tesseract.projectnaptha.com/)** | Thư viện OCR WebAssembly | Nhận diện ký tự quang học chữ Kanji từ hình ảnh tải lên hoặc ảnh dán từ clipboard (`Ctrl+V`) chạy 100% Client-side trong trình duyệt | [Apache-2.0 License](https://github.com/naptha/tesseract.js/blob/master/LICENSE) |
+| **[MyMemory Translation API](https://mymemory.translated.net/)** | Dịch vụ Dịch thuật REST API | Dịch toàn bộ câu / đoạn văn từ tiếng Nhật sang tiếng Việt (`https://api.mymemory.translated.net/get?q=...&langpair=ja|vi`) | Dịch vụ dịch thuật cộng đồng mở (Translated) |
+| **[Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)** | Web API chuẩn trình duyệt (W3C) | Tổng hợp giọng đọc tiếng Nhật bản xứ (`ja-JP`) để nghe phát âm chữ Kanji và cả câu | Tiêu chuẩn trình duyệt W3C |
+| **[HTML5 Ruby Annotation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/ruby)** | Tiêu chuẩn HTML5 W3C | Căn chỉnh và hiển thị ngữ âm Hiragana (Furigana) nằm ngay trên đầu chữ Kanji | Tiêu chuẩn web W3C |
+| **[Mazii Dictionary](https://mazii.net/)** | Liên kết tham chiếu từ điển | Cho phép mở rộng tra cứu ngữ cảnh chuyên sâu trên từ điển Mazii Việt - Nhật | Tham chiếu ngoài |
 
 ---
 
@@ -75,7 +84,7 @@ Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji
 
 ### Yêu cầu hệ thống
 - [Node.js](https://nodejs.org/) (phiên bản 18+ hoặc 20+)
-- Quản lý gói: `npm`, `pnpm`, hoặc `yarn`
+- Trình quản lý gói: `npm`, `pnpm`, hoặc `yarn`
 
 ### Các bước thực hiện
 
@@ -107,9 +116,7 @@ Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji
 
 ---
 
-## 📚 Nguồn dữ liệu & Bản quyền (Attribution & Licenses)
-
-Dự án tuân thủ nghiêm ngặt và trân trọng ghi nhận các nguồn tài nguyên mở:
+## 📚 Ghi nhận bản quyền & Giấy phép (Attribution & Licenses)
 
 1. **Dữ liệu nét vẽ Kanji (Stroke Order Data):**
    - Được cung cấp bởi dự án [KanjiVG](https://github.com/KanjiVG/kanjivg) (bản quyền Ulrich Apel và cộng sự).

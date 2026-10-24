@@ -12,11 +12,13 @@ import {
   Camera,
   ArrowUp,
   Plus,
-  X
+  X,
+  Languages
 } from 'lucide-react';
 import { KanjiItem, CopyStatus, ToastInfo, KanjiDetail } from './types/kanji';
-import { extractUniqueKanji, convertSvgToPngBlob, downloadBlob } from './utils/kanji';
+import { extractUniqueKanji, convertSvgToPngBlob, downloadBlob, isKanjiChar, getPrimaryHiragana } from './utils/kanji';
 import { getFullKanjiDetail } from './utils/kanjiApi';
+import { getKanjiInfo } from './data/kanjiDictionary';
 import { Header } from './components/Header';
 import { InputSection } from './components/InputSection';
 import { RecentlyViewedKanji } from './components/RecentlyViewedKanji';
@@ -27,6 +29,7 @@ import { Toast } from './components/Toast';
 import { Footer } from './components/Footer';
 import { LicenseModal } from './components/LicenseModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
+import { KanjiPrintSheet } from './components/KanjiPrintSheet';
 
 export default function App() {
   // Input text state
@@ -151,6 +154,23 @@ export default function App() {
         item.detail?.kun?.some((k) => k.toLowerCase().includes(q))
     );
   }, [mergedKanjiList, searchFilter]);
+
+  // Kanji found inside current searchFilter or quickInput for live Ruby Furigana preview
+  const activeSearchKanji = useMemo(() => {
+    const text = `${searchFilter} ${quickInput}`;
+    const chars = Array.from(text).filter((c) => isKanjiChar(c));
+    const uniqueChars = Array.from(new Set(chars));
+    return uniqueChars.map((char) => {
+      const match = mergedKanjiList.find((k) => k.kanji === char);
+      const detail = match?.detail || getKanjiInfo(char);
+      return {
+        kanji: char,
+        hiragana: getPrimaryHiragana(detail),
+        hanViet: detail?.hanViet || '',
+        meaning: detail?.meanings?.[0] || '',
+      };
+    });
+  }, [searchFilter, quickInput, mergedKanjiList]);
 
   // Copy image to clipboard as PNG with white background
   const handleCopyImage = async (item: KanjiItem) => {
@@ -336,11 +356,12 @@ export default function App() {
         <InputSection
           inputText={inputText}
           setInputText={setInputText}
-          kanjiList={extractedKanjiList}
+          kanjiList={mergedKanjiList}
           onClear={handleClear}
           onCopyAllText={handleCopyAllText}
           onExportCsv={handleExportCsv}
           onOpenScanner={() => setIsScannerOpen(true)}
+          onSelectKanji={handleSelectRecentKanji}
         />
 
         {/* Recently Viewed Kanji History */}
@@ -391,6 +412,38 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* Live Ruby Furigana preview for Kanji typed in search or quick add */}
+            {activeSearchKanji.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto py-1.5 px-3 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs transition-all">
+                <span className="text-[11px] font-semibold text-teal-900 shrink-0 flex items-center gap-1">
+                  <Languages className="w-3.5 h-3.5 text-teal-700" />
+                  Phiên âm & Nghĩa:
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  {activeSearchKanji.map((item) => (
+                    <div
+                      key={item.kanji}
+                      onClick={() => handleSelectRecentKanji(item.kanji)}
+                      className="inline-flex flex-col items-center gap-0.5 bg-white px-2 py-1 rounded-xl border border-teal-200 shadow-2xs cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
+                      title="Nhấp để xem hoạt ảnh nét vẽ"
+                    >
+                      <ruby className="font-kanji font-bold text-base text-slate-900 leading-none inline-flex flex-col items-center">
+                        {item.hiragana && (
+                          <rt className="text-[10px] font-semibold text-teal-700 font-sans pb-0.5 select-none">
+                            {item.hiragana}
+                          </rt>
+                        )}
+                        <span>{item.kanji}</span>
+                      </ruby>
+                      <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight max-w-[95px] truncate">
+                        {item.meaning ? `${item.hanViet ? `${item.hanViet}: ` : ''}${item.meaning}` : item.hanViet}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Bottom row: Search filter, Quick append input, Grid toggle, View toggle */}
             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
@@ -469,6 +522,7 @@ export default function App() {
                 </div>
 
                 {/* Grid toggle with delicate lines */}
+                {/* Grid toggle with clear ON/OFF badge */}
                 <button
                   type="button"
                   onClick={() => {
@@ -476,30 +530,37 @@ export default function App() {
                     setIncludeGrid(nextVal);
                     showToast(
                       nextVal
-                        ? 'Đã BẬT lưới nét đứt thư pháp mảnh tinh tế'
+                        ? 'Đã BẬT lưới nét đứt thư pháp mảnh'
                         : 'Đã TẮT lưới nét đứt',
                       'info'
                     );
                   }}
-                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none min-h-[36px] ${
+                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer select-none min-h-[36px] active:scale-95 ${
                     includeGrid
-                      ? 'bg-teal-50 border-teal-500 text-teal-800 ring-2 ring-teal-500/20 shadow-xs'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
+                      ? 'bg-teal-50 border-teal-600 text-teal-950 ring-2 ring-teal-500/20 shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
                   }`}
-                  title="Bật/tắt đường lưới ô nét đứt mảnh tinh tế chuẩn thư pháp Nhật Bản"
+                  title="Nhấp để Bật/Tắt đường lưới ô nét đứt mảnh tinh tế"
                 >
                   <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
                   <span>Kèm lưới</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black tracking-tight ${
+                      includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {includeGrid ? '✓ BẬT' : '○ TẮT'}
+                  </span>
                 </button>
 
-                {/* View Switcher: Table vs Cards */}
-                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 min-h-[36px]">
+                {/* View Switcher: Table vs Cards with prominent active pill */}
+                <div className="inline-flex p-1 bg-slate-200/80 rounded-xl border border-slate-300 min-h-[36px] items-center gap-1">
                   <button
                     onClick={() => setViewMode('table')}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                       viewMode === 'table'
-                        ? 'bg-white text-slate-900 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-teal-800 text-white shadow-xs font-black'
+                        : 'text-slate-700 hover:text-slate-900 font-semibold'
                     }`}
                   >
                     <TableIcon className="w-3.5 h-3.5" />
@@ -507,10 +568,10 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                       viewMode === 'grid'
-                        ? 'bg-white text-slate-900 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-teal-800 text-white shadow-xs font-black'
+                        : 'text-slate-700 hover:text-slate-900 font-semibold'
                     }`}
                   >
                     <LayoutGrid className="w-3.5 h-3.5" />
@@ -556,6 +617,9 @@ export default function App() {
             />
           )}
         </section>
+
+        {/* Dedicated Printable Worksheet (Auto-shown on window.print(), styled for A4 paper) */}
+        <KanjiPrintSheet kanjiList={mergedKanjiList} />
       </main>
 
       {/* Practice / Inspection Modal */}

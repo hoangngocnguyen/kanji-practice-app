@@ -169,24 +169,63 @@
   }
 }
 
-/* Print View Styles */
+/* Print View Styles: Tối ưu chuẩn in ấn A4 (Worksheet Bảng Luyện Viết) */
 @media print {
-  header, footer, #recently-viewed-section, .no-print, button {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 8mm 10mm 8mm;
+  }
+
+  /* Ẩn toàn bộ giao diện web thông thường */
+  header,
+  footer,
+  #recently-viewed-section,
+  main > section,
+  .no-print,
+  button,
+  nav,
+  input,
+  textarea {
     display: none !important;
   }
 
-  body, main {
+  /* Hiện bảng in chuyên dụng */
+  .print-only {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body,
+  main {
     background: white !important;
     color: black !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
-  .shadow-xs, .shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl {
+  .shadow-xs,
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-2xl {
     box-shadow: none !important;
   }
 
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
   tr {
-    page-break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
   }
 }
+

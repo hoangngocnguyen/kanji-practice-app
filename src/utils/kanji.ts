@@ -188,3 +188,41 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Chuyển chuỗi Katakana sang Hiragana
+ */
+export function katakanaToHiragana(str: string): string {
+  if (!str) return '';
+  return str.replace(/[\u30a1-\u30f6]/g, (match) => {
+    const chr = match.charCodeAt(0) - 0x60;
+    return String.fromCharCode(chr);
+  });
+}
+
+/**
+ * Kiểm tra xem một ký tự có phải là Kanji (U+4E00 đến U+9FAF) hay không
+ */
+export function isKanjiChar(char: string): boolean {
+  if (!char || char.length !== 1) return false;
+  return char >= '\u4e00' && char <= '\u9faf';
+}
+
+/**
+ * Lấy âm Hiragana chính (Furigana) đại diện cho một chữ Kanji từ dữ liệu Kun/On
+ */
+export function getPrimaryHiragana(detail?: { on?: string[]; kun?: string[] } | null): string {
+  if (!detail) return '';
+  // Ưu tiên âm Kun (vốn đã là Hiragana thông dụng)
+  if (detail.kun && detail.kun.length > 0) {
+    const kun = detail.kun[0].replace(/\./g, '').trim();
+    if (kun) return kun;
+  }
+  // Nếu không có âm Kun, dùng âm On và chuyển Katakana sang Hiragana
+  if (detail.on && detail.on.length > 0) {
+    const on = detail.on[0].trim();
+    if (on) return katakanaToHiragana(on);
+  }
+  return '';
+}
+

@@ -11,6 +11,7 @@ import {
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
+import { getPrimaryHiragana } from '../utils/kanji';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
 
 interface KanjiTableProps {
@@ -109,13 +110,18 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                 {/* Text Metadata */}
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span
+                    <ruby
                       onClick={() => onInspect(item)}
-                      className="font-kanji font-black text-3xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors"
-                      title="Bấm để xem hoạt ảnh"
+                      className="font-kanji font-black text-3xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors inline-flex flex-col items-start"
+                      title="Bấm để xem hoạt ảnh nét vẽ"
                     >
-                      {item.kanji}
-                    </span>
+                      {detail && getPrimaryHiragana(detail) && (
+                        <rt className="text-[11px] font-semibold text-teal-700 select-none pb-0.5 tracking-normal">
+                          {getPrimaryHiragana(detail)}
+                        </rt>
+                      )}
+                      <span>{item.kanji}</span>
+                    </ruby>
                     <button
                       onClick={() => speakJapanese(item.kanji)}
                       className="p-1 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -280,13 +286,18 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   <td className="py-4 px-3 lg:px-5 text-center">
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <div className="relative group/kanji flex items-center justify-center">
-                        <span
+                        <ruby
                           onClick={() => onInspect(item)}
-                          className="font-kanji font-black text-4xl lg:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors cursor-pointer select-all drop-shadow-2xs leading-none"
+                          className="font-kanji font-black text-4xl lg:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors cursor-pointer select-all drop-shadow-2xs leading-none inline-flex flex-col items-center"
                           title={`Click để mở hoạt ảnh nét vẽ chữ ${item.kanji}`}
                         >
-                          {item.kanji}
-                        </span>
+                          {detail && getPrimaryHiragana(detail) && (
+                            <rt className="text-xs font-semibold text-teal-700 select-none pb-0.5 tracking-normal font-sans">
+                              {getPrimaryHiragana(detail)}
+                            </rt>
+                          )}
+                          <span>{item.kanji}</span>
+                        </ruby>
                         <button
                           onClick={() => speakJapanese(item.kanji)}
                           className="opacity-0 group-hover/kanji:opacity-100 absolute -right-6 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-teal-700 transition-opacity cursor-pointer"

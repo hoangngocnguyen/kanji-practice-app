@@ -10,6 +10,7 @@ import {
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
+import { getPrimaryHiragana } from '../utils/kanji';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
 
 interface KanjiGridProps {
@@ -66,9 +67,14 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             {/* Kanji & Hán Việt Header */}
             <div className="text-center cursor-pointer space-y-1 w-full" onClick={() => onInspect(item)}>
               <div className="relative inline-flex items-center justify-center">
-                <span className="font-kanji font-black text-4xl sm:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors">
-                  {item.kanji}
-                </span>
+                <ruby className="font-kanji font-black text-4xl sm:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors leading-none inline-flex flex-col items-center">
+                  {detail && getPrimaryHiragana(detail) && (
+                    <rt className="text-xs font-semibold text-teal-700 select-none pb-0.5 tracking-normal font-sans">
+                      {getPrimaryHiragana(detail)}
+                    </rt>
+                  )}
+                  <span>{item.kanji}</span>
+                </ruby>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

@@ -508,38 +508,65 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
           {/* Loop toggle */}
           <button
             onClick={handleToggleLoop}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
               isLooping
-                ? 'bg-teal-50 text-teal-800 font-bold border border-teal-300 ring-1 ring-teal-400/20 shadow-2xs'
-                : 'text-slate-500 hover:bg-white hover:text-slate-700'
+                ? 'bg-teal-50 text-teal-950 border-2 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
+                : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
             }`}
-            title={isLooping ? 'Đang bật vẽ lặp lại liên tục: khi hết nét sẽ tự vẽ lại' : 'Đang tắt lặp: vẽ xong 1 lần sẽ dừng'}
+            title="Nhấp để Bật/Tắt chế độ tự động vẽ lặp lại liên tục"
           >
             <Repeat className={`w-3.5 h-3.5 ${isLooping ? 'text-teal-700 animate-spin-slow' : 'text-slate-400'}`} />
-            <span>Vẽ liên tục: <strong className={isLooping ? 'text-teal-700' : 'text-slate-500'}>{isLooping ? 'BẬT' : 'TẮT'}</strong></span>
+            <span>Vẽ liên tục</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                isLooping ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
+              }`}
+            >
+              {isLooping ? '✓ BẬT' : '○ TẮT'}
+            </span>
           </button>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {/* Grid toggle */}
             <button
               onClick={handleToggleGrid}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg transition-colors cursor-pointer ${
-                showGrid ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                showGrid
+                  ? 'bg-teal-50 text-teal-950 border-2 border-teal-600 ring-2 ring-teal-500/20'
+                  : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
               }`}
-              title="Bật/tắt đường lưới ô nét đứt"
+              title="Nhấp để Bật/Tắt đường lưới ô nét đứt"
             >
-              <Grid className="w-3.5 h-3.5" />
+              <Grid className={`w-3.5 h-3.5 ${showGrid ? 'text-teal-700' : 'text-slate-400'}`} />
               <span>Lưới ô</span>
+              <span
+                className={`px-1 py-0.2 rounded text-[9px] font-black ${
+                  showGrid ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {showGrid ? '✓' : '○'}
+              </span>
             </button>
 
+            {/* Numbers toggle */}
             <button
               onClick={() => setShowNumbers(!showNumbers)}
-              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg transition-colors cursor-pointer ${
-                showNumbers ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                showNumbers
+                  ? 'bg-teal-50 text-teal-950 border-2 border-teal-600 ring-2 ring-teal-500/20'
+                  : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
               }`}
-              title="Bật/tắt số thứ tự nét 1, 2, 3"
+              title="Nhấp để Bật/Tắt số thứ tự nét 1, 2, 3"
             >
-              <Hash className="w-3.5 h-3.5" />
+              <Hash className={`w-3.5 h-3.5 ${showNumbers ? 'text-teal-700' : 'text-slate-400'}`} />
               <span>Số nét</span>
+              <span
+                className={`px-1 py-0.2 rounded text-[9px] font-black ${
+                  showNumbers ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {showNumbers ? '✓' : '○'}
+              </span>
             </button>
           </div>
         </div>
