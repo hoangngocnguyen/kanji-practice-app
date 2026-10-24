@@ -242,9 +242,12 @@ export const InputSection: React.FC<InputSectionProps> = ({
           <div className="flex items-center justify-between text-xs border-b border-indigo-100 pb-2">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
-              <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+              <span className="font-bold text-indigo-950 flex items-center gap-1.5 flex-wrap">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                Dịch nghĩa toàn câu (Tiếng Nhật ➔ Tiếng Việt):
+                <span>Dịch nghĩa toàn câu (Tiếng Nhật ➔ Tiếng Việt):</span>
+                <span className="px-1.5 py-0.2 text-[9px] font-bold bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-full">
+                  AI Gemini
+                </span>
               </span>
             </div>
 
