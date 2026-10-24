@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Sparkles, Copy, Download, FileText } from 'lucide-react';
+import { Trash2, Sparkles, Copy, Download, FileText, Camera } from 'lucide-react';
 import { SAMPLE_PRESETS } from '../utils/kanji';
 import { KanjiItem } from '../types/kanji';
 import { getPresetBadgeClass } from '../utils/colorUtils';
@@ -11,6 +11,7 @@ interface InputSectionProps {
   onClear: () => void;
   onCopyAllText: () => void;
   onExportCsv: () => void;
+  onOpenScanner?: () => void;
 }
 
 export const InputSection: React.FC<InputSectionProps> = ({
@@ -20,6 +21,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   onClear,
   onCopyAllText,
   onExportCsv,
+  onOpenScanner,
 }) => {
   return (
     <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 space-y-4 transition-all">
@@ -37,14 +39,28 @@ export const InputSection: React.FC<InputSectionProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onClear}
-          disabled={!inputText}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0 min-h-[34px]"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>Xóa trắng</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenScanner && (
+            <button
+              type="button"
+              onClick={onOpenScanner}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[34px]"
+              title="Quét ảnh hoặc dán ảnh chụp màn hình để trích xuất chữ Kanji"
+            >
+              <Camera className="w-3.5 h-3.5 text-teal-700" />
+              <span>Quét ảnh Kanji</span>
+            </button>
+          )}
+
+          <button
+            onClick={onClear}
+            disabled={!inputText}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0 min-h-[34px]"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Xóa trắng</span>
+          </button>
+        </div>
       </div>
 
       {/* Preset Quick Chips with Harmonious Palette & Touch Smooth Scroll */}

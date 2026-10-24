@@ -9,7 +9,8 @@ import {
   Grid,
   Hash,
   Sparkles,
-  Volume2
+  Volume2,
+  Repeat
 } from 'lucide-react';
 import { speakJapanese } from '../utils/speech';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
@@ -47,11 +48,25 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isLooping, setIsLooping] = useState<boolean>(true); // Vẽ nét liên tục tự động lặp lại
   const [currentStrokeIdx, setCurrentStrokeIdx] = useState<number>(0);
   const [currentProgress, setCurrentProgress] = useState<number>(0); // 0 to 1 for current stroke
   const [speed, setSpeed] = useState<number>(1.0);
   const [showNumbers, setShowNumbers] = useState<boolean>(true);
   const [internalShowGrid, setInternalShowGrid] = useState<boolean>(true);
+  const strokeIdxRef = useRef<number>(0);
+  const progressRef = useRef<number>(0);
+  const isHoldingRef = useRef<boolean>(false);
+  const loopTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number | null>(null);
+
+  const clearLoopTimer = () => {
+    if (loopTimerRef.current) {
+      clearTimeout(loopTimerRef.current);
+      loopTimerRef.current = null;
+    }
+  };
 
   const showGrid = showGridProp !== undefined ? showGridProp : internalShowGrid;
   const handleToggleGrid = () => {
@@ -64,12 +79,23 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
   const [pathLengths, setPathLengths] = useState<number[]>([]);
-  const animFrameRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearLoopTimer();
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, []);
 
   // Parse SVG
   useEffect(() => {
     let isCancelled = false;
+    clearLoopTimer();
+    isHoldingRef.current = false;
+    strokeIdxRef.current = 0;
+    progressRef.current = 0;
+    lastTimeRef.current = null;
     setLoading(true);
     setError(null);
     setCurrentStrokeIdx(0);
@@ -117,6 +143,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
     return () => {
       isCancelled = true;
+      clearLoopTimer();
     };
   }, [svgUrl]);
 
@@ -137,15 +164,18 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     }
   }, [strokes]);
 
-  // RequestAnimationFrame animation loop
+  // RequestAnimationFrame animation loop with continuous auto-repeat support
   useEffect(() => {
     if (!isPlaying || strokes.length === 0) {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
       lastTimeRef.current = null;
       return;
     }
 
-    const durationPerStroke = 600 / speed; // ms cho mỗi nét tùy speed
+    const durationPerStroke = 550 / speed; // ms cho mỗi nét tùy speed
 
     const animate = (timestamp: number) => {
       if (!lastTimeRef.current) {
@@ -154,27 +184,55 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
       const deltaTime = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
 
-      setCurrentProgress((prev) => {
-        const next = prev + deltaTime / durationPerStroke;
-        if (next >= 1) {
-          // Hoàn thành nét hiện tại, chuyển sang nét kế tiếp
-          setCurrentStrokeIdx((currIdx) => {
-            if (currIdx + 1 >= strokes.length) {
-              // Hoàn thành cả chữ -> lặp lại sau 1.2s nghỉ
-              setTimeout(() => {
-                setCurrentStrokeIdx(0);
-                setCurrentProgress(0);
-                lastTimeRef.current = null;
-              }, 1200 / speed);
-              setIsPlaying(false);
-              return currIdx;
-            }
-            return currIdx + 1;
-          });
-          return 0;
+      // Nếu đang trong thời gian giữ chữ hoàn chỉnh trước khi tự động lặp lại từ đầu
+      if (isHoldingRef.current) {
+        animFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      const totalStrokes = strokes.length;
+      if (totalStrokes === 0) return;
+
+      const currentP = progressRef.current;
+      const nextProgress = currentP + deltaTime / durationPerStroke;
+
+      if (nextProgress >= 1) {
+        const currentIdx = strokeIdxRef.current;
+        if (currentIdx + 1 >= totalStrokes) {
+          // Hoàn thành toàn bộ nét của chữ Kanji!
+          // Giữ nét cuối cùng ở trạng thái hoàn chỉnh 100% để hiển thị trọn vẹn cả chữ
+          progressRef.current = 1;
+          setCurrentProgress(1);
+          isHoldingRef.current = true;
+
+          if (isLooping) {
+            clearLoopTimer();
+            // Dừng 900ms cho người dùng quan sát toàn bộ chữ Kanji hoàn chỉnh, sau đó tự động bắt đầu lại từ nét đầu tiên (nét 0)
+            loopTimerRef.current = setTimeout(() => {
+              clearLoopTimer();
+              isHoldingRef.current = false;
+              strokeIdxRef.current = 0;
+              progressRef.current = 0;
+              lastTimeRef.current = null;
+              setCurrentStrokeIdx(0);
+              setCurrentProgress(0);
+            }, 900 / speed);
+          } else {
+            setIsPlaying(false);
+            isHoldingRef.current = false;
+          }
+        } else {
+          // Chuyển sang nét kế tiếp
+          const nextIdx = currentIdx + 1;
+          strokeIdxRef.current = nextIdx;
+          progressRef.current = 0;
+          setCurrentStrokeIdx(nextIdx);
+          setCurrentProgress(0);
         }
-        return next;
-      });
+      } else {
+        progressRef.current = nextProgress;
+        setCurrentProgress(nextProgress);
+      }
 
       animFrameRef.current = requestAnimationFrame(animate);
     };
@@ -182,37 +240,81 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     animFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
     };
-  }, [isPlaying, strokes.length, speed, currentStrokeIdx]);
+  }, [isPlaying, strokes.length, speed, isLooping]);
 
   const handlePlayPause = () => {
-    if (!isPlaying && currentStrokeIdx >= strokes.length - 1 && currentProgress >= 1) {
-      // Replay từ đầu nếu đã kết thúc
+    if (!isPlaying && strokeIdxRef.current >= strokes.length - 1 && progressRef.current >= 1) {
+      // Replay từ đầu nếu đã kết thúc toàn bộ chữ
+      clearLoopTimer();
+      isHoldingRef.current = false;
+      strokeIdxRef.current = 0;
+      progressRef.current = 0;
+      lastTimeRef.current = null;
       setCurrentStrokeIdx(0);
       setCurrentProgress(0);
-      lastTimeRef.current = null;
+      setIsPlaying(true);
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    if (isPlaying) {
+      clearLoopTimer();
+      setIsPlaying(false);
+    } else {
+      lastTimeRef.current = null;
+      setIsPlaying(true);
+    }
   };
 
   const handleReplay = () => {
+    clearLoopTimer();
+    isHoldingRef.current = false;
+    strokeIdxRef.current = 0;
+    progressRef.current = 0;
+    lastTimeRef.current = null;
     setCurrentStrokeIdx(0);
     setCurrentProgress(0);
-    lastTimeRef.current = null;
     setIsPlaying(true);
   };
 
   const handlePrevStroke = () => {
+    clearLoopTimer();
+    isHoldingRef.current = false;
     setIsPlaying(false);
+    const prev = Math.max(0, strokeIdxRef.current - 1);
+    strokeIdxRef.current = prev;
+    progressRef.current = 0;
+    lastTimeRef.current = null;
+    setCurrentStrokeIdx(prev);
     setCurrentProgress(0);
-    setCurrentStrokeIdx((prev) => Math.max(0, prev - 1));
   };
 
   const handleNextStroke = () => {
+    clearLoopTimer();
+    isHoldingRef.current = false;
     setIsPlaying(false);
+    const next = Math.min(strokes.length - 1, strokeIdxRef.current + 1);
+    strokeIdxRef.current = next;
+    progressRef.current = 0;
+    lastTimeRef.current = null;
+    setCurrentStrokeIdx(next);
     setCurrentProgress(0);
-    setCurrentStrokeIdx((prev) => Math.min(strokes.length - 1, prev + 1));
+  };
+
+  const handleToggleLoop = () => {
+    setIsLooping((prev) => {
+      const next = !prev;
+      if (!next && isHoldingRef.current) {
+        clearLoopTimer();
+        isHoldingRef.current = false;
+        setIsPlaying(false);
+      }
+      return next;
+    });
   };
 
   const handleSpeedChange = () => {
@@ -401,27 +503,45 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
           </button>
         </div>
 
-        {/* Sub toggles: Grid & Numbers */}
-        <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 px-1 text-xs text-slate-600">
+        {/* Sub toggles: Grid, Numbers & Continuous Loop */}
+        <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 px-1 text-xs text-slate-600 gap-1.5 flex-wrap">
+          {/* Loop toggle */}
           <button
-            onClick={handleToggleGrid}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-              showGrid ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
+            onClick={handleToggleLoop}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+              isLooping
+                ? 'bg-teal-50 text-teal-800 font-bold border border-teal-300 ring-1 ring-teal-400/20 shadow-2xs'
+                : 'text-slate-500 hover:bg-white hover:text-slate-700'
             }`}
+            title={isLooping ? 'Đang bật vẽ lặp lại liên tục: khi hết nét sẽ tự vẽ lại' : 'Đang tắt lặp: vẽ xong 1 lần sẽ dừng'}
           >
-            <Grid className="w-3.5 h-3.5" />
-            <span>Lưới ô</span>
+            <Repeat className={`w-3.5 h-3.5 ${isLooping ? 'text-teal-700 animate-spin-slow' : 'text-slate-400'}`} />
+            <span>Vẽ liên tục: <strong className={isLooping ? 'text-teal-700' : 'text-slate-500'}>{isLooping ? 'BẬT' : 'TẮT'}</strong></span>
           </button>
 
-          <button
-            onClick={() => setShowNumbers(!showNumbers)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-              showNumbers ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
-            }`}
-          >
-            <Hash className="w-3.5 h-3.5" />
-            <span>Số nét (1, 2, 3)</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleToggleGrid}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                showGrid ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
+              }`}
+              title="Bật/tắt đường lưới ô nét đứt"
+            >
+              <Grid className="w-3.5 h-3.5" />
+              <span>Lưới ô</span>
+            </button>
+
+            <button
+              onClick={() => setShowNumbers(!showNumbers)}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                showNumbers ? 'bg-teal-50 text-teal-800 font-bold border border-teal-200/80' : 'text-slate-500 hover:bg-white'
+              }`}
+              title="Bật/tắt số thứ tự nét 1, 2, 3"
+            >
+              <Hash className="w-3.5 h-3.5" />
+              <span>Số nét</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -3,10 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { Search, LayoutGrid, Table as TableIcon, Grid } from 'lucide-react';
-import { KanjiItem, CopyStatus, ToastInfo } from './types/kanji';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import {
+  Search,
+  LayoutGrid,
+  Table as TableIcon,
+  Grid,
+  Camera,
+  ArrowUp,
+  Plus,
+  X
+} from 'lucide-react';
+import { KanjiItem, CopyStatus, ToastInfo, KanjiDetail } from './types/kanji';
 import { extractUniqueKanji, convertSvgToPngBlob, downloadBlob } from './utils/kanji';
+import { getFullKanjiDetail } from './utils/kanjiApi';
 import { Header } from './components/Header';
 import { InputSection } from './components/InputSection';
 import { RecentlyViewedKanji } from './components/RecentlyViewedKanji';
@@ -16,6 +26,7 @@ import { PracticeModal } from './components/PracticeModal';
 import { Toast } from './components/Toast';
 import { Footer } from './components/Footer';
 import { LicenseModal } from './components/LicenseModal';
+import { KanjiScannerModal } from './components/KanjiScannerModal';
 
 export default function App() {
   // Input text state
@@ -25,6 +36,9 @@ export default function App() {
 
   // Search filter query
   const [searchFilter, setSearchFilter] = useState<string>('');
+
+  // Quick add input for sticky toolbar
+  const [quickInput, setQuickInput] = useState<string>('');
 
   // View mode: 'table' | 'grid'
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
@@ -40,6 +54,15 @@ export default function App() {
 
   // Modal inspection
   const [inspectedKanji, setInspectedKanji] = useState<KanjiItem | null>(null);
+
+  // Scanner modal state
+  const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+
+  // License Modal state
+  const [isLicenseOpen, setIsLicenseOpen] = useState<boolean>(false);
+
+  // Dynamic enrichment cache for On, Kun, JLPT and meanings
+  const [enrichedDetails, setEnrichedDetails] = useState<Record<string, KanjiDetail>>({});
 
   // Recently viewed Kanji (Max 15 items, persistent in localStorage)
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
@@ -57,9 +80,6 @@ export default function App() {
     return [];
   });
 
-  // License Modal state
-  const [isLicenseOpen, setIsLicenseOpen] = useState<boolean>(false);
-
   // Toast helper
   const showToast = useCallback((text: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now();
@@ -74,20 +94,63 @@ export default function App() {
     return extractUniqueKanji(inputText);
   }, [inputText]);
 
-  // Filter list by search query (Kanji, Hán-Việt, JLPT, nghĩa)
+  // Background enrichment: automatically fetch full details (On, Kun, Meanings, JLPT, strokeCount)
+  // for all extracted Kanji so they are never missing in cards or tables
+  useEffect(() => {
+    let isCancelled = false;
+    const missing = extractedKanjiList.filter(
+      (item) => !enrichedDetails[item.kanji]
+    );
+
+    if (missing.length === 0) return;
+
+    // Fetch details in small concurrent pool
+    missing.forEach(async (item) => {
+      try {
+        const detail = await getFullKanjiDetail(item.kanji);
+        if (!isCancelled && detail) {
+          setEnrichedDetails((prev) => ({
+            ...prev,
+            [item.kanji]: detail,
+          }));
+        }
+      } catch (e) {
+        // Fallback silently
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [extractedKanjiList, enrichedDetails]);
+
+  // Merged kanji list with enriched details
+  const mergedKanjiList = useMemo<KanjiItem[]>(() => {
+    return extractedKanjiList.map((item) => {
+      const enriched = enrichedDetails[item.kanji];
+      return {
+        ...item,
+        detail: enriched || item.detail,
+      };
+    });
+  }, [extractedKanjiList, enrichedDetails]);
+
+  // Filter list by search query (Kanji, Hán-Việt, JLPT, On/Kun, nghĩa)
   const filteredKanjiList = useMemo(() => {
-    if (!searchFilter.trim()) return extractedKanjiList;
+    if (!searchFilter.trim()) return mergedKanjiList;
     const q = searchFilter.trim().toLowerCase();
-    return extractedKanjiList.filter(
+    return mergedKanjiList.filter(
       (item) =>
         item.kanji.includes(q) ||
         item.hex.includes(q) ||
         item.id.toString() === q ||
         item.detail?.hanViet.toLowerCase().includes(q) ||
         item.detail?.jlpt?.toLowerCase() === q ||
-        item.detail?.meanings.some((m) => m.toLowerCase().includes(q))
+        item.detail?.meanings.some((m) => m.toLowerCase().includes(q)) ||
+        item.detail?.on?.some((o) => o.toLowerCase().includes(q)) ||
+        item.detail?.kun?.some((k) => k.toLowerCase().includes(q))
     );
-  }, [extractedKanjiList, searchFilter]);
+  }, [mergedKanjiList, searchFilter]);
 
   // Copy image to clipboard as PNG with white background
   const handleCopyImage = async (item: KanjiItem) => {
@@ -161,16 +224,16 @@ export default function App() {
   // Export CSV for Anki import with Han-Viet & meanings
   const handleExportCsv = () => {
     if (extractedKanjiList.length === 0) return;
-    const header = 'STT,Kanji,Han_Viet,Nghia,JLPT,Unicode_Hex,SVG_Url\n';
-    const rows = extractedKanjiList
+    const header = 'STT,Kanji,Han_Viet,On,Kun,Nghia,JLPT,Unicode_Hex,SVG_Url\n';
+    const rows = mergedKanjiList
       .map(
         (k) =>
-          `${k.id},"${k.kanji}","${k.detail?.hanViet || ''}","${(k.detail?.meanings || []).join('; ')}","${k.detail?.jlpt || ''}","${k.hex}","${k.svgUrl}"`
+          `${k.id},"${k.kanji}","${k.detail?.hanViet || ''}","${(k.detail?.on || []).join(' ')}","${(k.detail?.kun || []).join(' ')}","${(k.detail?.meanings || []).join('; ')}","${k.detail?.jlpt || ''}","${k.hex}","${k.svgUrl}"`
       )
       .join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
     downloadBlob(blob, 'kanji_stroke_order_list.csv');
-    showToast('Đã xuất file CSV (kèm Hán-Việt & Nghĩa) cho Anki thành công!', 'success');
+    showToast('Đã xuất file CSV (kèm Hán-Việt & On/Kun) cho Anki thành công!', 'success');
   };
 
   // Save single Kanji to recently viewed history (Max 15, no duplicates, newest first)
@@ -190,28 +253,29 @@ export default function App() {
   // Inspect Kanji and record to history
   const handleInspectKanji = useCallback(
     (item: KanjiItem) => {
-      setInspectedKanji(item);
+      // Use enriched item if available
+      const enriched = enrichedDetails[item.kanji];
+      const targetItem = enriched ? { ...item, detail: enriched } : item;
+      setInspectedKanji(targetItem);
       saveToRecentHistory(item.kanji);
     },
-    [saveToRecentHistory]
+    [saveToRecentHistory, enrichedDetails]
   );
 
   // Select Kanji from recently viewed history chips
   const handleSelectRecentKanji = useCallback(
     (char: string) => {
-      // Find in current extracted list
-      const found = extractedKanjiList.find((k) => k.kanji === char);
+      const found = mergedKanjiList.find((k) => k.kanji === char);
       if (found) {
         handleInspectKanji(found);
       } else {
-        // Create single Kanji item from helper
         const created = extractUniqueKanji(char);
         if (created.length > 0) {
           handleInspectKanji(created[0]);
         }
       }
     },
-    [extractedKanjiList, handleInspectKanji]
+    [mergedKanjiList, handleInspectKanji]
   );
 
   // Clear all recent history
@@ -227,7 +291,21 @@ export default function App() {
   const handleClear = () => {
     setInputText('');
     setSearchFilter('');
+    setQuickInput('');
     showToast('Đã xóa trắng văn bản', 'info');
+  };
+
+  // Quick add to list from sticky toolbar
+  const handleQuickAdd = () => {
+    if (!quickInput.trim()) return;
+    setInputText((prev) => (prev ? `${prev} ${quickInput.trim()}` : quickInput.trim()));
+    showToast(`Đã thêm chữ vào danh sách tra cứu!`, 'success');
+    setQuickInput('');
+  };
+
+  // Scroll to top handler
+  const handleScrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -253,7 +331,7 @@ export default function App() {
       />
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 space-y-7">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6 sm:space-y-7">
         {/* Input Section */}
         <InputSection
           inputText={inputText}
@@ -262,6 +340,7 @@ export default function App() {
           onClear={handleClear}
           onCopyAllText={handleCopyAllText}
           onExportCsv={handleExportCsv}
+          onOpenScanner={() => setIsScannerOpen(true)}
         />
 
         {/* Recently Viewed Kanji History */}
@@ -272,36 +351,124 @@ export default function App() {
         />
 
         {/* Kanji Stroke Order Section */}
-        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
-          {/* Section Toolbar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4 sm:pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-bold text-slate-800">
-                  2. Tra cứu nét vẽ & Nghĩa Kanji ({filteredKanjiList.length}/{extractedKanjiList.length})
-                </h3>
+        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5">
+          {/* STICKY TOOLBAR (Ghim ở đầu màn hình khi cuộn xem danh sách Kanji, không cần kéo lên xuống) */}
+          <div className="sticky top-2 z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md p-3 sm:p-4 space-y-3 transition-all">
+            {/* Top row: Status info + Quick Scan + Scroll to top */}
+            <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-bold text-slate-800 truncate">
+                  2. Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})
+                </span>
+                {extractedKanjiList.length > 0 && (
+                  <span className="text-[10px] bg-teal-50 text-teal-800 font-semibold px-2 py-0.5 rounded-full border border-teal-200 shrink-0">
+                    {extractedKanjiList.length} chữ
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-500">
-                Ảnh nét vẽ lớn, hoạt ảnh vẽ nét động, âm Hán-Việt & nghĩa tiếng Việt, phát âm và sao chép 1-click
-              </p>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Button Scan Image */}
+                <button
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                  title="Quét chữ Kanji từ ảnh hoặc dán ảnh chụp màn hình (Ctrl+V)"
+                >
+                  <Camera className="w-3.5 h-3.5 text-teal-700" />
+                  <span className="hidden sm:inline">Quét ảnh (OCR)</span>
+                  <span className="sm:hidden">Quét ảnh</span>
+                </button>
+
+                {/* Button Scroll to top */}
+                <button
+                  type="button"
+                  onClick={handleScrollToTop}
+                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  title="Cuộn lên đầu trang"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Filter & View Switcher */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto">
-              {/* Search input */}
-              <div className="relative w-full sm:w-64 md:w-60 lg:w-72">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Lọc Kanji, Hán-Việt (vd: NHẬT), nghĩa..."
-                  className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[38px]"
-                />
+            {/* Bottom row: Search filter, Quick append input, Grid toggle, View toggle */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+              {/* Left group: Dual Search / Quick Add box */}
+              <div className="flex items-center gap-2 flex-1">
+                {/* Search in current list */}
+                <div className="relative flex-1 min-w-[140px]">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    placeholder="Lọc chữ Hán, Hán-Việt, On, Kun, nghĩa..."
+                    className="w-full pl-9 pr-7 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[36px]"
+                  />
+                  {searchFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchFilter('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Add box (Directly appends into list without scrolling up) */}
+                <div className="hidden sm:flex items-center gap-1.5">
+                  <div className="relative w-36 lg:w-44">
+                    <input
+                      type="text"
+                      value={quickInput}
+                      onChange={(e) => setQuickInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleQuickAdd();
+                      }}
+                      placeholder="+ Nhập thêm Kanji..."
+                      className="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[36px]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleQuickAdd}
+                    disabled={!quickInput.trim()}
+                    className="px-2.5 py-2 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:opacity-30 border border-teal-200 rounded-xl transition-all cursor-pointer min-h-[36px] flex items-center gap-1"
+                    title="Thêm ngay chữ này vào danh sách tra cứu"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-teal-700" />
+                    <span>Thêm</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start">
-                {/* Grid background toggle */}
+              {/* Right group: Grid toggle and View Switcher */}
+              <div className="flex items-center gap-2 justify-between md:justify-end shrink-0">
+                {/* Mobile Quick Add toggle */}
+                <div className="sm:hidden flex items-center gap-1 flex-1">
+                  <input
+                    type="text"
+                    value={quickInput}
+                    onChange={(e) => setQuickInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleQuickAdd();
+                    }}
+                    placeholder="+ Thêm chữ..."
+                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 rounded-xl border border-slate-200 min-h-[36px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickAdd}
+                    disabled={!quickInput.trim()}
+                    className="p-2 text-teal-800 bg-teal-50 border border-teal-200 rounded-xl min-h-[36px] min-w-[36px] flex items-center justify-center disabled:opacity-30"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Grid toggle with delicate lines */}
                 <button
                   type="button"
                   onClick={() => {
@@ -309,34 +476,27 @@ export default function App() {
                     setIncludeGrid(nextVal);
                     showToast(
                       nextVal
-                        ? 'Đã BẬT lưới nét đứt chữ Mễ/Điền (hiển thị trên ảnh và khi sao chép/tải PNG)'
+                        ? 'Đã BẬT lưới nét đứt thư pháp mảnh tinh tế'
                         : 'Đã TẮT lưới nét đứt',
                       'info'
                     );
                   }}
-                  className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none min-h-[38px] ${
+                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none min-h-[36px] ${
                     includeGrid
                       ? 'bg-teal-50 border-teal-500 text-teal-800 ring-2 ring-teal-500/20 shadow-xs'
                       : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
                   }`}
-                  title="Bật/tắt đường lưới ô nét đứt chuẩn thư pháp trong toàn bộ ứng dụng và khi tải/sao chép ảnh"
+                  title="Bật/tắt đường lưới ô nét đứt mảnh tinh tế chuẩn thư pháp Nhật Bản"
                 >
-                  <Grid className={`w-4 h-4 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
+                  <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
                   <span>Kèm lưới</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      includeGrid ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {includeGrid ? 'BẬT' : 'TẮT'}
-                  </span>
                 </button>
 
                 {/* View Switcher: Table vs Cards */}
-                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 min-h-[38px]">
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 min-h-[36px]">
                   <button
                     onClick={() => setViewMode('table')}
-                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       viewMode === 'table'
                         ? 'bg-white text-slate-900 shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900'
@@ -347,7 +507,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       viewMode === 'grid'
                         ? 'bg-white text-slate-900 shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900'
@@ -369,7 +529,7 @@ export default function App() {
               </div>
               <h4 className="text-base font-bold text-slate-700">Chưa tìm thấy ký tự Kanji nào</h4>
               <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                Hãy dán một đoạn văn bản có chứa chữ Hán vào ô nhập liệu ở trên hoặc bấm vào các nút mẫu có sẵn để xem bảng nét vẽ.
+                Hãy dán một đoạn văn bản tiếng Nhật hoặc bấm <strong>Quét ảnh (OCR)</strong> để trích xuất chữ Hán tự động.
               </p>
             </div>
           ) : filteredKanjiList.length === 0 ? (
@@ -406,6 +566,23 @@ export default function App() {
         onClose={() => setInspectedKanji(null)}
         onCopyImage={handleCopyImage}
         onDownloadPng={handleDownloadPng}
+      />
+
+      {/* OCR Scanner Modal */}
+      <KanjiScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onApplyToInput={(text) => {
+          setInputText((prev) => (prev ? `${prev} ${text}` : text));
+          showToast(`Đã thêm ${text.length} chữ Kanji từ ảnh vào ô nhập liệu!`, 'success');
+        }}
+        onApplyToSearch={(text) => {
+          setSearchFilter(text);
+          showToast(`Đã lọc danh sách theo Kanji phát hiện từ ảnh!`, 'info');
+        }}
+        onInspectKanji={(char) => {
+          handleSelectRecentKanji(char);
+        }}
       />
 
       {/* License Modal */}

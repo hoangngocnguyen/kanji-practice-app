@@ -1,18 +1,21 @@
 import React from 'react';
 
+export type GridType = 'mi' | 'tian' | 'box';
+
 interface KanjiGridOverlayProps {
   className?: string;
   dashed?: boolean;
+  type?: GridType;
 }
 
 /**
- * Hiển thị khung lưới chữ điền / chữ Mễ (Practice Grid) chuẩn thư pháp Nhật Bản
- * Sử dụng SVG vector sắc nét, đường nét đứt rõ ràng (#94a3b8 / #cbd5e1),
- * tự động co giãn theo kích thước khung chứa.
+ * Hiển thị khung lưới chữ Điền / chữ Mễ (Practice Grid) chuẩn thư pháp Nhật Bản.
+ * Đường nét đứt siêu mảnh, tinh tế (delicate hairline), dịu mắt, không đè lấp chữ Hán.
  */
 export const KanjiGridOverlay: React.FC<KanjiGridOverlayProps> = ({
   className = '',
   dashed = true,
+  type = 'mi',
 }) => {
   return (
     <div
@@ -24,63 +27,75 @@ export const KanjiGridOverlay: React.FC<KanjiGridOverlayProps> = ({
         className="w-full h-full"
         preserveAspectRatio="xMidYMid meet"
       >
-        {/* Khung viền ngoài chữ Điền */}
+        {/* Khung viền ngoài nét mảnh tinh xảo */}
         <rect
           x="3"
           y="3"
           width="94"
           height="94"
-          rx="6"
+          rx="5"
           fill="none"
-          stroke="#cbd5e1"
-          strokeWidth="1.5"
-        />
-
-        {/* 2 Đường chéo phụ (Chữ Mễ 米字格) nét mờ */}
-        <line
-          x1="5"
-          y1="5"
-          x2="95"
-          y2="95"
           stroke="#e2e8f0"
           strokeWidth="0.8"
-          strokeDasharray="2 3"
-        />
-        <line
-          x1="95"
-          y1="5"
-          x2="5"
-          y2="95"
-          stroke="#e2e8f0"
-          strokeWidth="0.8"
-          strokeDasharray="2 3"
         />
 
-        {/* Trục ngang giữa (Chữ Điền 田字格) */}
-        <line
-          x1="3"
-          y1="50"
-          x2="97"
-          y2="50"
-          stroke="#94a3b8"
-          strokeWidth="1.4"
-          strokeDasharray={dashed ? '3 3' : 'none'}
-        />
+        {/* 2 Đường chéo phụ (Chữ Mễ 米字格) nét mờ siêu mảnh */}
+        {type === 'mi' && (
+          <>
+            <line
+              x1="5"
+              y1="5"
+              x2="95"
+              y2="95"
+              stroke="#f1f5f9"
+              strokeWidth="0.5"
+              strokeDasharray="2 3"
+            />
+            <line
+              x1="95"
+              y1="5"
+              x2="5"
+              y2="95"
+              stroke="#f1f5f9"
+              strokeWidth="0.5"
+              strokeDasharray="2 3"
+            />
+          </>
+        )}
 
-        {/* Trục dọc giữa */}
-        <line
-          x1="50"
-          y1="3"
-          x2="50"
-          y2="97"
-          stroke="#94a3b8"
-          strokeWidth="1.4"
-          strokeDasharray={dashed ? '3 3' : 'none'}
-        />
+        {/* Trục ngang & dọc chữ Điền (田字格) nét đứt thanh mảnh */}
+        {type !== 'box' && (
+          <>
+            {/* Trục ngang giữa */}
+            <line
+              x1="3"
+              y1="50"
+              x2="97"
+              y2="50"
+              stroke="#cbd5e1"
+              strokeWidth="0.7"
+              strokeDasharray={dashed ? '2.5 3' : 'none'}
+              opacity="0.85"
+            />
 
-        {/* Tâm giao nhau */}
-        <circle cx="50" cy="50" r="1.5" fill="#94a3b8" />
+            {/* Trục dọc giữa */}
+            <line
+              x1="50"
+              y1="3"
+              x2="50"
+              y2="97"
+              stroke="#cbd5e1"
+              strokeWidth="0.7"
+              strokeDasharray={dashed ? '2.5 3' : 'none'}
+              opacity="0.85"
+            />
+
+            {/* Tâm giao nhau tinh tế */}
+            <circle cx="50" cy="50" r="0.9" fill="#94a3b8" opacity="0.6" />
+          </>
+        )}
       </svg>
     </div>
   );
 };
+

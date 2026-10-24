@@ -98,14 +98,14 @@ export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boole
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, size, size);
 
-        // Kèm lưới ô vuông chữ điền / chữ Mễ nếu người dùng bật (+ Grid)
+        // Kèm lưới ô vuông chữ điền / chữ Mễ nếu người dùng bật (+ Grid) - Lưới mảnh tinh tế
         if (addPracticeGrid) {
           const margin = 20;
 
-          // 1. Đường chéo chữ Mễ (Mizi ge) nét chấm mờ
-          ctx.strokeStyle = '#E2E8F0';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([6, 8]);
+          // 1. Đường chéo chữ Mễ (Mizi ge) nét chấm mờ siêu mảnh
+          ctx.strokeStyle = '#F1F5F9';
+          ctx.lineWidth = 0.8;
+          ctx.setLineDash([4, 6]);
           ctx.beginPath();
           ctx.moveTo(margin, margin);
           ctx.lineTo(size - margin, size - margin);
@@ -113,10 +113,10 @@ export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boole
           ctx.lineTo(margin, size - margin);
           ctx.stroke();
 
-          // 2. Trục ngang & dọc chữ Điền (Tianzi ge) nét đứt rõ nét
-          ctx.strokeStyle = '#94A3B8';
-          ctx.lineWidth = 2.2;
-          ctx.setLineDash([8, 8]);
+          // 2. Trục ngang & dọc chữ Điền (Tianzi ge) nét đứt thanh mảnh
+          ctx.strokeStyle = '#CBD5E1';
+          ctx.lineWidth = 1.0;
+          ctx.setLineDash([6, 6]);
 
           // Kẻ trục ngang giữa
           ctx.beginPath();
@@ -132,14 +132,14 @@ export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boole
 
           // 3. Viền khung chữ điền
           ctx.setLineDash([]);
-          ctx.strokeStyle = '#CBD5E1';
-          ctx.lineWidth = 2.8;
+          ctx.strokeStyle = '#E2E8F0';
+          ctx.lineWidth = 1.2;
           ctx.strokeRect(margin, margin, size - margin * 2, size - margin * 2);
 
-          // 4. Tâm giao nhau
-          ctx.fillStyle = '#94A3B8';
+          // 4. Tâm giao nhau tinh tế
+          ctx.fillStyle = '#CBD5E1';
           ctx.beginPath();
-          ctx.arc(size / 2, size / 2, 3, 0, Math.PI * 2);
+          ctx.arc(size / 2, size / 2, 1.8, 0, Math.PI * 2);
           ctx.fill();
         }
 

@@ -37,23 +37,29 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
         const isCopying = status === 'copying';
         const detail = item.detail;
 
+        const hasOn = detail?.on && detail.on.length > 0;
+        const hasKun = detail?.kun && detail.kun.length > 0;
+        const hasMeanings = detail?.meanings && detail.meanings.length > 0;
+
         return (
           <div
             key={item.hex}
             className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-teal-400 p-4 sm:p-5 flex flex-col items-center justify-between gap-3 sm:gap-3.5 transition-all shadow-xs hover:shadow-md group"
           >
-            {/* Top row */}
+            {/* Top row: STT, JLPT & Stroke Count */}
             <div className="w-full flex items-center justify-between text-xs font-mono text-slate-400">
               <span className="font-semibold text-teal-700">#{item.id}</span>
               <div className="flex items-center gap-1.5">
                 {detail?.jlpt && (
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] border ${getJlptBadgeClass(detail.jlpt)}`}>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] border font-bold ${getJlptBadgeClass(detail.jlpt)}`}>
                     {detail.jlpt}
                   </span>
                 )}
-                <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px]">
-                  U+{item.hex.toUpperCase()}
-                </span>
+                {detail?.strokeCount && (
+                  <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[11px] font-medium">
+                    {detail.strokeCount} nét
+                  </span>
+                )}
               </div>
             </div>
 
@@ -77,14 +83,29 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
 
               {detail?.hanViet && (
                 <div>
-                  <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200/90 px-2.5 py-0.5 rounded-lg">
+                  <span className="text-xs font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
                     {detail.hanViet}
                   </span>
                 </div>
               )}
 
-              {detail?.meanings && detail.meanings.length > 0 && (
-                <p className="text-[11px] text-slate-600 line-clamp-1 font-medium px-2">
+              {/* On & Kun readings preview */}
+              <div className="flex flex-wrap items-center justify-center gap-1 pt-1 text-[11px]">
+                {hasOn && (
+                  <span className="text-blue-800 bg-blue-50/80 border border-blue-200 px-1.5 py-0.2 rounded font-medium truncate max-w-full">
+                    On: {detail.on.slice(0, 2).join(', ')}
+                  </span>
+                )}
+                {hasKun && (
+                  <span className="text-emerald-800 bg-emerald-50/80 border border-emerald-200 px-1.5 py-0.2 rounded font-medium truncate max-w-full">
+                    Kun: {detail.kun.slice(0, 2).join(', ')}
+                  </span>
+                )}
+              </div>
+
+              {/* Meanings */}
+              {hasMeanings && (
+                <p className="text-[11px] text-slate-600 line-clamp-1 font-medium px-2 pt-0.5">
                   {detail.meanings.join(', ')}
                 </p>
               )}
@@ -94,10 +115,10 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             <div
               onClick={() => onInspect(item)}
               className="relative w-full aspect-square max-w-[170px] sm:max-w-[190px] bg-white rounded-2xl border-2 border-slate-100 p-2 shadow-inner flex items-center justify-center cursor-pointer hover:border-teal-300 transition-colors overflow-hidden group/box"
-              title={`Click để xem hoạt ảnh vẽ nét và tra nghĩa chữ ${item.kanji}`}
+              title={`Click để xem hoạt ảnh vẽ nét chữ ${item.kanji}`}
             >
-              {/* Lưới ô chữ điền nếu bật Kèm lưới */}
-              {showGrid && <KanjiGridOverlay />}
+              {/* Lưới ô nét đứt mảnh */}
+              {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
 
               <img
                 src={item.svgUrl}
@@ -107,26 +128,26 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
               />
               <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/box:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-2xs">
                 <span className="bg-white/95 text-slate-800 font-bold text-xs px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 border border-slate-200">
-                  <PlayCircle className="w-3.5 h-3.5 text-teal-600" /> Hoạt ảnh nét
+                  <PlayCircle className="w-3.5 h-3.5 text-teal-600" /> Xem nét
                 </span>
               </div>
             </div>
 
-            {/* Bottom Actions without extra emojis */}
+            {/* Bottom Actions */}
             <div className="w-full space-y-2 pt-1">
               <button
                 onClick={() => onInspect(item)}
-                className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[38px]"
+                className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[36px]"
               >
                 <PlayCircle className="w-3.5 h-3.5 text-teal-600" />
-                <span>Hoạt ảnh & Tra nghĩa</span>
+                <span>Xem hoạt ảnh nét</span>
               </button>
 
               <div className="w-full flex items-center gap-2">
                 <button
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 min-h-[38px] ${
+                  className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 min-h-[36px] ${
                     isCopied
                       ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                       : isCopying
@@ -137,12 +158,12 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
                   {isCopied ? (
                     <>
                       <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Đã sao chép!</span>
+                      <span>Đã chép!</span>
                     </>
                   ) : isCopying ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200" />
-                      <span>Đang xuất...</span>
+                      <span>Đang tạo...</span>
                     </>
                   ) : (
                     <>
@@ -154,10 +175,10 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
 
                 <button
                   onClick={() => onDownloadPng(item)}
-                  className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
+                  className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                   title="Tải ảnh PNG về máy"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
