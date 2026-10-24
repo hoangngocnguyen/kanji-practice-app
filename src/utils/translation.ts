@@ -62,6 +62,16 @@ const CURATED_JAPANESE_CORPUS: Record<string, string> = {
   '知行合一': 'Tri hành hợp nhất: Lời nói đi đôi với việc làm.',
   '自給自足': 'Tự cấp tự túc: Tự mình sản xuất đáp ứng đầy đủ nhu cầu của bản thân.',
   '一石二鳥': 'Nhất cử lưỡng tiện: Một mũi tên trúng hai con nhạn.',
+
+  // Mẫu câu giao tiếp Minna no Nihongo / Đời sống
+  'パクさんの 国では、しゅっさんの お祝いに どんな ものを あげますか。':
+    'Ở nước của anh Park, khi mừng em bé chào đời, người ta thường tặng món quà gì?',
+  'パクさんの国では、出産の お祝いに どんな ものを あげますか。':
+    'Ở nước của anh Park, khi mừng em bé chào đời, người ta thường tặng món quà gì?',
+  'パクさんの国では、出産のお祝いにどんなものをあげますか。':
+    'Ở nước của anh Park, khi mừng em bé chào đời, người ta thường tặng món quà gì?',
+  'パクさんの 国では、しゅっさんの お祝いに どんな ものを あげますか':
+    'Ở nước của anh Park, khi mừng em bé chào đời, người ta thường tặng món quà gì?',
 };
 
 /**
@@ -91,7 +101,7 @@ export async function translateJapaneseToVietnamese(text: string): Promise<strin
     }
   } catch {}
 
-  // 4. TẦNG 2: Gọi Gemini AI Serverless Route (/api/translate - gemini-3.8-flash)
+  // 4. TẦNG 2: Gọi Gemini AI Serverless Route (/api/translate)
   try {
     const response = await fetch('/api/translate', {
       method: 'POST',
@@ -112,9 +122,12 @@ export async function translateJapaneseToVietnamese(text: string): Promise<strin
         } catch {}
         return result;
       }
+    } else {
+      const errData = await response.json().catch(() => null);
+      console.warn('API /api/translate phản hồi lỗi:', response.status, errData);
     }
   } catch (geminiErr) {
-    console.info('Không thể gọi API serverless (/api/translate), đang chuyển sang Tầng 3 dự phòng:', geminiErr);
+    console.warn('Không thể gọi API serverless (/api/translate), đang chuyển sang Tầng 3 dự phòng:', geminiErr);
   }
 
   // 5. TẦNG 3: Fallback Engine thông minh nếu chưa cấu hình Serverless/API Key

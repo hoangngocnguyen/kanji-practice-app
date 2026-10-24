@@ -14,8 +14,14 @@ async function startServer() {
   app.use(express.json());
 
   // Server-side translation route powered by Gemini AI
-  app.post('/api/translate', (req, res) => {
-    translateHandler(req, res);
+  app.all('/api/translate', async (req, res) => {
+    try {
+      await translateHandler(req, res);
+    } catch (err: any) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message || 'Lỗi server dịch thuật' });
+      }
+    }
   });
 
   if (process.env.NODE_ENV === 'production') {
