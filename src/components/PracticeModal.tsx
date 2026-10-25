@@ -9,7 +9,8 @@ import {
   BookOpen,
   PlayCircle,
   PenTool,
-  Sparkles
+  Sparkles,
+  Layers3
 } from 'lucide-react';
 import { KanjiItem, KanjiDetail } from '../types/kanji';
 import { StrokeAnimation } from './StrokeAnimation';
@@ -17,6 +18,11 @@ import { getFullKanjiDetail } from '../utils/kanjiApi';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
+import { KanjiRadicalTree } from './KanjiRadicalTree';
+import { MnemonicStoryCard } from './MnemonicStoryCard';
+import { getKanjiDecomposition } from '../data/radicalsData';
+import { fetchAndDecomposeKanji } from '../utils/kanjiSubElementParser';
+import { KanjiDecomposition } from '../types/radical';
 
 interface PracticeModalProps {
   item: KanjiItem | null;
@@ -25,9 +31,10 @@ interface PracticeModalProps {
   onClose: () => void;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
+  onSelectKanji?: (char: string) => void;
 }
 
-type TabType = 'animation' | 'dictionary' | 'practice';
+type TabType = 'animation' | 'dictionary' | 'radicals' | 'practice';
 
 export const PracticeModal: React.FC<PracticeModalProps> = ({
   item,
@@ -36,9 +43,11 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   onClose,
   onCopyImage,
   onDownloadPng,
+  onSelectKanji,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('animation');
   const [detail, setDetail] = useState<KanjiDetail | null>(null);
+  const [decomposition, setDecomposition] = useState<KanjiDecomposition | null>(null);
 
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -70,6 +79,27 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       isMounted = false;
     };
   }, [item]);
+
+  useEffect(() => {
+    if (!item) return;
+
+    let isMounted = true;
+    // Set immediate initial local fallback
+    setDecomposition(getKanjiDecomposition(item.kanji, detail?.hanViet));
+
+    // Fetch full KanjiVG SVG decomposition online for 100% complete coverage
+    fetchAndDecomposeKanji(item.kanji, detail?.hanViet)
+      .then((res) => {
+        if (isMounted) {
+          setDecomposition(res);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [item, detail?.hanViet]);
 
   useEffect(() => {
     if (!item) return;
@@ -160,7 +190,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header with Kanji & Sino-Vietnamese Reading */}
@@ -207,10 +237,10 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
         </div>
 
         {/* Tab Navigation with color indicators */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold">
+        <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('animation')}
-            className={`flex-1 py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               activeTab === 'animation'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
@@ -223,7 +253,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
           <button
             onClick={() => setActiveTab('dictionary')}
-            className={`flex-1 py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               activeTab === 'dictionary'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
@@ -235,8 +265,21 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('radicals')}
+            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'radicals'
+                ? 'bg-cyan-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers3 className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span className="hidden sm:inline">Bộ thủ & Mẹo nhớ</span>
+            <span className="sm:hidden text-[11px]">Bộ thủ</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('practice')}
-            className={`flex-1 py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               activeTab === 'practice'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
@@ -396,6 +439,27 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                   Tra cứu Jisho.org <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
+            </div>
+          )}
+
+          {/* TAB 3: RADICALS & MNEMONIC DECOMPOSITION */}
+          {activeTab === 'radicals' && (
+            <div className="space-y-4">
+              {decomposition ? (
+                <>
+                  <KanjiRadicalTree
+                    decomposition={decomposition}
+                    onSelectKanji={(k) => {
+                      if (onSelectKanji) onSelectKanji(k);
+                    }}
+                  />
+                  <MnemonicStoryCard decomposition={decomposition} />
+                </>
+              ) : (
+                <div className="py-12 text-center text-slate-400 text-xs animate-pulse">
+                  Đang bóc tách đầy đủ cấu trúc bộ thủ cho chữ {item.kanji}...
+                </div>
+              )}
             </div>
           )}
 

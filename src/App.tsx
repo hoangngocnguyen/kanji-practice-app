@@ -31,6 +31,7 @@ import { LicenseModal } from './components/LicenseModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
 import { KanjiPrintSheet } from './components/KanjiPrintSheet';
 import { UserGuideModal } from './components/UserGuideModal';
+import { RadicalExplorer } from './components/RadicalExplorer';
 
 export default function App() {
   // Input text state
@@ -67,6 +68,9 @@ export default function App() {
 
   // User Guide / Tutorial Modal state
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+
+  // 214 Kangxi Radicals Explorer Modal state
+  const [isRadicalsOpen, setIsRadicalsOpen] = useState<boolean>(false);
 
   // Auto-show guide modal for first-time visitors
   useEffect(() => {
@@ -358,6 +362,7 @@ export default function App() {
         kanjiCount={extractedKanjiList.length}
         historyCount={recentlyViewed.length}
         onOpenGuide={() => setIsGuideOpen(true)}
+        onOpenRadicals={() => setIsRadicalsOpen(true)}
         onOpenHistory={() => {
           const el = document.getElementById('recently-viewed-section');
           if (el) {
@@ -651,7 +656,18 @@ export default function App() {
         onClose={() => setInspectedKanji(null)}
         onCopyImage={handleCopyImage}
         onDownloadPng={handleDownloadPng}
+        onSelectKanji={(char) => handleSelectRecentKanji(char)}
       />
+
+      {/* 214 Radical Explorer Modal */}
+      {isRadicalsOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <RadicalExplorer
+            onSelectKanji={(char) => handleSelectRecentKanji(char)}
+            onClose={() => setIsRadicalsOpen(false)}
+          />
+        </div>
+      )}
 
       {/* OCR Scanner Modal */}
       <KanjiScannerModal

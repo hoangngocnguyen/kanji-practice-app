@@ -31,22 +31,28 @@ Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji
 - Tự động lọc các ký tự Kanji từ hình ảnh và áp dụng trực tiếp vào ô nhập liệu hoặc thanh tìm kiếm.
 
 ### 5. ✍️ Hoạt ảnh thứ tự nét vẽ (Stroke Animation)
-- Mô phỏng quá trình viết chữ từng nét tự nhiên với dữ liệu vector vector chuẩn xác từ KanjiVG.
+- Mô phỏng quá trình viết chữ từng nét tự nhiên với dữ liệu vector chuẩn xác từ KanjiVG.
 - **Vẽ liên tục (Auto-loop mode):** Tự động vẽ từ nét đầu đến nét cuối, dừng nghỉ ngắn để người dùng ngắm chữ hoàn chỉnh, sau đó tự động lặp lại từ nét 1.
 - Trình điều khiển hoạt ảnh linh hoạt: Phát / Tạm dừng / Phát lại / Tua từng nét / Thay đổi tốc độ phát (0.5x - 2.0x) / Bật tắt số nét và lưới ô.
 - Phát âm tiếng Nhật chuẩn bản xứ cho từng chữ Kanji qua Web Speech API.
 
-### 6. 🖨️ Bảng in A4 chuyên nghiệp (Kanji Practice Worksheet)
+### 6. 🌳 Phân tích Bộ thủ Đa thành phần & Mẹo nhớ Kanji (Radical Breakdown & Mnemonics)
+- **Sơ đồ cây bóc tách bộ thủ (Multi-Component Radical Tree):** Bóc tách chính xác 100% tất cả các bộ thủ cấu thành của 6.000+ Kanji (như 能, 語, 働, 警, 躍, 鬱, 愛, 議, 新, 親...) với nhãn vị trí Hán học (*Hen - Bên trái*, *Tsukuri - Bên phải*, *Kanmuri - Phía trên*, *Ashi - Phía dưới*, *Kamae - Bao quanh*...).
+- **Tự động bóc tách từ KanjiVG SVG XML:** Tự động tải và phân tích cây thẻ XML SVG để trích xuất 100% các cấu phần nhỏ bên trong bất kỳ chữ Hán nào.
+- **Mẹo nhớ thông minh (Mnemonic Stories):** Tự động ghép nối ý nghĩa từ các bộ thủ cấu thành thành câu chuyện ghi nhớ sâu sắc, hỗ trợ người dùng tự chỉnh sửa và lưu trữ riêng trên thiết bị (`localStorage`).
+- **Tra cứu 214 Bộ thủ Khang Hy (214 Kangxi Radical Explorer):** Bảng tổng hợp 214 bộ thủ Khang Hy lọc theo số nét (1-17 nét) và tìm kiếm họ Kanji liên quan.
+
+### 7. 🖨️ Bảng in A4 chuyên nghiệp (Kanji Practice Worksheet)
 - Tối ưu hóa chuyên dụng cho in ấn (`@media print`) hoặc lưu file PDF:
   - Tự động ẩn toàn bộ giao diện web thừa (thanh công cụ, ô nhập liệu dài dòng, nút bấm).
-  - Trình bày dạng bảng in chuẩn A4 không bao giờ bị cắt rách chữ giữa 2 trang (`page-break-inside: avoid`).
+  - Trình trình bày dạng bảng in chuẩn A4 không bao giờ bị cắt rách chữ giữa 2 trang (`page-break-inside: avoid`).
   - Bao gồm: STT, Kanji to rõ nét + Hiragana + Hán-Việt + JLPT, sơ đồ nét vẽ, âm On/Kun và **4 ô kẻ chữ điền (Genkouyoushi)** có nét đứt chữ thập `+` để người học tự tay cầm bút luyện viết chữ đẹp.
 
-### 7. 📋 Xuất dữ liệu & Tạo thẻ Anki
+### 8. 📋 Xuất dữ liệu & Tạo thẻ Anki
 - **Chép ảnh nét vẽ có nền trắng và lưới ô:** Chuyển đổi SVG sang PNG độ phân giải 600×600px sắc nét với 1 cú click để dán vào Anki, Notion, Word, GoodNotes.
 - **Xuất file CSV:** Định dạng chuẩn sẵn sàng nhập trực tiếp vào phần mềm Anki (gồm STT, Kanji, Hán-Việt, On, Kun, Nghĩa, JLPT, URL ảnh).
 
-### 8. 🎨 Giao diện & Nút bấm trực quan
+### 9. 🎨 Giao diện & Nút bấm trực quan
 - Hệ thống màu sắc phân tách rõ rệt:
   - **Nút Bật/Tắt (Toggle):** Phân biệt rõ trạng thái **`✓ BẬT`** (nền xanh viền đậm) và **`○ TẮT`** (nền xám viền nhạt).
   - **Nút Hành động:** Phân biệt rõ giữa trạng thái sẵn sàng và trạng thái vô hiệu hóa (`disabled`).

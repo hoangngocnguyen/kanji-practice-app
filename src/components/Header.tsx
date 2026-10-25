@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, History, HelpCircle } from 'lucide-react';
+import { Printer, History, HelpCircle, Layers3 } from 'lucide-react';
 
 interface HeaderProps {
   onPrint: () => void;
@@ -7,6 +7,7 @@ interface HeaderProps {
   historyCount: number;
   onOpenHistory: () => void;
   onOpenGuide: () => void;
+  onOpenRadicals: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   historyCount,
   onOpenHistory,
   onOpenGuide,
+  onOpenRadicals,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
@@ -43,6 +45,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right utility actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Radicals Explorer Button */}
+          <button
+            onClick={onOpenRadicals}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-cyan-900 bg-cyan-50 hover:bg-cyan-100 hover:border-cyan-300 border border-cyan-200/80 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[38px]"
+            title="Tra cứu 214 Bộ thủ Khang Hy & Phân tích cấu trúc Kanji"
+          >
+            <Layers3 className="w-4 h-4 text-cyan-600 shrink-0" />
+            <span className="hidden sm:inline">214 Bộ thủ</span>
+          </button>
+
           {/* Guide / Tutorial button */}
           <button
             onClick={onOpenGuide}
@@ -87,4 +99,5 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
 

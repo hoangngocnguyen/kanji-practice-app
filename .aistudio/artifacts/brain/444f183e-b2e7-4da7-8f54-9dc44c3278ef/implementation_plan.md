@@ -1,87 +1,86 @@
-# Interactive App Guide & Feature Walkthrough Modal
+# Advanced Multi-Component Kanji Decomposition Plan
 
-This feature adds a dedicated **Help / User Guide icon button (`?`)** in the application header and an **Interactive Feature Guide Modal** to help new and existing users easily discover and master all capabilities of the Kanji Stroke Order Tool (tra cứu nét vẽ Kanji, tách lọc chữ Hán, chép ảnh Kanji sang Clipboard cho Anki, xuất CSV, dịch thuật tự động).
+Kế hoạch nâng cấp toàn diện **Bộ máy Phân tách Bộ thủ Kanji Đa thành phần (Multi-Component Kanji Decomposition Engine)**, giải quyết triệt để vấn đề các chữ Kanji phức tạp (như 能, 警, 躍, 鬱, 語, 働...) bị thiếu bộ thủ hoặc chỉ hiển thị 1 thành phần đơn lẻ.
 
 ---
 
 ## User Review & Critical Decisions
 
-> [!IMPORTANT]
-> Below are the proposed design choices for the User Guide feature. You can review them in the Plan Approval Curtain and click **Proceed** to build or provide feedback if you want to tweak anything.
+> [!IMPORTANT] Giải pháp kỹ thuật được xác nhận dựa trên phản hồi và ảnh chụp màn hình từ người dùng:
 
-* **Trigger Button**: A clean, accessible `?` help button placed in the top header right next to the title/actions.
-* **Modal Structure**: Tabbed modal dialogue split into 4 key learning topics:
-  1. 🖋️ **Tra cứu & Nét vẽ Kanji** (How to search, filter Kanji, and view animated stroke order).
-  2. 📋 **Sao chép ảnh Kanji sang Anki / Word** (How to copy transparent SVG/PNG stroke images directly to clipboard).
-  3. 📑 **Xuất CSV & Quản lý bộ thẻ** (How to export flashcard sets to Anki / Obsidian).
-  4. 🌐 **Dịch thuật & Tra từ Hán Việt** (How to look up meanings, ON/KUN readings, and auto-translate sentences).
-* **Interactive Tooltips & Step Highlights**: Includes visual preview animations/screenshots of key buttons so users learn exactly where to click.
-* **First-Time Welcome Option**: Remembers if the user has seen the guide in `localStorage` with an option to reopen anytime via the header icon.
+- **Vấn đề thực tế (từ ảnh chụp chữ 能)**: Chữ 能 (NĂNG) gồm có bộ **月** (Nguyệt/Nhục - Bên trái), bộ **厶** (Tư - Giữa trên) và 2 bộ **匕** (Chủy - Bên phải). Thuật toán cũ chỉ nhận diện được 1 bộ đại diện (月), thiếu mất các bộ bên phải.
+- **Thuật toán nâng cấp (Multi-Radical Extractor)**:
+  1. Xây dựng cơ sở dữ liệu bóc tách đa thành phần chuẩn hóa (`FULL_KANJI_DECOMPOSITIONS`) phủ toàn bộ từ vựng JLPT N5, N4, N3, N2, N1.
+  2. Tích hợp bộ bóc tách KanjiVG Sub-element: đọc các thẻ `<g kvg:element="...">` và `<g kvg:original="...">` từ mã nguồn SVG KanjiVG để tự động trích xuất tất cả các bộ thủ bên trái, bên phải, trên, dưới, bao quanh của bất kỳ chữ Kanji nào.
+- **Mẹo nhớ thông minh tự động (Auto-Generated Mnemonic)**: Tự động ghép nối ý nghĩa tất cả các bộ thủ bóc tách thành một câu chuyện hoàn chỉnh, hỗ trợ sửa đổi theo sở thích cá nhân.
 
 ---
 
 ## 1. Overview & Core Concept
 
-* **Goal**: Provide an intuitive visual guide (styled like game tutorial modals / quick-start guides) that teaches users how to leverage all advanced features of the tool.
-* **Target Audience**: Japanese language learners (JLPT N5-N1), Anki card creators, and teachers copying Kanji stroke order images into lesson plans.
-* **Value Delivered**: Eliminates confusion about how to export to Anki, copy transparent Kanji images, or toggle readings.
+- **Mục tiêu**: Bóc tách chính xác 100% tất cả các bộ thủ cấu thành nên một chữ Kanji (dù chữ đó có 2, 3, 4 hay 5+ bộ thủ nhỏ kết hợp).
+- **Ví dụ phân tách thực tế**:
+  - **能 (NĂNG)** ➔ **月** (Nguyệt/Nhục - Trái) + **厶** (Tư - Giữa) + **匕** (Chủy - Trên phải) + **匕** (Chủy - Dưới phải).
+  - **語 (NGỮ)** ➔ **言** (Ngôn - Trái) + **五** (Ngũ - Trên) + **口** (Khẩu - Dưới).
+  - **働 (ĐỘNG)** ➔ **亻** (Nhân - Trái) + **重** (Trọng - Giữa) + **力** (Lực - Phải).
+  - **愛 (ÁI)** ➔ **爪** (Trảo - Trên) + **冖** (Mịch - Giữa) + **心** (Tâm - Trung tâm) + **夂** (Truy - Dưới).
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Key User Flow
-1. **Discoverability**: User notices a quiet, styled `?` (Help / Hướng dẫn) icon button on the top right header.
-2. **Modal Open**: Clicking the button opens a clean, animated modal overlay (`AnimatePresence` / smooth backdrop blur).
-3. **Tabbed Navigation**: Users can switch between 4 interactive tabs (General Overview, Kanji Stroke Copying, Anki CSV Export, AI Translation).
-4. **Visual Highlights**: Each tab displays step-by-step illustrations, interactive button simulations, and tips (e.g., "Mẹo: Bấm 'Chép ảnh' để dán trực tiếp vào Anki bằng Ctrl+V").
-5. **Quick Dismiss**: Escape key, backdrop click, or "Đã hiểu!" button closes the modal smoothly.
+### A. Dynamic Tree Layout cho Kanji nhiều nét
 
-### Visual Identity & Theme
-* **Modal Backdrop**: Soft translucent dark overlay (`bg-slate-900/40 backdrop-blur-sm`).
-* **Container**: Light clean slate background (`bg-white dark:bg-slate-900`), rounded corners (`rounded-2xl`), subtle border (`border border-slate-200 dark:border-slate-800`).
-* **Active Tab Accent**: Red indigo badge (`bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 font-medium`).
-* **Typography**: Clean hierarchy with `Plus Jakarta Sans` display headings and subtle metadata separators.
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   SƠ ĐỒ BÓC TÁCH ĐẦY ĐỦ CHO CHỮ 能 (NĂNG)                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                                [Chữ Kanji: 能]                              │
+│                                       │                                     │
+│         ┌─────────────────┬───────────┴───────────┬─────────────────┐       │
+│         ▼                 ▼                       ▼                 ▼       │
+│   ┌───────────┐     ┌───────────┐           ┌───────────┐     ┌───────────┐ │
+│   │ 月 (NGUYỆT)│     │ 厶 (TƯ)   │           │ 匕 (CHỦY) │     │ 匕 (CHỦY) │ │
+│   │ Bên trái  │     │ Giữa trên │           │ Trên phải │     │ Dưới phải │ │
+│   │ 4 nét     │     │ 2 nét     │           │ 2 nét     │     │ 2 nét     │ │
+│   └───────────┘     └───────────┘           └───────────┘     └───────────┘ │
+│                                                                             │
+│  💡 Mẹo nhớ:                                                               │
+│  "Dùng sức mạnh cơ thể (thịt 月) gạt bỏ tư lợi (厶), cầm 2 cái thìa (匕 匕) │
+│   thể hiện NĂNG LỰC (能) thực sự."                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### B. Cải tiến giao diện Sơ đồ cây (KanjiRadicalTree)
+- Tự động căn chỉnh khoảng cách các node khi Kanji có 3, 4 hoặc 5 bộ thủ cấu thành.
+- Mỗi node hiển thị rõ ràng: Ký tự bộ thủ, Tên Hán Việt, Số nét, Vị trí (Trái, Phải, Trên, Dưới, Trong, Ngoài) và Ý nghĩa ngắn gọn.
 
 ---
 
-## 3. Technical Architecture & Component Structure
+## 3. Technical Architecture & Implementation Strategy
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                              App Header                                │
-│  [ Kanji Stroke Tool ]                   [ 🌙 Mode ]  [ ❓ Hướng dẫn ] │
-└─────────────────────────────────────────────┬──────────────────────────┘
-                                              │ Click
-                                              ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                        User Guide Modal Overlay                        │
-│ ┌────────────────────────────────────────────────────────────────────┐ │
-│ │  📖 Hướng Dẫn Sử Dụng                                          [X] │ │
-│ ├────────────────────────────────────────────────────────────────────┤ │
-│ │  [ 1. Tra cứu ]  [ 2. Chép ảnh Anki ]  [ 3. Xuất CSV ]  [ 4. Dịch ] │ │
-│ ├────────────────────────────────────────────────────────────────────┤ │
-│ │                                                                    │ │
-│ │  📌 Bước 1: Nhập đoạn văn bản hoặc từ Kanji bất kỳ                 │ │
-│ │  📌 Bước 2: Nhấn vào ô Kanji để xem từng nét thứ tự vẽ              │ │
-│ │  📌 Bước 3: Bấm "Sao chép ảnh" để dán trực tiếp vào Anki            │ │
-│ │                                                                    │ │
-│ │  💡 Mẹo nhỏ: Bạn có thể bật/tắt Hiragana & Nghĩa ở Section 2        │ │
-│ ├────────────────────────────────────────────────────────────────────┤ │
-│ │                              [ Đã hiểu! ]                          │ │
-│ └────────────────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────────┘
+### A. KanjiVG SVG Sub-element Parser
+Đọc trực tiếp dữ liệu SVG KanjiVG để bóc tách các nguyên tố chữ Hán mà không phụ thuộc vào từ điển tĩnh:
+
+```typescript
+// Trích xuất các element từ thẻ g của KanjiVG SVG
+export function parseKanjiVGSubElements(svgContent: string): RadicalComponent[] {
+  // Parse <g kvg:element="月" kvg:position="left">...
+  // Parse <g kvg:element="厶" kvg:position="top">...
+  // Parse <g kvg:element="匕" kvg:position="right">...
+}
 ```
 
-### Components to Create / Update:
-1. `src/components/UserGuideModal.tsx`: The main interactive walkthrough modal with tabs, step descriptions, and visual tips.
-2. `src/components/Header.tsx` (or `App.tsx` Header zone): Add the Help `?` icon button with subtle hover animation and tooltip.
-3. `src/App.tsx`: Manage `isGuideOpen` state and `localStorage` first-time visitor check.
+### B. Mở rộng cơ sở dữ liệu `FULL_KANJI_DECOMPOSITIONS`
+Cập nhật dữ liệu phân tách đa thành phần chuẩn xác cho hàng trăm Kanji thông dụng trong chương trình học JLPT.
 
 ---
 
-## 4. Verification Plan
+## Plan Implementation Steps
 
-1. **Compilation & Syntax**: Run `compile_applet` and `lint_applet` to ensure TypeScript zero errors.
-2. **Responsiveness**: Verify modal rendering on both mobile (full-screen touch optimized) and desktop viewports.
-3. **Accessibility**: Esc key closes modal, aria-labels on trigger button and tabs.
+1. **Cập nhật `src/data/radicalsData.ts`**: Thêm bộ phân tách đa thành phần cho chữ 能, 警, 躍, 鬱, 語, 働, 話, 読, 試, 験, 学, 校, 食, 飲, 男, 女, 愛, 思, 想, 朝, 電, 車, 家, 國... và nâng cấp hàm `getKanjiDecomposition`.
+2. **Xây dựng `src/utils/kanjiSubElementParser.ts`**: Bộ bóc tách tự động KanjiVG Sub-Elements từ file SVG.
+3. **Nâng cấp `KanjiRadicalTree.tsx`**: Hỗ trợ hiển thị từ 2 đến 6 node con mượt mà, căn chỉnh connector lines chuẩn xác.
+4. **Cập nhật `MnemonicStoryCard.tsx`**: Tự động sinh mẹo nhớ thông minh từ tất cả các bộ thủ được bóc tách.
+5. **Kiểm tra build & linting**: Chạy `lint_applet` và `compile_applet` xác minh không lỗi.
