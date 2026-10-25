@@ -74,63 +74,141 @@ const CURATED_JAPANESE_CORPUS: Record<string, string> = {
     'Ở nước của anh Park, khi mừng em bé chào đời, người ta thường tặng món quà gì?',
 };
 
+export type TranslationEngine = 'google' | 'gemini';
+
+export interface TranslationResult {
+  text: string;
+  engine: TranslationEngine;
+  source: string;
+}
+
 /**
- * Dịch văn bản tiếng Nhật sang tiếng Việt với cơ chế 3 tầng
+ * Dịch văn bản tiếng Nhật sang tiếng Việt với Google Dịch (mặc định) hoặc Gemini AI
  */
-export async function translateJapaneseToVietnamese(text: string): Promise<string> {
+export async function translateJapaneseToVietnamese(
+  text: string,
+  engine: TranslationEngine = 'google'
+): Promise<string> {
+  const result = await translateWithDetails(text, engine);
+  return result.text;
+}
+
+/**
+ * Dịch văn bản kèm thông tin nguồn công nghệ (Google Dịch / Gemini AI)
+ */
+export async function translateWithDetails(
+  text: string,
+  engine: TranslationEngine = 'google'
+): Promise<TranslationResult> {
   const trimmed = text.trim();
-  if (!trimmed) return '';
+  if (!trimmed) {
+    return { text: '', engine, source: 'Empty' };
+  }
 
   // 1. TẦNG 1: Kiểm tra Curated Corpus trau chuốt (0ms, chuẩn 100%)
   if (CURATED_JAPANESE_CORPUS[trimmed]) {
-    return CURATED_JAPANESE_CORPUS[trimmed];
+    return {
+      text: CURATED_JAPANESE_CORPUS[trimmed],
+      engine: 'google',
+      source: 'Từ điển mẫu chuẩn ngữ cảnh',
+    };
   }
 
+  const cacheKey = `${engine}_${trimmed}`;
+
   // 2. Kiểm tra bộ nhớ đệm Memory Cache
-  if (translationCache.has(trimmed)) {
-    return translationCache.get(trimmed)!;
+  if (translationCache.has(cacheKey)) {
+    return {
+      text: translationCache.get(cacheKey)!,
+      engine,
+      source: engine === 'google' ? 'Google Dịch (Bộ nhớ đệm)' : 'Gemini AI (Bộ nhớ đệm)',
+    };
   }
 
   // 3. Kiểm tra LocalStorage Cache
   try {
-    const localKey = `kanji_trans_v2_${trimmed.slice(0, 32)}_${trimmed.length}`;
+    const localKey = `kanji_trans_v3_${engine}_${trimmed.slice(0, 32)}_${trimmed.length}`;
     const cached = localStorage.getItem(localKey);
     if (cached) {
-      translationCache.set(trimmed, cached);
-      return cached;
+      translationCache.set(cacheKey, cached);
+      return {
+        text: cached,
+        engine,
+        source: engine === 'google' ? 'Google Dịch (Bộ nhớ đệm)' : 'Gemini AI (Bộ nhớ đệm)',
+      };
     }
   } catch {}
 
-  // 4. TẦNG 2: Gọi Gemini AI Serverless Route (/api/translate)
+  // 4. TẦNG 2: Gọi Serverless API (/api/translate)
   try {
     const response = await fetch('/api/translate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text: trimmed }),
+      body: JSON.stringify({ text: trimmed, engine }),
     });
 
     if (response.ok) {
       const data = await response.json();
       if (data?.translatedText) {
         const result = data.translatedText.trim();
-        translationCache.set(trimmed, result);
+        const activeEngine: TranslationEngine = data.engine === 'gemini' ? 'gemini' : 'google';
+        const sourceLabel = data.source || (activeEngine === 'google' ? 'Google Dịch' : 'Gemini AI');
+
+        translationCache.set(cacheKey, result);
         try {
-          const localKey = `kanji_trans_v2_${trimmed.slice(0, 32)}_${trimmed.length}`;
+          const localKey = `kanji_trans_v3_${engine}_${trimmed.slice(0, 32)}_${trimmed.length}`;
           localStorage.setItem(localKey, result);
         } catch {}
-        return result;
+
+        return {
+          text: result,
+          engine: activeEngine,
+          source: sourceLabel,
+        };
       }
     } else {
       const errData = await response.json().catch(() => null);
-      console.warn('API /api/translate phản hồi lỗi:', response.status, errData);
+      console.warn('API /api/translate phản hồi cảnh báo:', response.status, errData);
     }
-  } catch (geminiErr) {
-    console.warn('Không thể gọi API serverless (/api/translate), đang chuyển sang Tầng 3 dự phòng:', geminiErr);
+  } catch (apiErr) {
+    console.warn('Không thể gọi API /api/translate, chuyển sang gọi trực tiếp client-side:', apiErr);
   }
 
-  // 5. TẦNG 3: Fallback Engine thông minh nếu chưa cấu hình Serverless/API Key
+  // 5. TẦNG 3: Gọi trực tiếp Google Translate GTX từ trình duyệt (Nhanh ~150ms, không phụ thuộc server)
+  try {
+    const gtxUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(trimmed)}`;
+    const googleRes = await fetch(gtxUrl);
+    if (googleRes.ok) {
+      const gData = await googleRes.json();
+      if (Array.isArray(gData) && Array.isArray(gData[0])) {
+        const directResult = gData[0]
+          .map((chunk: any) => (chunk && chunk[0] ? chunk[0] : ''))
+          .filter(Boolean)
+          .join('')
+          .trim();
+
+        if (directResult) {
+          translationCache.set(cacheKey, directResult);
+          try {
+            const localKey = `kanji_trans_v3_${engine}_${trimmed.slice(0, 32)}_${trimmed.length}`;
+            localStorage.setItem(localKey, directResult);
+          } catch {}
+
+          return {
+            text: directResult,
+            engine: 'google',
+            source: 'Google Dịch (Trực tiếp)',
+          };
+        }
+      }
+    }
+  } catch (directErr) {
+    console.warn('Direct Google Translate gặp lỗi, thử tầng MyMemory dự phòng:', directErr);
+  }
+
+  // 6. TẦNG 4: Fallback MyMemory dịch máy dự phòng
   try {
     const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=ja|vi`;
     const res = await fetch(url);
@@ -139,7 +217,6 @@ export async function translateJapaneseToVietnamese(text: string): Promise<strin
 
     if (data?.responseData?.translatedText) {
       let translated = data.responseData.translatedText;
-      // Dọn dẹp ký tự HTML escape nếu có
       translated = translated
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
@@ -147,13 +224,12 @@ export async function translateJapaneseToVietnamese(text: string): Promise<strin
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>');
 
-      translationCache.set(trimmed, translated);
-      try {
-        const localKey = `kanji_trans_v2_${trimmed.slice(0, 32)}_${trimmed.length}`;
-        localStorage.setItem(localKey, translated);
-      } catch {}
-
-      return translated;
+      translationCache.set(cacheKey, translated);
+      return {
+        text: translated,
+        engine: 'google',
+        source: 'Dịch máy dự phòng (MyMemory)',
+      };
     }
   } catch (err: any) {
     console.warn('Lỗi tầng dự phòng:', err);

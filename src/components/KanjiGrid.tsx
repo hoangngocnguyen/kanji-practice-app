@@ -140,25 +140,25 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             </div>
 
             {/* Bottom Actions */}
-            <div className="w-full space-y-2 pt-1">
+            <div className="w-full space-y-1.5 pt-1">
               <button
                 onClick={() => onInspect(item)}
-                className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[36px]"
+                className="w-full py-1.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[32px] sm:min-h-[36px]"
               >
                 <PlayCircle className="w-3.5 h-3.5 text-teal-600" />
                 <span>Xem hoạt ảnh nét</span>
               </button>
 
-              <div className="w-full flex items-center gap-2">
+              <div className="w-full flex items-center gap-1.5 sm:gap-2">
                 <button
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 min-h-[36px] ${
+                  className={`flex-1 py-1.5 px-2 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[32px] sm:min-h-[36px] ${
                     isCopied
                       ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                       : isCopying
                       ? 'bg-teal-100 text-teal-900'
-                      : 'bg-teal-700 hover:bg-teal-800 text-white hover:shadow-sm shadow-teal-900/15'
+                      : 'bg-teal-700 hover:bg-teal-800 text-white hover:shadow-xs shadow-teal-900/15'
                   }`}
                 >
                   {isCopied ? (
@@ -181,7 +181,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
 
                 <button
                   onClick={() => onDownloadPng(item)}
-                  className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-colors min-h-[32px] min-w-[32px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center"
                   title="Tải ảnh PNG về máy"
                 >
                   <Download className="w-3.5 h-3.5" />

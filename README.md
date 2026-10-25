@@ -70,10 +70,12 @@ Dự án sử dụng và tích hợp các tài nguyên, dịch vụ mở bên ng
 
 | Dịch vụ / Thư viện | Loại | Mục đích sử dụng | Giấy phép / Bản quyền |
 | :--- | :--- | :--- | :--- |
+| **[Google Translate (Google Dịch)](https://translate.google.com/)** | Dịch vụ Dịch thuật | Engine dịch thuật mặc định siêu tốc (~150ms), dịch câu giao tiếp Nhật - Việt tự nhiên, chuẩn nghĩa và không yêu cầu API key | Dịch vụ Google |
+| **[Gemini AI (@google/genai)](https://ai.google.dev/)** | LLM API Serverless | Phân tích và dịch thuật ngữ cảnh văn hóa sâu sắc với mô hình `gemini-2.5-flash` qua endpoint `/api/translate` | Google AI Studio / Gemini API Terms |
 | **[KanjiVG](https://github.com/KanjiVG/kanjivg)** | Dữ liệu Vector SVG | Cung cấp dữ liệu thứ tự từng nét vẽ vector XML/SVG cho hơn 6.000 chữ Kanji qua mạng phân phối jsDelivr CDN (`https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/{hex}.svg`) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) (Bản quyền Ulrich Apel) |
 | **[kanjiapi.dev](https://kanjiapi.dev/)** | REST API | Tra cứu thông tin chuyên sâu: âm Onyomi, Kunyomi, cấp độ JLPT, số nét cho từng chữ Hán | Miễn phí / Open Source |
 | **[Tesseract.js](https://tesseract.projectnaptha.com/)** | Thư viện OCR WebAssembly | Nhận diện ký tự quang học chữ Kanji từ hình ảnh tải lên hoặc ảnh dán từ clipboard (`Ctrl+V`) chạy 100% Client-side trong trình duyệt | [Apache-2.0 License](https://github.com/naptha/tesseract.js/blob/master/LICENSE) |
-| **[MyMemory Translation API](https://mymemory.translated.net/)** | Dịch vụ Dịch thuật REST API | Dịch toàn bộ câu / đoạn văn từ tiếng Nhật sang tiếng Việt (`https://api.mymemory.translated.net/get?q=...&langpair=ja|vi`) | Dịch vụ dịch thuật cộng đồng mở (Translated) |
+| **[MyMemory Translation API](https://mymemory.translated.net/)** | Dịch vụ Dịch thuật REST API | Tầng dịch máy dự phòng khi ngoại tuyến hoặc mất kết nối | Dịch vụ dịch thuật cộng đồng mở (Translated) |
 | **[Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)** | Web API chuẩn trình duyệt (W3C) | Tổng hợp giọng đọc tiếng Nhật bản xứ (`ja-JP`) để nghe phát âm chữ Kanji và cả câu | Tiêu chuẩn trình duyệt W3C |
 | **[HTML5 Ruby Annotation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/ruby)** | Tiêu chuẩn HTML5 W3C | Căn chỉnh và hiển thị ngữ âm Hiragana (Furigana) nằm ngay trên đầu chữ Kanji | Tiêu chuẩn web W3C |
 | **[Mazii Dictionary](https://mazii.net/)** | Liên kết tham chiếu từ điển | Cho phép mở rộng tra cứu ngữ cảnh chuyên sâu trên từ điển Mazii Việt - Nhật | Tham chiếu ngoài |

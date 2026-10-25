@@ -188,7 +188,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                 <button
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs min-h-[38px] ${
+                  className={`py-1.5 px-2.5 rounded-xl font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-2xs min-h-[34px] sm:min-h-[36px] ${
                     isCopied
                       ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                       : isCopying
@@ -217,7 +217,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
 
                 <button
                   onClick={() => onInspect(item)}
-                  className="py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200/80 min-h-[38px]"
+                  className="py-1.5 px-2.5 rounded-xl font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200/80 min-h-[34px] sm:min-h-[36px]"
                   title="Xem hoạt ảnh vẽ từng nét"
                 >
                   <PlayCircle className="w-3.5 h-3.5 text-teal-600" />

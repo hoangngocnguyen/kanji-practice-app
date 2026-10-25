@@ -374,12 +374,13 @@ export default function App() {
         {/* Kanji Stroke Order Section */}
         <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5">
           {/* STICKY TOOLBAR (Ghim ở đầu màn hình khi cuộn xem danh sách Kanji, không cần kéo lên xuống) */}
-          <div className="sticky top-2 z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md p-3 sm:p-4 space-y-3 transition-all">
+          <div className="sticky top-2 z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
             {/* Top row: Status info + Quick Scan + Scroll to top */}
-            <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <span className="font-bold text-slate-800 truncate">
-                  2. Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})
+                  <span className="sm:hidden">2. Tra cứu ({filteredKanjiList.length})</span>
+                  <span className="hidden sm:inline">2. Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})</span>
                 </span>
                 {extractedKanjiList.length > 0 && (
                   <span className="text-[10px] bg-teal-50 text-teal-800 font-semibold px-2 py-0.5 rounded-full border border-teal-200 shrink-0">
@@ -393,7 +394,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setIsScannerOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[30px] sm:min-h-[32px]"
                   title="Quét chữ Kanji từ ảnh hoặc dán ảnh chụp màn hình (Ctrl+V)"
                 >
                   <Camera className="w-3.5 h-3.5 text-teal-700" />
@@ -405,38 +406,38 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleScrollToTop}
-                  className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  className="p-1 sm:p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
                   title="Cuộn lên đầu trang"
                 >
-                  <ArrowUp className="w-4 h-4" />
+                  <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               </div>
             </div>
 
             {/* Live Ruby Furigana preview for Kanji typed in search or quick add */}
             {activeSearchKanji.length > 0 && (
-              <div className="flex items-center gap-2 overflow-x-auto py-1.5 px-3 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs transition-all">
-                <span className="text-[11px] font-semibold text-teal-900 shrink-0 flex items-center gap-1">
-                  <Languages className="w-3.5 h-3.5 text-teal-700" />
-                  Phiên âm & Nghĩa:
+              <div className="flex items-center gap-2 overflow-x-auto py-1 px-2.5 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs transition-all">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-teal-900 shrink-0 flex items-center gap-1">
+                  <Languages className="w-3 h-3 text-teal-700" />
+                  Phiên âm:
                 </span>
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                   {activeSearchKanji.map((item) => (
                     <div
                       key={item.kanji}
                       onClick={() => handleSelectRecentKanji(item.kanji)}
-                      className="inline-flex flex-col items-center gap-0.5 bg-white px-2 py-1 rounded-xl border border-teal-200 shadow-2xs cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
+                      className="inline-flex flex-col items-center gap-0.5 bg-white px-2 py-0.5 rounded-xl border border-teal-200 shadow-2xs cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
                       title="Nhấp để xem hoạt ảnh nét vẽ"
                     >
-                      <ruby className="font-kanji font-bold text-base text-slate-900 leading-none inline-flex flex-col items-center">
+                      <ruby className="font-kanji font-bold text-sm sm:text-base text-slate-900 leading-none inline-flex flex-col items-center">
                         {item.hiragana && (
-                          <rt className="text-[10px] font-semibold text-teal-700 font-sans pb-0.5 select-none">
+                          <rt className="text-[9px] font-semibold text-teal-700 font-sans pb-0.5 select-none">
                             {item.hiragana}
                           </rt>
                         )}
                         <span>{item.kanji}</span>
                       </ruby>
-                      <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight max-w-[95px] truncate">
+                      <span className="text-[8px] sm:text-[9px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight max-w-[85px] truncate">
                         {item.meaning ? `${item.hanViet ? `${item.hanViet}: ` : ''}${item.meaning}` : item.hanViet}
                       </span>
                     </div>
@@ -445,19 +446,18 @@ export default function App() {
               </div>
             )}
 
-            {/* Bottom row: Search filter, Quick append input, Grid toggle, View toggle */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
-              {/* Left group: Dual Search / Quick Add box */}
-              <div className="flex items-center gap-2 flex-1">
-                {/* Search in current list */}
-                <div className="relative flex-1 min-w-[140px]">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* Bottom controls: Responsive Dual Rows for Search & Action Buttons */}
+            <div className="space-y-2">
+              {/* Row 1: Search Filter & Desktop Quick Add */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
                     placeholder="Lọc chữ Hán, Hán-Việt, On, Kun, nghĩa..."
-                    className="w-full pl-9 pr-7 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[36px]"
+                    className="w-full pl-8 sm:pl-9 pr-7 py-1.5 sm:py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[34px] sm:min-h-[36px]"
                   />
                   {searchFilter && (
                     <button
@@ -470,8 +470,8 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Quick Add box (Directly appends into list without scrolling up) */}
-                <div className="hidden sm:flex items-center gap-1.5">
+                {/* Desktop Quick Add box */}
+                <div className="hidden sm:flex items-center gap-1.5 shrink-0">
                   <div className="relative w-36 lg:w-44">
                     <input
                       type="text"
@@ -480,15 +480,15 @@ export default function App() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleQuickAdd();
                       }}
-                      placeholder="+ Nhập thêm Kanji..."
-                      className="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[36px]"
+                      placeholder="+ Thêm Kanji..."
+                      className="w-full px-3 py-1.5 sm:py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 focus:bg-white transition-all font-medium min-h-[36px]"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleQuickAdd}
                     disabled={!quickInput.trim()}
-                    className="px-2.5 py-2 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:opacity-30 border border-teal-200 rounded-xl transition-all cursor-pointer min-h-[36px] flex items-center gap-1"
+                    className="px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:opacity-30 border border-teal-200 rounded-xl transition-all cursor-pointer min-h-[36px] flex items-center gap-1 shrink-0"
                     title="Thêm ngay chữ này vào danh sách tra cứu"
                   >
                     <Plus className="w-3.5 h-3.5 text-teal-700" />
@@ -497,10 +497,10 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right group: Grid toggle and View Switcher */}
-              <div className="flex items-center gap-2 justify-between md:justify-end shrink-0">
-                {/* Mobile Quick Add toggle */}
-                <div className="sm:hidden flex items-center gap-1 flex-1">
+              {/* Row 2: Mobile Quick Add + Grid Toggle + View Switcher (Clean, no overflow) */}
+              <div className="flex items-center justify-between gap-2">
+                {/* Mobile Quick Add */}
+                <div className="sm:hidden flex items-center gap-1 flex-1 min-w-[110px] max-w-[170px]">
                   <input
                     type="text"
                     value={quickInput}
@@ -509,74 +509,75 @@ export default function App() {
                       if (e.key === 'Enter') handleQuickAdd();
                     }}
                     placeholder="+ Thêm chữ..."
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 rounded-xl border border-slate-200 min-h-[36px]"
+                    className="w-full px-2 py-1 text-xs bg-slate-50 rounded-xl border border-slate-200 min-h-[32px]"
                   />
                   <button
                     type="button"
                     onClick={handleQuickAdd}
                     disabled={!quickInput.trim()}
-                    className="p-2 text-teal-800 bg-teal-50 border border-teal-200 rounded-xl min-h-[36px] min-w-[36px] flex items-center justify-center disabled:opacity-30"
+                    className="p-1.5 text-teal-800 bg-teal-50 border border-teal-200 rounded-xl min-h-[32px] min-w-[32px] flex items-center justify-center disabled:opacity-30 shrink-0"
+                    title="Thêm chữ"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                {/* Grid toggle with delicate lines */}
-                {/* Grid toggle with clear ON/OFF badge */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextVal = !includeGrid;
-                    setIncludeGrid(nextVal);
-                    showToast(
-                      nextVal
-                        ? 'Đã BẬT lưới nét đứt thư pháp mảnh'
-                        : 'Đã TẮT lưới nét đứt',
-                      'info'
-                    );
-                  }}
-                  className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border-2 transition-all cursor-pointer select-none min-h-[36px] active:scale-95 ${
-                    includeGrid
-                      ? 'bg-teal-50 border-teal-600 text-teal-950 ring-2 ring-teal-500/20 shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
-                  }`}
-                  title="Nhấp để Bật/Tắt đường lưới ô nét đứt mảnh tinh tế"
-                >
-                  <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
-                  <span>Kèm lưới</span>
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black tracking-tight ${
-                      includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
+                <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+                  {/* Grid toggle with delicate lines */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextVal = !includeGrid;
+                      setIncludeGrid(nextVal);
+                      showToast(
+                        nextVal ? 'Đã BẬT lưới nét đứt thư pháp' : 'Đã TẮT lưới nét đứt',
+                        'info'
+                      );
+                    }}
+                    className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-xl border transition-all cursor-pointer select-none min-h-[32px] sm:min-h-[36px] active:scale-95 whitespace-nowrap shrink-0 ${
+                      includeGrid
+                        ? 'bg-teal-50 border-teal-600 text-teal-950 ring-1 ring-teal-500/20 shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
                     }`}
+                    title="Bật/Tắt đường lưới ô nét đứt mảnh"
                   >
-                    {includeGrid ? '✓ BẬT' : '○ TẮT'}
-                  </span>
-                </button>
+                    <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
+                    <span className="hidden sm:inline">Kèm lưới</span>
+                    <span className="sm:hidden">Lưới</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                        includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {includeGrid ? 'BẬT' : 'TẮT'}
+                    </span>
+                  </button>
 
-                {/* View Switcher: Table vs Cards with prominent active pill */}
-                <div className="inline-flex p-1 bg-slate-200/80 rounded-xl border border-slate-300 min-h-[36px] items-center gap-1">
-                  <button
-                    onClick={() => setViewMode('table')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'table'
-                        ? 'bg-teal-800 text-white shadow-xs font-black'
-                        : 'text-slate-700 hover:text-slate-900 font-semibold'
-                    }`}
-                  >
-                    <TableIcon className="w-3.5 h-3.5" />
-                    <span>Bảng</span>
-                  </button>
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'grid'
-                        ? 'bg-teal-800 text-white shadow-xs font-black'
-                        : 'text-slate-700 hover:text-slate-900 font-semibold'
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    <span>Thẻ</span>
-                  </button>
+                  {/* View Switcher: Table vs Cards */}
+                  <div className="inline-flex p-0.5 sm:p-1 bg-slate-200/80 rounded-xl border border-slate-300 min-h-[32px] sm:min-h-[36px] items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={() => setViewMode('table')}
+                      className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                        viewMode === 'table'
+                          ? 'bg-teal-800 text-white shadow-xs font-bold'
+                          : 'text-slate-700 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      <TableIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span>Bảng</span>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                        viewMode === 'grid'
+                          ? 'bg-teal-800 text-white shadow-xs font-bold'
+                          : 'text-slate-700 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      <LayoutGrid className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span>Thẻ</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
