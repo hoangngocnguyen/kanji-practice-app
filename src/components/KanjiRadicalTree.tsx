@@ -19,19 +19,19 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
   const getPositionBadgeColor = (type?: string) => {
     switch (type) {
       case 'hen':
-        return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+        return 'bg-cyan-50 text-cyan-800 border-cyan-200/80';
       case 'tsukuri':
-        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+        return 'bg-indigo-50 text-indigo-800 border-indigo-200/80';
       case 'kanmuri':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-800 border-amber-200/80';
       case 'ashi':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        return 'bg-emerald-50 text-emerald-800 border-emerald-200/80';
       case 'kamae':
       case 'tare':
       case 'nyo':
-        return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+        return 'bg-rose-50 text-rose-800 border-rose-200/80';
       default:
-        return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -46,22 +46,22 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
   const compCount = decomposition.components.length;
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 md:p-6 shadow-xl backdrop-blur-sm">
+    <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 md:p-6 shadow-xs">
       {/* Header section */}
-      <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-800">
+      <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-200/80">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-xl text-cyan-400">
+          <div className="p-2 bg-teal-50 border border-teal-200 rounded-xl text-teal-700">
             <Layers3 className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-white flex items-center gap-2">
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
               Sơ đồ bóc tách Bộ thủ
-              <span className="text-xs font-normal text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
                 {compCount} thành phần
               </span>
             </h3>
-            <p className="text-xs text-slate-400">
-              Bộ thủ chính: <span className="text-cyan-400 font-medium">{decomposition.primaryRadical}</span>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Bộ thủ chính: <span className="text-teal-800 font-bold">{decomposition.primaryRadical}</span>
             </p>
           </div>
         </div>
@@ -71,11 +71,11 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
       <div className="flex flex-col items-center justify-center my-2">
         {/* Root Kanji Node */}
         <div className="relative group cursor-pointer">
-          <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-b from-cyan-500/20 via-blue-600/10 to-slate-900 border-2 border-cyan-400/80 shadow-lg shadow-cyan-500/10 flex flex-col items-center justify-center transition-all duration-300 group-hover:scale-105 group-hover:border-cyan-400">
-            <span className="text-3xl md:text-4xl font-bold text-white font-serif">
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-teal-500/10 via-emerald-500/10 to-teal-50 border-2 border-teal-600/60 shadow-md flex flex-col items-center justify-center transition-all duration-300 group-hover:scale-105 group-hover:border-teal-600">
+            <span className="text-3xl md:text-4xl font-serif font-black text-teal-950">
               {decomposition.kanji}
             </span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-300 mt-0.5">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-teal-800 mt-0.5">
               {decomposition.hanViet}
             </span>
           </div>
@@ -83,7 +83,7 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
 
         {/* Tree Branch Connectors SVG */}
         <div className="w-full max-w-xl h-10 my-1 relative flex justify-center items-center">
-          <svg className="w-full h-full stroke-cyan-500/50 fill-none" preserveAspectRatio="none">
+          <svg className="w-full h-full stroke-teal-500/60 fill-none" preserveAspectRatio="none">
             {/* Stem line down from root */}
             <line x1="50%" y1="0" x2="50%" y2="50%" strokeWidth="2" strokeDasharray="3 3" />
 
@@ -132,16 +132,16 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
               <div
                 key={idx}
                 onClick={() => setActiveRadical(isSelected ? null : comp)}
-                className={`relative flex flex-col items-center p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                className={`relative flex flex-col items-center p-3 rounded-2xl border transition-all duration-200 cursor-pointer ${
                   isSelected
-                    ? 'bg-cyan-950/80 border-cyan-400 shadow-lg shadow-cyan-500/20 scale-102'
-                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700 hover:bg-slate-800/80'
+                    ? 'bg-teal-50/90 border-teal-500 shadow-md ring-1 ring-teal-400 scale-102'
+                    : 'bg-white border-slate-200/90 hover:border-teal-300 hover:bg-teal-50/30 shadow-2xs'
                 }`}
               >
                 {/* Position Badge */}
                 {comp.positionName && (
                   <span
-                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full border mb-1.5 ${getPositionBadgeColor(
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border mb-1.5 ${getPositionBadgeColor(
                       comp.positionType
                     )}`}
                   >
@@ -150,26 +150,26 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
                 )}
 
                 {/* Radical Character */}
-                <div className="w-11 h-11 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center mb-1.5 shadow-inner">
-                  <span className="text-2xl font-serif font-bold text-white">
+                <div className="w-11 h-11 rounded-xl bg-slate-100/80 border border-slate-200 flex items-center justify-center mb-1.5 shadow-2xs">
+                  <span className="text-2xl font-serif font-black text-slate-900">
                     {comp.radical}
                   </span>
                 </div>
 
                 {/* Radical Meaning & Stroke */}
-                <span className="text-xs font-semibold text-slate-200 text-center line-clamp-1">
+                <span className="text-xs font-bold text-slate-800 text-center line-clamp-1">
                   {comp.hanViet}
                 </span>
-                <span className="text-[11px] text-slate-400 text-center line-clamp-1 mt-0.5">
+                <span className="text-[11px] font-medium text-slate-500 text-center line-clamp-1 mt-0.5">
                   {comp.meaning}
                 </span>
 
-                <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-500">
-                  <span>{comp.strokeCount} nét</span>
+                <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-400">
+                  <span className="font-semibold text-slate-600">{comp.strokeCount} nét</span>
                   {relatedKanji.length > 0 && (
                     <>
                       <span>•</span>
-                      <span className="text-cyan-400 font-medium">{relatedKanji.length} Kanji</span>
+                      <span className="text-teal-700 font-bold">{relatedKanji.length} Kanji</span>
                     </>
                   )}
                 </div>
@@ -181,27 +181,27 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
 
       {/* Selected Radical Expansion Panel */}
       {activeRadical && (
-        <div className="mt-4 p-4 rounded-xl bg-slate-950/90 border border-cyan-500/30 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="mt-4 p-4 rounded-2xl bg-white border border-teal-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-serif font-bold text-2xl">
+              <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800 font-serif font-black text-2xl shadow-2xs">
                 {activeRadical.radical}
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   Bộ thủ {activeRadical.hanViet} ({activeRadical.radical})
-                  <span className="text-xs font-normal text-slate-400">
+                  <span className="text-xs font-normal text-slate-500">
                     - {activeRadical.strokeCount} nét
                   </span>
                 </h4>
-                <p className="text-xs text-cyan-300/90 mt-0.5">{activeRadical.meaning}</p>
+                <p className="text-xs text-teal-800 font-medium mt-0.5">{activeRadical.meaning}</p>
               </div>
             </div>
 
             {onSelectRadical && (
               <button
                 onClick={() => onSelectRadical(activeRadical.radical)}
-                className="px-3 py-1.5 text-xs font-medium text-cyan-400 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-semibold text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 Tra trong 214 Bộ thủ
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -211,16 +211,16 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
 
           {/* Related Kanji Chips */}
           {getRelatedKanjiForRadical(activeRadical.radical).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-800">
-              <span className="text-[11px] text-slate-400 block mb-2">
-                Các Kanji thông dụng khác có chứa bộ thủ <span className="text-white font-semibold">{activeRadical.radical}</span>:
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              <span className="text-[11px] text-slate-500 font-medium block mb-2">
+                Các Kanji thông dụng khác có chứa bộ thủ <span className="text-slate-900 font-bold">{activeRadical.radical}</span>:
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {getRelatedKanjiForRadical(activeRadical.radical).map((k, i) => (
                   <button
                     key={i}
                     onClick={() => onSelectKanji && onSelectKanji(k)}
-                    className="w-8 h-8 rounded-lg bg-slate-900 hover:bg-cyan-500/20 border border-slate-700 hover:border-cyan-500/50 text-slate-200 hover:text-cyan-300 font-serif font-bold text-base transition-colors flex items-center justify-center"
+                    className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-900 hover:text-teal-800 font-serif font-bold text-base transition-colors flex items-center justify-center shadow-2xs cursor-pointer"
                     title={`Xem chi tiết chữ ${k}`}
                   >
                     {k}

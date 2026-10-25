@@ -41,23 +41,23 @@ export const MnemonicStoryCard: React.FC<MnemonicStoryCardProps> = ({ decomposit
   };
 
   return (
-    <div className="bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+    <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-5 shadow-xs relative overflow-hidden">
       {/* Glow highlight effect */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/30 rounded-full blur-2xl pointer-events-none" />
 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl">
+          <div className="p-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-xl">
             <Lightbulb className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+            <h4 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
               Mẹo nhớ chữ {decomposition.kanji} ({decomposition.hanViet})
-              <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                 Mnemonic Story
               </span>
             </h4>
-            <p className="text-xs text-slate-400">Câu chuyện ghép từ các bộ thủ cấu thành</p>
+            <p className="text-xs text-amber-800/80">Câu chuyện ghép từ các bộ thủ cấu thành</p>
           </div>
         </div>
 
@@ -66,7 +66,7 @@ export const MnemonicStoryCard: React.FC<MnemonicStoryCardProps> = ({ decomposit
           {!isEditing ? (
             <button
               onClick={handleStartEdit}
-              className="px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-colors flex items-center gap-1.5"
+              className="px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <Edit3 className="w-3.5 h-3.5" />
               Sửa mẹo nhớ
@@ -75,14 +75,14 @@ export const MnemonicStoryCard: React.FC<MnemonicStoryCardProps> = ({ decomposit
             <div className="flex items-center gap-1.5">
               <button
                 onClick={handleSave}
-                className="px-2.5 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg transition-colors flex items-center gap-1"
+                className="px-2.5 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
               >
-                <Check className="w-3.5 h-3.5" />
+                <Check className="w-3.5 h-3.5 text-emerald-700" />
                 Lưu
               </button>
               <button
                 onClick={handleReset}
-                className="p-1.5 text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                className="p-1.5 text-xs text-amber-800 hover:text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-colors cursor-pointer"
                 title="Khôi phục mẹo nhớ mặc định"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -94,8 +94,8 @@ export const MnemonicStoryCard: React.FC<MnemonicStoryCardProps> = ({ decomposit
 
       {/* Story Content Area */}
       {!isEditing ? (
-        <div className="mt-3 p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/80 text-sm text-amber-100/90 leading-relaxed font-sans">
-          <p className="italic">"{story}"</p>
+        <div className="mt-3 p-3.5 bg-white/90 rounded-xl border border-amber-200/80 text-sm text-amber-950 leading-relaxed font-sans shadow-2xs">
+          <p className="italic font-medium">"{story}"</p>
         </div>
       ) : (
         <div className="mt-3">
@@ -103,22 +103,22 @@ export const MnemonicStoryCard: React.FC<MnemonicStoryCardProps> = ({ decomposit
             value={tempStory}
             onChange={(e) => setTempStory(e.target.value)}
             rows={3}
-            className="w-full p-3 bg-slate-950 border border-amber-500/40 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none"
+            className="w-full p-3 bg-white border border-amber-400 rounded-xl text-sm text-slate-900 placeholder-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none font-medium shadow-2xs"
             placeholder="Nhập câu chuyện mẹo nhớ riêng của bạn..."
           />
         </div>
       )}
 
       {/* Radical Elements Pills */}
-      <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center gap-2 flex-wrap text-xs text-slate-400">
-        <span className="flex items-center gap-1 text-amber-400/90">
-          <Sparkles className="w-3.5 h-3.5" />
+      <div className="mt-3 pt-3 border-t border-amber-200/80 flex items-center gap-2 flex-wrap text-xs text-amber-900">
+        <span className="flex items-center gap-1 font-bold text-amber-800">
+          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
           Các bộ ghép:
         </span>
         {decomposition.components.map((comp, i) => (
           <span
             key={i}
-            className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-200 font-serif font-semibold"
+            className="px-2 py-0.5 rounded-lg bg-white border border-amber-200/90 text-amber-950 font-serif font-bold shadow-2xs"
           >
             {comp.radical} ({comp.hanViet})
           </span>
