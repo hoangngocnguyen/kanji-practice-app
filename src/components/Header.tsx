@@ -1,11 +1,12 @@
 import React from 'react';
-import { Printer, History } from 'lucide-react';
+import { Printer, History, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
   onPrint: () => void;
   kanjiCount: number;
   historyCount: number;
   onOpenHistory: () => void;
+  onOpenGuide: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -13,6 +14,7 @@ export const Header: React.FC<HeaderProps> = ({
   kanjiCount,
   historyCount,
   onOpenHistory,
+  onOpenGuide,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
@@ -41,6 +43,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right utility actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Guide / Tutorial button */}
+          <button
+            onClick={onOpenGuide}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 border border-emerald-200/80 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[38px]"
+            title="Xem hướng dẫn sử dụng & mẹo chép thẻ Anki"
+          >
+            <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="hidden sm:inline">Hướng dẫn</span>
+          </button>
+
           {/* History button */}
           <button
             onClick={onOpenHistory}
@@ -75,3 +87,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

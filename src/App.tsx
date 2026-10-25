@@ -30,6 +30,7 @@ import { Footer } from './components/Footer';
 import { LicenseModal } from './components/LicenseModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
 import { KanjiPrintSheet } from './components/KanjiPrintSheet';
+import { UserGuideModal } from './components/UserGuideModal';
 
 export default function App() {
   // Input text state
@@ -63,6 +64,24 @@ export default function App() {
 
   // License Modal state
   const [isLicenseOpen, setIsLicenseOpen] = useState<boolean>(false);
+
+  // User Guide / Tutorial Modal state
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+
+  // Auto-show guide modal for first-time visitors
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem('kanji_guide_dismissed_v1');
+      if (!dismissed) {
+        const timer = setTimeout(() => {
+          setIsGuideOpen(true);
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc trạng thái hướng dẫn:', e);
+    }
+  }, []);
 
   // Dynamic enrichment cache for On, Kun, JLPT and meanings
   const [enrichedDetails, setEnrichedDetails] = useState<Record<string, KanjiDetail>>({});
@@ -338,6 +357,7 @@ export default function App() {
         onPrint={() => window.print()}
         kanjiCount={extractedKanjiList.length}
         historyCount={recentlyViewed.length}
+        onOpenGuide={() => setIsGuideOpen(true)}
         onOpenHistory={() => {
           const el = document.getElementById('recently-viewed-section');
           if (el) {
@@ -652,6 +672,13 @@ export default function App() {
 
       {/* License Modal */}
       <LicenseModal isOpen={isLicenseOpen} onClose={() => setIsLicenseOpen(false)} />
+
+      {/* User Guide / Tutorial Modal */}
+      <UserGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        onOpenScanner={() => setIsScannerOpen(true)}
+      />
 
       {/* Footer & License Attribution */}
       <Footer onOpenLicenseModal={() => setIsLicenseOpen(true)} />
