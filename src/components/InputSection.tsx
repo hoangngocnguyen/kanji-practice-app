@@ -41,16 +41,16 @@ export const InputSection: React.FC<InputSectionProps> = ({
   onOpenScanner,
   onSelectKanji,
 }) => {
-  // Toggle states with clear visual distinction
-  const [showFurigana, setShowFurigana] = useState<boolean>(true);
-  const [showMeaning, setShowMeaning] = useState<boolean>(true);
+  // Toggle states: Default OFF as requested by user
+  const [showFurigana, setShowFurigana] = useState<boolean>(false);
+  const [showMeaning, setShowMeaning] = useState<boolean>(false);
 
   // Translation engine: 'google' (default, super fast & accurate) or 'gemini'
   const [engine, setEngine] = useState<TranslationEngine>('google');
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [sentenceTranslation, setSentenceTranslation] = useState<string>('');
   const [translationSource, setTranslationSource] = useState<string>('Google Dịch');
-  const [showTranslationCard, setShowTranslationCard] = useState<boolean>(true);
+  const [showTranslationCard, setShowTranslationCard] = useState<boolean>(false);
   const [copiedTranslation, setCopiedTranslation] = useState<boolean>(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
 
@@ -89,23 +89,13 @@ export const InputSection: React.FC<InputSectionProps> = ({
     } catch {}
   };
 
-  // Auto-translate if text matches one of the sample presets
+  // Reset translation text when input text is cleared
   useEffect(() => {
-    const trimmed = inputText.trim();
-    if (!trimmed) {
+    if (!inputText.trim()) {
       setSentenceTranslation('');
-      return;
+      setShowTranslationCard(false);
     }
-    // Try instant preset resolution if available
-    translateWithDetails(trimmed, engine)
-      .then((res) => {
-        if (res.text) {
-          setSentenceTranslation(res.text);
-          setTranslationSource(res.source);
-        }
-      })
-      .catch(() => {});
-  }, [inputText, engine]);
+  }, [inputText]);
 
   return (
     <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 space-y-4 transition-all">
@@ -480,20 +470,20 @@ export const InputSection: React.FC<InputSectionProps> = ({
             <button
               type="button"
               onClick={onCopyAllText}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 rounded-xl transition-all font-semibold cursor-pointer border border-teal-200 shadow-2xs min-h-[34px] sm:min-h-[36px] text-[11px] sm:text-xs active:scale-95"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 rounded-xl transition-all font-medium cursor-pointer border border-teal-200 shadow-2xs min-h-[34px] sm:min-h-[36px] text-[13px] active:scale-95"
               title="Sao chép toàn bộ các chữ Kanji lọc được dưới dạng văn bản"
             >
               <Copy className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-              <span>Chép chuỗi Kanji</span>
+              <span style={{ fontSize: '13px' }}>Chép chuỗi Kanji</span>
             </button>
             <button
               type="button"
               onClick={onExportCsv}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:border-slate-300 rounded-xl transition-all font-semibold cursor-pointer border border-slate-200 shadow-2xs min-h-[34px] sm:min-h-[36px] text-[11px] sm:text-xs active:scale-95"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:border-slate-300 rounded-xl transition-all font-medium cursor-pointer border border-slate-200 shadow-2xs min-h-[34px] sm:min-h-[36px] text-[13px] active:scale-95"
               title="Xuất danh sách gồm URL ảnh, Hán-Việt & nghĩa sang định dạng CSV để nhập vào Anki"
             >
               <Download className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-              <span>Xuất CSV (Anki)</span>
+              <span style={{ fontSize: '13px' }}>Xuất CSV (Anki)</span>
             </button>
           </div>
         )}

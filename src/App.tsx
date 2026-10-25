@@ -497,10 +497,10 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Row 2: Mobile Quick Add + Grid Toggle + View Switcher (Clean, no overflow) */}
-              <div className="flex items-center justify-between gap-2">
+              {/* Row 2: Controls row (Search, Quick Add, Grid toggle, View switcher) */}
+              <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
                 {/* Mobile Quick Add */}
-                <div className="sm:hidden flex items-center gap-1 flex-1 min-w-[110px] max-w-[170px]">
+                <div className="sm:hidden flex items-center gap-1 flex-1 min-w-[110px] max-w-[160px]">
                   <input
                     type="text"
                     value={quickInput}
@@ -509,16 +509,16 @@ export default function App() {
                       if (e.key === 'Enter') handleQuickAdd();
                     }}
                     placeholder="+ Thêm chữ..."
-                    className="w-full px-2 py-1 text-xs bg-slate-50 rounded-xl border border-slate-200 min-h-[32px]"
+                    className="w-full px-2 py-1 text-xs bg-slate-50 rounded-xl border border-slate-200 min-h-[32px] font-medium"
                   />
                   <button
                     type="button"
                     onClick={handleQuickAdd}
                     disabled={!quickInput.trim()}
-                    className="p-1.5 text-teal-800 bg-teal-50 border border-teal-200 rounded-xl min-h-[32px] min-w-[32px] flex items-center justify-center disabled:opacity-30 shrink-0"
+                    className="p-1.5 text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl min-h-[32px] min-w-[32px] flex items-center justify-center disabled:opacity-30 shrink-0 cursor-pointer"
                     title="Thêm chữ"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 h-3.5 text-teal-700" />
                   </button>
                 </div>
 
@@ -534,7 +534,7 @@ export default function App() {
                         'info'
                       );
                     }}
-                    className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-xl border transition-all cursor-pointer select-none min-h-[32px] sm:min-h-[36px] active:scale-95 whitespace-nowrap shrink-0 ${
+                    className={`inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none min-h-[32px] sm:min-h-[36px] active:scale-95 whitespace-nowrap shrink-0 ${
                       includeGrid
                         ? 'bg-teal-50 border-teal-600 text-teal-950 ring-1 ring-teal-500/20 shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
@@ -545,7 +545,7 @@ export default function App() {
                     <span className="hidden sm:inline">Kèm lưới</span>
                     <span className="sm:hidden">Lưới</span>
                     <span
-                      className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                      className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-bold tracking-tight ${
                         includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
                       }`}
                     >
@@ -559,7 +559,7 @@ export default function App() {
                       onClick={() => setViewMode('table')}
                       className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                         viewMode === 'table'
-                          ? 'bg-teal-800 text-white shadow-xs font-bold'
+                          ? 'bg-teal-800 text-white shadow-xs font-semibold'
                           : 'text-slate-700 hover:text-slate-900 font-medium'
                       }`}
                     >
@@ -570,7 +570,7 @@ export default function App() {
                       onClick={() => setViewMode('grid')}
                       className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                         viewMode === 'grid'
-                          ? 'bg-teal-800 text-white shadow-xs font-bold'
+                          ? 'bg-teal-800 text-white shadow-xs font-semibold'
                           : 'text-slate-700 hover:text-slate-900 font-medium'
                       }`}
                     >

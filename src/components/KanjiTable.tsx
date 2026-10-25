@@ -184,11 +184,11 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               </div>
 
               {/* Action Buttons Row */}
-              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+              <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-100">
                 <button
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`py-1.5 px-2.5 rounded-xl font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-2xs min-h-[34px] sm:min-h-[36px] ${
+                  className={`py-1.5 px-2 rounded-xl font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95 shadow-2xs min-h-[34px] sm:min-h-[36px] whitespace-nowrap ${
                     isCopied
                       ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                       : isCopying
@@ -199,29 +199,29 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                 >
                   {isCopied ? (
                     <>
-                      <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Đã chép!</span>
+                      <CheckCheck className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+                      <span className="whitespace-nowrap">Đã chép!</span>
                     </>
                   ) : isCopying ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200" />
-                      <span>Đang tạo...</span>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200 shrink-0" />
+                      <span className="whitespace-nowrap">Đang tạo...</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Sao chép ảnh</span>
+                      <Copy className="w-3.5 h-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">Sao chép ảnh</span>
                     </>
                   )}
                 </button>
 
                 <button
                   onClick={() => onInspect(item)}
-                  className="py-1.5 px-2.5 rounded-xl font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200/80 min-h-[34px] sm:min-h-[36px]"
+                  className="py-1.5 px-2 rounded-xl font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200/80 min-h-[34px] sm:min-h-[36px] whitespace-nowrap"
                   title="Xem hoạt ảnh vẽ từng nét"
                 >
-                  <PlayCircle className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Xem nét vẽ</span>
+                  <PlayCircle className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                  <span className="whitespace-nowrap">Xem nét vẽ</span>
                 </button>
               </div>
             </div>

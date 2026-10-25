@@ -143,17 +143,17 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             <div className="w-full space-y-1.5 pt-1">
               <button
                 onClick={() => onInspect(item)}
-                className="w-full py-1.5 px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[32px] sm:min-h-[36px]"
+                className="w-full py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-medium bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[32px] sm:min-h-[36px] whitespace-nowrap"
               >
-                <PlayCircle className="w-3.5 h-3.5 text-teal-600" />
-                <span>Xem hoạt ảnh nét</span>
+                <PlayCircle className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                <span className="whitespace-nowrap">Xem nét vẽ</span>
               </button>
 
-              <div className="w-full flex items-center gap-1.5 sm:gap-2">
+              <div className="w-full flex items-center gap-1.5">
                 <button
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`flex-1 py-1.5 px-2 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[32px] sm:min-h-[36px] ${
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[32px] sm:min-h-[36px] whitespace-nowrap ${
                     isCopied
                       ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                       : isCopying
@@ -163,18 +163,18 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
                 >
                   {isCopied ? (
                     <>
-                      <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
-                      <span>Đã chép!</span>
+                      <CheckCheck className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+                      <span className="whitespace-nowrap">Đã chép!</span>
                     </>
                   ) : isCopying ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200" />
-                      <span>Đang tạo...</span>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200 shrink-0" />
+                      <span className="whitespace-nowrap">Đang tạo...</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Sao chép ảnh</span>
+                      <Copy className="w-3.5 h-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">Sao chép ảnh</span>
                     </>
                   )}
                 </button>
