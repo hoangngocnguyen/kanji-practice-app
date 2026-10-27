@@ -12,7 +12,10 @@ import {
   RefreshCw,
   Check,
   X,
-  AlertCircle
+  AlertCircle,
+  Columns,
+  Minus,
+  Plus
 } from 'lucide-react';
 import { SAMPLE_PRESETS, isKanjiChar, getPrimaryHiragana } from '../utils/kanji';
 import { KanjiItem } from '../types/kanji';
@@ -44,6 +47,9 @@ export const InputSection: React.FC<InputSectionProps> = ({
   // Toggle states: Default OFF as requested by user
   const [showFurigana, setShowFurigana] = useState<boolean>(false);
   const [showMeaning, setShowMeaning] = useState<boolean>(false);
+
+  // Column layout for Glossed Reader Box (Default 1 column, adjustable 1 to 3 columns on PC)
+  const [readerColumns, setReaderColumns] = useState<number>(1);
 
   // Translation engine: 'google' (default, super fast & accurate) or 'gemini'
   const [engine, setEngine] = useState<TranslationEngine>('google');
@@ -353,56 +359,135 @@ export const InputSection: React.FC<InputSectionProps> = ({
               <BookOpen className="w-4 h-4 text-teal-700 shrink-0" />
               <span>Khung đọc chi tiết từng chữ (Nhấp vào chữ Kanji để xem thứ tự nét vẽ):</span>
             </span>
-            <span className="text-[11px] text-teal-900 font-bold bg-teal-100/80 px-2.5 py-0.5 rounded-full border border-teal-300 shrink-0">
-              {kanjiList.length} Kanji có chú thích
-            </span>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Column count selector (PC / large screen optimization) */}
+              <div className="hidden sm:flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-xl border border-teal-200/90 shadow-2xs text-[11px] font-semibold text-slate-700">
+                <Columns className="w-3.5 h-3.5 text-teal-700" />
+                <span>Hiển thị:</span>
+                <button
+                  type="button"
+                  onClick={() => setReaderColumns((c) => Math.max(1, c - 1))}
+                  disabled={readerColumns <= 1}
+                  className="p-1 rounded-md hover:bg-teal-50 text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                  title="Giảm số cột hiển thị"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="font-bold text-teal-900 w-9 text-center px-1 py-0.2 rounded bg-teal-50 border border-teal-200">
+                  {readerColumns} cột
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReaderColumns((c) => Math.min(3, c + 1))}
+                  disabled={readerColumns >= 3}
+                  className="p-1 rounded-md hover:bg-teal-50 text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed"
+                  title="Tăng số cột hiển thị (tối đa 3 cột)"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+
+              <span className="text-[11px] text-teal-900 font-bold bg-teal-100/80 px-2.5 py-0.5 rounded-full border border-teal-300 shrink-0">
+                {kanjiList.length} Kanji có chú thích
+              </span>
+            </div>
           </div>
 
-          <div className="text-base sm:text-lg leading-loose font-kanji text-slate-800 whitespace-pre-wrap select-text p-1 overflow-x-auto flex flex-wrap items-end gap-1">
-            {Array.from(inputText).map((char, idx) => {
-              if (isKanjiChar(char)) {
-                const item = kanjiMap.get(char);
-                const hira = getPrimaryHiragana(item?.detail);
-                const hanViet = item?.detail?.hanViet;
-                const meaning = item?.detail?.meanings?.[0];
-                const meaningDisplay = meaning || hanViet || '';
+          <div
+            className={`p-1 overflow-x-auto select-text font-sans ${
+              readerColumns === 2
+                ? 'md:columns-2 gap-6 space-y-0'
+                : readerColumns === 3
+                ? 'md:columns-2 lg:columns-3 gap-6 space-y-0'
+                : 'columns-1 space-y-2'
+            }`}
+          >
+            {(() => {
+              const lines = inputText.split('\n');
+
+              return lines.map((lineText, lineIdx) => {
+                // Render empty line gap if line is blank
+                if (!lineText.trim()) {
+                  return <div key={lineIdx} className="w-full h-3 sm:h-4 break-inside-avoid block" />;
+                }
+
+                // Group consecutive non-kanji characters into continuous text tokens per line
+                const tokens: Array<{ type: 'kanji' | 'text'; content: string }> = [];
+                let currentText = '';
+
+                for (const char of lineText) {
+                  if (isKanjiChar(char)) {
+                    if (currentText) {
+                      tokens.push({ type: 'text', content: currentText });
+                      currentText = '';
+                    }
+                    tokens.push({ type: 'kanji', content: char });
+                  } else {
+                    currentText += char;
+                  }
+                }
+                if (currentText) {
+                  tokens.push({ type: 'text', content: currentText });
+                }
 
                 return (
                   <div
-                    key={idx}
-                    onClick={() => onSelectKanji && onSelectKanji(char)}
-                    className="inline-flex flex-col items-center mx-0.5 my-0.5 px-2 py-1 rounded-xl hover:bg-teal-100 cursor-pointer transition-all group align-bottom bg-white border border-teal-200/90 shadow-2xs hover:border-teal-500 hover:shadow-xs active:scale-95"
-                    title={`Kanji: ${char}${hira ? ` | Hiragana: ${hira}` : ''}${hanViet ? ` | Hán-Việt: ${hanViet}` : ''}${item?.detail?.meanings?.length ? ` | Nghĩa: ${item.detail.meanings.join(', ')}` : ''} (Nhấp để tra cứu)`}
+                    key={lineIdx}
+                    className="flex flex-wrap items-end gap-1 leading-loose w-full break-inside-avoid mb-2.5 inline-block"
                   >
-                    {/* 1. Hiragana trên đầu chữ Kanji (khi showFurigana BẬT) */}
-                    {showFurigana && (
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-teal-800 leading-none group-hover:text-teal-950 pb-0.5 select-none font-sans tracking-tight">
-                        {hira || hanViet || ' '}
-                      </span>
-                    )}
+                    {tokens.map((token, tokenIdx) => {
+                      if (token.type === 'kanji') {
+                        const char = token.content;
+                        const item = kanjiMap.get(char);
+                        const hira = getPrimaryHiragana(item?.detail);
+                        const hanViet = item?.detail?.hanViet;
+                        const meaning = item?.detail?.meanings?.[0];
+                        const meaningDisplay = meaning || hanViet || '';
 
-                    {/* 2. Chữ Kanji chính giữa */}
-                    <span className="font-black text-slate-900 group-hover:text-teal-900 text-lg sm:text-xl leading-none px-0.5 font-kanji">
-                      {char}
-                    </span>
+                        return (
+                          <div
+                            key={tokenIdx}
+                            onClick={() => onSelectKanji && onSelectKanji(char)}
+                            className="inline-flex flex-col items-center mx-0.5 my-0.5 px-2 py-1 rounded-xl hover:bg-teal-100 cursor-pointer transition-all group align-bottom bg-white border border-teal-200/90 shadow-2xs hover:border-teal-500 hover:shadow-xs active:scale-95 shrink-0"
+                            title={`Kanji: ${char}${hira ? ` | Hiragana: ${hira}` : ''}${hanViet ? ` | Hán-Việt: ${hanViet}` : ''}${item?.detail?.meanings?.length ? ` | Nghĩa: ${item.detail.meanings.join(', ')}` : ''} (Nhấp để tra cứu)`}
+                          >
+                            {/* 1. Hiragana trên đầu chữ Kanji (khi showFurigana BẬT) */}
+                            {showFurigana && (
+                              <span className="text-[10px] sm:text-[11px] font-semibold text-teal-800 leading-none group-hover:text-teal-950 pb-0.5 select-none font-sans tracking-tight">
+                                {hira || hanViet || ' '}
+                              </span>
+                            )}
 
-                    {/* 3. Dịch nghĩa tiếng Việt bên dưới chữ Kanji (khi showMeaning BẬT) */}
-                    {showMeaning && meaningDisplay && (
-                      <span className="text-[9px] sm:text-[10px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md leading-tight mt-1 max-w-[80px] sm:max-w-[100px] truncate select-none text-center font-sans group-hover:bg-emerald-100">
-                        {meaningDisplay}
-                      </span>
-                    )}
+                            {/* 2. Chữ Kanji chính giữa */}
+                            <span className="font-black text-slate-900 group-hover:text-teal-900 text-lg sm:text-xl leading-none px-0.5 font-kanji">
+                              {char}
+                            </span>
+
+                            {/* 3. Dịch nghĩa tiếng Việt bên dưới chữ Kanji (khi showMeaning BẬT) */}
+                            {showMeaning && meaningDisplay && (
+                              <span className="text-[9px] sm:text-[10px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md leading-tight mt-1 max-w-[80px] sm:max-w-[100px] truncate select-none text-center font-sans group-hover:bg-emerald-100">
+                                {meaningDisplay}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      // Non-kanji text run (Hiragana, Katakana, Latin words, punctuation, spaces)
+                      return (
+                        <span
+                          key={tokenIdx}
+                          className="text-xs sm:text-sm font-normal text-slate-700 self-center px-0.5 py-1 font-sans leading-normal"
+                        >
+                          {token.content}
+                        </span>
+                      );
+                    })}
                   </div>
                 );
-              }
-
-              // Non-kanji text (Hiragana, Katakana, Latin, punctuation, newlines)
-              return (
-                <span key={idx} className="font-medium text-slate-700 mx-0.5 py-1">
-                  {char}
-                </span>
-              );
-            })}
+              });
+            })()}
           </div>
         </div>
       )}
