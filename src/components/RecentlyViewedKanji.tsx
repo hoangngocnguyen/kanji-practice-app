@@ -30,7 +30,7 @@ export const RecentlyViewedKanji: React.FC<RecentlyViewedKanjiProps> = ({
           <div className="flex items-baseline gap-1.5">
             <span className="text-xs font-bold text-slate-800">Lịch sử tra cứu Kanji</span>
             <span className="text-[11px] font-semibold text-slate-400">
-              ({recentList.length}/15 gần nhất)
+              ({recentList.length}/25 gần nhất)
             </span>
           </div>
         </div>

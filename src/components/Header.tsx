@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, History, HelpCircle, Layers3 } from 'lucide-react';
+import { Printer, History, HelpCircle, Layers3, Settings } from 'lucide-react';
 
 interface HeaderProps {
   onPrint: () => void;
@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenHistory: () => void;
   onOpenGuide: () => void;
   onOpenRadicals: () => void;
+  onOpenSettings: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHistory,
   onOpenGuide,
   onOpenRadicals,
+  onOpenSettings,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
@@ -43,56 +45,62 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right utility actions */}
+        {/* Right utility actions - icon-only buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Radicals Explorer Button */}
           <button
+            type="button"
             onClick={onOpenRadicals}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-cyan-900 bg-cyan-50 hover:bg-cyan-100 hover:border-cyan-300 border border-cyan-200/80 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[38px]"
+            className="p-2 sm:p-2.5 text-cyan-800 bg-cyan-50 hover:bg-cyan-100 hover:text-cyan-950 border border-cyan-200/90 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95 shrink-0"
             title="Tra cứu 214 Bộ thủ Khang Hy & Phân tích cấu trúc Kanji"
           >
             <Layers3 className="w-4 h-4 text-cyan-600 shrink-0" />
-            <span className="hidden sm:inline">214 Bộ thủ</span>
           </button>
 
           {/* Guide / Tutorial button */}
           <button
+            type="button"
             onClick={onOpenGuide}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 border border-emerald-200/80 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[38px]"
+            className="p-2 sm:p-2.5 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-950 border border-emerald-200/90 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95 shrink-0"
             title="Xem hướng dẫn sử dụng & mẹo chép thẻ Anki"
           >
             <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="hidden sm:inline">Hướng dẫn</span>
           </button>
 
           {/* History button */}
           <button
+            type="button"
             onClick={onOpenHistory}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-teal-50 hover:text-teal-800 hover:border-teal-300 border border-transparent rounded-xl transition-all cursor-pointer shadow-2xs min-h-[38px]"
-            title="Xem danh sách chữ Kanji đã tra cứu gần đây"
+            className="relative p-2 sm:p-2.5 text-slate-700 bg-slate-100 hover:bg-teal-50 hover:text-teal-800 border border-slate-200/90 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95 shrink-0"
+            title={`Xem danh sách chữ Kanji đã tra cứu gần đây (${historyCount} từ)`}
           >
             <History className="w-4 h-4 text-teal-600 shrink-0" />
-            <span className="hidden sm:inline">Lịch sử</span>
-            <span
-              className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full transition-colors ${
-                historyCount > 0
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-slate-200 text-slate-600'
-              }`}
-            >
-              {historyCount}
-            </span>
+            {historyCount > 0 && (
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 text-[9px] font-black rounded-full bg-teal-600 text-white ring-2 ring-white shadow-2xs">
+                {historyCount}
+              </span>
+            )}
           </button>
 
           {/* Print button */}
           <button
+            type="button"
             onClick={onPrint}
             disabled={kanjiCount === 0}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-h-[38px]"
+            className="p-2 sm:p-2.5 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/90 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95 shrink-0"
             title="In trang luyện viết ra giấy hoặc PDF"
           >
-            <Printer className="w-4 h-4 text-slate-500 shrink-0" />
-            <span className="hidden sm:inline">In bảng nét</span>
+            <Printer className="w-4 h-4 text-slate-600 shrink-0" />
+          </button>
+
+          {/* Global Settings button (far right - icon only) */}
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="p-2 sm:p-2.5 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:text-teal-950 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95 shrink-0"
+            title="Cài đặt chung ứng dụng (Màu nét Mazii, Bố cục, Lịch sử)"
+          >
+            <Settings className="w-4 h-4 text-teal-700 shrink-0" />
           </button>
         </div>
       </div>

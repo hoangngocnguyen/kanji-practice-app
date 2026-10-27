@@ -32,6 +32,7 @@ import { KanjiScannerModal } from './components/KanjiScannerModal';
 import { KanjiPrintSheet } from './components/KanjiPrintSheet';
 import { UserGuideModal } from './components/UserGuideModal';
 import { RadicalExplorer } from './components/RadicalExplorer';
+import { SettingsModal } from './components/SettingsModal';
 
 export default function App() {
   // Input text state
@@ -72,6 +73,9 @@ export default function App() {
   // 214 Kangxi Radicals Explorer Modal state
   const [isRadicalsOpen, setIsRadicalsOpen] = useState<boolean>(false);
 
+  // Global Settings Modal state
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+
   // Auto-show guide modal for first-time visitors
   useEffect(() => {
     try {
@@ -90,14 +94,14 @@ export default function App() {
   // Dynamic enrichment cache for On, Kun, JLPT and meanings
   const [enrichedDetails, setEnrichedDetails] = useState<Record<string, KanjiDetail>>({});
 
-  // Recently viewed Kanji (Max 15 items, persistent in localStorage)
+  // Recently viewed Kanji (Max 25 items, persistent in localStorage)
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('kanji_recently_viewed_history');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter((c) => typeof c === 'string' && c.length === 1).slice(0, 15);
+          return parsed.filter((c) => typeof c === 'string' && c.length === 1).slice(0, 25);
         }
       }
     } catch (e) {
@@ -279,11 +283,11 @@ export default function App() {
     showToast('Đã xuất file CSV (kèm Hán-Việt & On/Kun) cho Anki thành công!', 'success');
   };
 
-  // Save single Kanji to recently viewed history (Max 15, no duplicates, newest first)
+  // Save single Kanji to recently viewed history (Max 25, no duplicates, newest first)
   const saveToRecentHistory = useCallback((kanjiChar: string) => {
     if (!kanjiChar || kanjiChar.trim().length === 0) return;
     setRecentlyViewed((prev) => {
-      const updated = [kanjiChar, ...prev.filter((c) => c !== kanjiChar)].slice(0, 15);
+      const updated = [kanjiChar, ...prev.filter((c) => c !== kanjiChar)].slice(0, 25);
       try {
         localStorage.setItem('kanji_recently_viewed_history', JSON.stringify(updated));
       } catch (e) {
@@ -363,6 +367,7 @@ export default function App() {
         historyCount={recentlyViewed.length}
         onOpenGuide={() => setIsGuideOpen(true)}
         onOpenRadicals={() => setIsRadicalsOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHistory={() => {
           const el = document.getElementById('recently-viewed-section');
           if (el) {
@@ -694,6 +699,15 @@ export default function App() {
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         onOpenScanner={() => setIsScannerOpen(true)}
+      />
+
+      {/* Global Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        historyCount={recentlyViewed.length}
+        onClearHistory={handleClearRecentHistory}
+        showToast={showToast}
       />
 
       {/* Footer & License Attribution */}

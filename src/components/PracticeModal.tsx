@@ -496,21 +496,24 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
               {/* Canvas Controls */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs border-y border-slate-100 py-3 px-1">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="text-slate-500 font-medium">Màu mực:</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {[
                       { color: '#0f766e', label: 'Xanh ngọc bích thư pháp' },
                       { color: '#2563eb', label: 'Xanh dương đại dương' },
-                      { color: '#0f172a', label: 'Đen mực tàu' },
                       { color: '#dc2626', label: 'Đỏ chu sa truyền thống' },
+                      { color: '#16a34a', label: 'Xanh lá tươi' },
+                      { color: '#9333ea', label: 'Tím hoa súng' },
+                      { color: '#d97706', label: 'Cam hoàng hôn' },
+                      { color: '#0f172a', label: 'Đen mực tàu' },
                     ].map(({ color, label }) => (
                       <button
                         key={color}
                         onClick={() => setPenColor(color)}
                         style={{ backgroundColor: color }}
-                        className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full border-2 transition-transform cursor-pointer ${
-                          penColor === color ? 'scale-115 border-white ring-2 ring-teal-600' : 'border-transparent'
+                        className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
+                          penColor === color ? 'scale-115 border-white ring-2 ring-teal-600 shadow-xs' : 'border-transparent'
                         }`}
                         title={label}
                       />

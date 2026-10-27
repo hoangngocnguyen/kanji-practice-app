@@ -1,19 +1,34 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Play,
   Pause,
   RotateCcw,
   SkipBack,
   SkipForward,
-  FastForward,
   Grid,
   Hash,
-  Sparkles,
   Volume2,
-  Repeat
+  Repeat,
+  Palette,
+  Check,
+  X
 } from 'lucide-react';
 import { speakJapanese } from '../utils/speech';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
+
+// Mazii-style multi-color palette for stroke order visualization
+export const MAZII_STROKE_COLORS = [
+  '#2563eb', // Stroke 1: Royal Blue
+  '#ef4444', // Stroke 2: Vivid Red
+  '#0f172a', // Stroke 3: Deep Slate / Black
+  '#16a34a', // Stroke 4: Emerald Green
+  '#d97706', // Stroke 5: Warm Amber / Orange
+  '#9333ea', // Stroke 6: Rich Purple
+  '#0891b2', // Stroke 7: Cyan / Teal
+  '#db2777', // Stroke 8: Magenta / Pink
+  '#4f46e5', // Stroke 9: Indigo
+  '#ca8a04', // Stroke 10: Golden Yellow
+];
 
 interface StrokeItem {
   id: string;
@@ -45,6 +60,25 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   const [strokeNumbers, setStrokeNumbers] = useState<StrokeNumber[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Stroke color configuration (Mazii multi-color vs Single color mode, saved to localStorage)
+  const [colorMode, setColorMode] = useState<'multi' | 'single'>(() => {
+    try {
+      return (localStorage.getItem('kanji_stroke_color_mode') as 'multi' | 'single') || 'multi';
+    } catch {
+      return 'multi';
+    }
+  });
+
+  const [singleColor, setSingleColor] = useState<string>(() => {
+    try {
+      return localStorage.getItem('kanji_stroke_single_color') || '#dc2626';
+    } catch {
+      return '#dc2626';
+    }
+  });
+
+  const [showColorConfig, setShowColorConfig] = useState<boolean>(false);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -323,6 +357,14 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     setSpeed(speeds[nextIdx]);
   };
 
+  // Helper to get stroke color based on mode (Mazii multi-color vs single color)
+  const getStrokeColor = (index: number, isCurrent = false) => {
+    if (colorMode === 'multi') {
+      return MAZII_STROKE_COLORS[index % MAZII_STROKE_COLORS.length];
+    }
+    return isCurrent ? singleColor : '#1e293b';
+  };
+
   if (loading) {
     return (
       <div
@@ -354,9 +396,9 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
       {/* Top Banner Status */}
       <div className="w-full flex items-center justify-between text-xs px-2.5 py-1.5 mb-2 bg-slate-100/80 rounded-xl font-medium text-slate-600">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+          <span className="w-2.5 h-2.5 rounded-full animate-ping" style={{ backgroundColor: getStrokeColor(currentStrokeIdx, true) }} />
           <span>
-            Nét thứ <strong className="text-rose-700 font-bold">{currentNum}</strong> / {total}
+            Nét thứ <strong className="font-bold" style={{ color: getStrokeColor(currentStrokeIdx, true) }}>{currentNum}</strong> / {total}
           </span>
         </div>
         <button
@@ -389,11 +431,17 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
             ))}
           </g>
 
-          {/* 2. Các nét đã vẽ xong hoàn toàn */}
-          <g style={{ fill: 'none', stroke: '#1e293b', strokeWidth: 3.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+          {/* 2. Các nét đã vẽ xong hoàn toàn (Đa màu Mazii hoặc Đơn màu) */}
+          <g style={{ fill: 'none', strokeWidth: 3.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
             {strokes.map((s, idx) => {
               if (idx < currentStrokeIdx) {
-                return <path key={`done-${idx}`} d={s.d} />;
+                return (
+                  <path
+                    key={`done-${idx}`}
+                    d={s.d}
+                    style={{ stroke: getStrokeColor(idx, false) }}
+                  />
+                );
               }
               return null;
             })}
@@ -408,30 +456,34 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
               d={strokes[currentStrokeIdx].d}
               style={{
                 fill: 'none',
-                stroke: '#dc2626', // Màu đỏ chu sa (Shu-iro) thư pháp Nhật Bản truyền thống
-                strokeWidth: 3.6,
+                stroke: getStrokeColor(currentStrokeIdx, true),
+                strokeWidth: 3.8,
                 strokeLinecap: 'round',
                 strokeLinejoin: 'round',
                 strokeDasharray: pathLengths[currentStrokeIdx] || 150,
                 strokeDashoffset: (pathLengths[currentStrokeIdx] || 150) * (1 - currentProgress),
-                filter: 'drop-shadow(0 1px 3px rgba(220,38,38,0.35))',
+                filter: `drop-shadow(0 1px 4px ${getStrokeColor(currentStrokeIdx, true)}80)`,
               }}
             />
           )}
 
-          {/* 4. Số thứ tự các nét (Stroke numbers) */}
+          {/* 4. Số thứ tự các nét (Stroke numbers matching stroke color) */}
           {showNumbers && (
-            <g style={{ fontSize: '8px', fill: '#64748b', fontWeight: 600 }}>
+            <g style={{ fontSize: '8px', fontWeight: 600 }}>
               {strokeNumbers.map((num, i) => {
                 // Chỉ hiện số nét cho các nét đã hoặc đang vẽ
                 if (i <= currentStrokeIdx) {
+                  const numColor = colorMode === 'multi'
+                    ? MAZII_STROKE_COLORS[i % MAZII_STROKE_COLORS.length]
+                    : (i === currentStrokeIdx ? singleColor : '#94a3b8');
+
                   return (
                     <text
                       key={`num-${i}`}
                       transform={num.transform}
                       style={{
-                        fill: i === currentStrokeIdx ? '#dc2626' : '#94a3b8',
-                        fontWeight: i === currentStrokeIdx ? 800 : 500,
+                        fill: numColor,
+                        fontWeight: i === currentStrokeIdx ? 900 : 700,
                       }}
                     >
                       {num.text}
@@ -503,7 +555,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
           </button>
         </div>
 
-        {/* Sub toggles: Grid, Numbers & Continuous Loop */}
+        {/* Sub toggles: Grid, Numbers, Continuous Loop & Color Mode Config */}
         <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 px-1 text-xs text-slate-600 gap-1.5 flex-wrap">
           {/* Loop toggle */}
           <button
@@ -523,6 +575,23 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
               }`}
             >
               {isLooping ? '✓ BẬT' : '○ TẮT'}
+            </span>
+          </button>
+
+          {/* Color Mode Configuration Toggle Button */}
+          <button
+            onClick={() => setShowColorConfig(!showColorConfig)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+              showColorConfig || colorMode === 'multi'
+                ? 'bg-gradient-to-r from-blue-600 via-teal-600 to-indigo-600 text-white font-black shadow-xs'
+                : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
+            }`}
+            title="Nhấp để cấu hình chế độ màu nét vẽ (Đa màu kiểu Mazii hoặc Đơn màu)"
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>Màu nét</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-white/30 text-white">
+              {colorMode === 'multi' ? 'Đa màu' : 'Đơn màu'}
             </span>
           </button>
 
@@ -570,6 +639,100 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Color configuration panel dropdown */}
+        {showColorConfig && (
+          <div className="w-full bg-white rounded-2xl p-3 border border-slate-200 shadow-sm space-y-2.5 text-xs animate-in fade-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-teal-600" />
+                <span>Cấu hình màu sắc nét vẽ Kanji:</span>
+              </span>
+              <button
+                onClick={() => setShowColorConfig(false)}
+                className="text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Mode Selector */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setColorMode('multi');
+                  localStorage.setItem('kanji_stroke_color_mode', 'multi');
+                }}
+                className={`p-2 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                  colorMode === 'multi'
+                    ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 font-bold text-teal-950'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold">Đa màu (Kiểu Mazii)</span>
+                  {colorMode === 'multi' && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {MAZII_STROKE_COLORS.slice(0, 6).map((c) => (
+                    <span key={c} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setColorMode('single');
+                  localStorage.setItem('kanji_stroke_color_mode', 'single');
+                }}
+                className={`p-2 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                  colorMode === 'single'
+                    ? 'bg-teal-50/80 border-teal-500 ring-2 ring-teal-500/20 font-bold text-teal-950'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold">Đơn màu đồng nhất</span>
+                  {colorMode === 'single' && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: singleColor }} />
+                  <span className="text-[10px] text-slate-500 font-mono">1 màu cố định</span>
+                </div>
+              </button>
+            </div>
+
+            {/* Single color swatches palette if single color mode is active */}
+            {colorMode === 'single' && (
+              <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                <span className="text-[11px] font-semibold text-slate-500">Chọn màu đơn cho nét vẽ:</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[
+                    { color: '#dc2626', label: 'Đỏ chu sa' },
+                    { color: '#0f766e', label: 'Xanh ngọc' },
+                    { color: '#2563eb', label: 'Xanh dương' },
+                    { color: '#16a34a', label: 'Xanh lá' },
+                    { color: '#9333ea', label: 'Tím' },
+                    { color: '#0f172a', label: 'Đen truyền thống' },
+                  ].map(({ color, label }) => (
+                    <button
+                      key={color}
+                      onClick={() => {
+                        setSingleColor(color);
+                        localStorage.setItem('kanji_stroke_single_color', color);
+                      }}
+                      style={{ backgroundColor: color }}
+                      className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
+                        singleColor === color ? 'scale-115 border-white ring-2 ring-teal-600' : 'border-transparent'
+                      }`}
+                      title={label}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
