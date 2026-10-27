@@ -196,7 +196,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
               disabled={!inputText.trim() || isTranslating}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[34px] sm:min-h-[36px] ${
                 inputText.trim() && !isTranslating
-                  ? 'bg-gradient-to-r from-teal-700 via-teal-800 to-indigo-800 hover:from-teal-800 hover:to-indigo-900 text-white shadow-sm shadow-teal-950/20 active:scale-95 cursor-pointer ring-1 ring-teal-500/30'
+                  ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-2xs active:scale-95 cursor-pointer border border-teal-800'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
               }`}
               title={
@@ -212,7 +212,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 </>
               ) : (
                 <>
-                  <Languages className="w-3.5 h-3.5 text-amber-300" />
+                  <Languages className="w-3.5 h-3.5 text-teal-200" />
                   <span>Dịch câu ({engine === 'google' ? 'Google' : 'Gemini'})</span>
                 </>
               )}

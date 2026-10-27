@@ -585,14 +585,20 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
             onClick={() => setShowColorConfig(!showColorConfig)}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
               showColorConfig || colorMode === 'multi'
-                ? 'bg-gradient-to-r from-blue-600 via-teal-600 to-indigo-600 text-white font-black shadow-xs'
+                ? 'bg-teal-50 text-teal-950 border-2 border-teal-600 ring-2 ring-teal-500/20 shadow-xs'
                 : 'bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200'
             }`}
             title="Nhấp để cấu hình chế độ màu nét vẽ (Đa màu kiểu Mazii hoặc Đơn màu)"
           >
-            <Palette className="w-3.5 h-3.5" />
+            <Palette className={`w-3.5 h-3.5 ${showColorConfig || colorMode === 'multi' ? 'text-teal-700' : 'text-slate-400'}`} />
             <span>Màu nét</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-white/30 text-white">
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                showColorConfig || colorMode === 'multi'
+                  ? 'bg-teal-700 text-white shadow-2xs'
+                  : 'bg-slate-200 text-slate-500'
+              }`}
+            >
               {colorMode === 'multi' ? 'Đa màu' : 'Đơn màu'}
             </span>
           </button>

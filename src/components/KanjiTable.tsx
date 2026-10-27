@@ -19,6 +19,7 @@ interface KanjiTableProps {
   kanjiList: KanjiItem[];
   copyStatus: Record<string, CopyStatus>;
   showGrid?: boolean;
+  showFurigana?: boolean;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
@@ -28,6 +29,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
   kanjiList,
   copyStatus,
   showGrid = false,
+  showFurigana = false,
   onCopyImage,
   onDownloadPng,
   onInspect,
@@ -105,7 +107,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       className="font-kanji font-black text-3xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors inline-flex flex-col items-start"
                       title="Bấm để xem hoạt ảnh nét vẽ"
                     >
-                      {detail && getPrimaryHiragana(detail) && (
+                      {showFurigana && detail && getPrimaryHiragana(detail) && (
                         <rt className="text-[11px] font-semibold text-teal-700 select-none pb-0.5 tracking-normal">
                           {getPrimaryHiragana(detail)}
                         </rt>
@@ -281,7 +283,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                           className="font-kanji font-black text-4xl lg:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors cursor-pointer select-all drop-shadow-2xs leading-none inline-flex flex-col items-center"
                           title={`Click để mở hoạt ảnh nét vẽ chữ ${item.kanji}`}
                         >
-                          {detail && getPrimaryHiragana(detail) && (
+                          {showFurigana && detail && getPrimaryHiragana(detail) && (
                             <rt className="text-xs font-semibold text-teal-700 select-none pb-0.5 tracking-normal font-sans">
                               {getPrimaryHiragana(detail)}
                             </rt>

@@ -45,6 +45,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   });
 
+  // 4. List Furigana setting (Default false as requested)
+  const [showListFurigana, setShowListFurigana] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kanji_setting_list_furigana');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
+    }
+  });
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,14 +84,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch {}
   };
 
+  const handleToggleListFurigana = (val: boolean) => {
+    setShowListFurigana(val);
+    try {
+      localStorage.setItem('kanji_setting_list_furigana', String(val));
+      window.dispatchEvent(new Event('storage'));
+      if (showToast) showToast(`Đã ${val ? 'BẬT' : 'TẮT'} phiên âm Hiragana trên đầu chữ Kanji`, 'info');
+    } catch {}
+  };
+
   const handleResetDefaults = () => {
     try {
       localStorage.setItem('kanji_stroke_color_mode', 'multi');
       localStorage.setItem('kanji_stroke_single_color', '#dc2626');
       localStorage.setItem('kanji_setting_grid', 'true');
+      localStorage.setItem('kanji_setting_list_furigana', 'false');
       setColorMode('multi');
       setSingleColor('#dc2626');
       setDefaultGrid(true);
+      setShowListFurigana(false);
+      window.dispatchEvent(new Event('storage'));
       if (showToast) showToast('Đã khôi phục cài đặt mặc định ban đầu!', 'success');
     } catch {}
   };
@@ -199,12 +221,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 2: RECENT HISTORY & MEMORY */}
+          {/* SECTION 2: DISPLAY OPTIONS */}
+          <div className="space-y-3 pt-3 border-t border-slate-100">
+            <div className="flex items-center gap-2 font-bold text-slate-800">
+              <BookOpen className="w-4 h-4 text-teal-600" />
+              <span>2. Tùy chọn hiển thị danh sách Kanji</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3">
+              <div>
+                <span className="font-bold text-xs sm:text-sm text-slate-800 block">
+                  Hiện Hiragana (Furigana) trên đầu chữ Kanji
+                </span>
+                <span className="text-[11px] text-slate-500 block mt-0.5">
+                  Hiển thị phiên âm Hiragana nhỏ trên đầu mỗi chữ Hán trong danh sách tra cứu
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleToggleListFurigana(!showListFurigana)}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-xs shrink-0 ${
+                  showListFurigana
+                    ? 'bg-teal-700 text-white shadow-xs'
+                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                }`}
+              >
+                {showListFurigana ? '✓ BẬT' : '○ TẮT'}
+              </button>
+            </div>
+          </div>
+
+          {/* SECTION 3: RECENT HISTORY & MEMORY */}
           <div className="space-y-2.5 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-800 flex items-center gap-2">
                 <History className="w-4 h-4 text-teal-600" />
-                <span>2. Bộ nhớ Lịch sử tra cứu Kanji</span>
+                <span>3. Bộ nhớ Lịch sử tra cứu Kanji</span>
               </span>
               <span className="text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
                 Lưu tối đa 25 từ

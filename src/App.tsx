@@ -76,6 +76,28 @@ export default function App() {
   // Global Settings Modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
+  // Setting: Show Hiragana above Kanji in lookup list (Default OFF as requested)
+  const [showListFurigana, setShowListFurigana] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kanji_setting_list_furigana');
+      return saved !== null ? saved === 'true' : false;
+    } catch {
+      return false;
+    }
+  });
+
+  // Storage listener to update settings immediately when changed in SettingsModal
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const saved = localStorage.getItem('kanji_setting_list_furigana');
+        setShowListFurigana(saved !== null ? saved === 'true' : false);
+      } catch {}
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   // Auto-show guide modal for first-time visitors
   useEffect(() => {
     try {
@@ -633,6 +655,7 @@ export default function App() {
               kanjiList={filteredKanjiList}
               copyStatus={copyStatus}
               showGrid={includeGrid}
+              showFurigana={showListFurigana}
               onCopyImage={handleCopyImage}
               onDownloadPng={handleDownloadPng}
               onInspect={handleInspectKanji}
@@ -642,6 +665,7 @@ export default function App() {
               kanjiList={filteredKanjiList}
               copyStatus={copyStatus}
               showGrid={includeGrid}
+              showFurigana={showListFurigana}
               onCopyImage={handleCopyImage}
               onDownloadPng={handleDownloadPng}
               onInspect={handleInspectKanji}
@@ -666,7 +690,7 @@ export default function App() {
 
       {/* 214 Radical Explorer Modal */}
       {isRadicalsOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 md:p-6 overflow-hidden">
           <RadicalExplorer
             onSelectKanji={(char) => handleSelectRecentKanji(char)}
             onClose={() => setIsRadicalsOpen(false)}

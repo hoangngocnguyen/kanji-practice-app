@@ -18,6 +18,7 @@ interface KanjiGridProps {
   kanjiList: KanjiItem[];
   copyStatus: Record<string, CopyStatus>;
   showGrid?: boolean;
+  showFurigana?: boolean;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
@@ -27,6 +28,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
   kanjiList,
   copyStatus,
   showGrid = false,
+  showFurigana = false,
   onCopyImage,
   onDownloadPng,
   onInspect,
@@ -69,7 +71,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             <div className="text-center cursor-pointer space-y-1 w-full" onClick={() => onInspect(item)}>
               <div className="relative inline-flex items-center justify-center">
                 <ruby className="font-kanji font-black text-4xl sm:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors leading-none inline-flex flex-col items-center">
-                  {detail && getPrimaryHiragana(detail) && (
+                  {showFurigana && detail && getPrimaryHiragana(detail) && (
                     <rt className="text-xs font-semibold text-teal-700 select-none pb-0.5 tracking-normal font-sans">
                       {getPrimaryHiragana(detail)}
                     </rt>

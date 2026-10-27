@@ -178,7 +178,7 @@ export const KanjiPrintSheet: React.FC<KanjiPrintSheetProps> = ({ kanjiList }) =
 
       {/* Footer in print */}
       <div className="mt-4 pt-2 border-t border-slate-300 flex items-center justify-between text-[10px] text-slate-500">
-        <span>Kanji Stroke Order Worksheet • Luyện viết chữ đẹp mỗi ngày</span>
+        <span>Luyện Kanji Worksheet • Luyện viết chữ đẹp mỗi ngày</span>
         <span>Dữ liệu nét vẽ bản quyền KanjiVG Project (CC BY-SA 3.0)</span>
       </div>
     </div>
