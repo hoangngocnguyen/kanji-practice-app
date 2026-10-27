@@ -58,8 +58,11 @@ export function extractUniqueKanji(text: string): KanjiItem[] {
   return list;
 }
 
+import { MAZII_STROKE_COLORS } from '../components/StrokeAnimation';
+
 /**
  * Chuyển SVG từ KanjiVG CDN sang PNG Blob với nền trắng tinh khiết (#FFFFFF)
+ * Áp dụng chế độ Đa màu nét (Mazii style) hoặc Đơn màu người dùng cấu hình
  */
 export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boolean = false): Promise<Blob> {
   const response = await fetch(svgUrl);
@@ -68,11 +71,43 @@ export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boole
   }
   const rawSvg = await response.text();
 
-  // Làm sạch DOCTYPE và XML header để tránh xung đột trình duyệt
-  const cleanSvg = rawSvg
-    .replace(/<!DOCTYPE[\s\S]*?\]>/i, '')
-    .replace(/<\?xml[\s\S]*?\?>/i, '')
-    .trim();
+  let colorMode: 'multi' | 'single' = 'multi';
+  let singleColor = '#0f172a';
+  try {
+    colorMode = (localStorage.getItem('kanji_stroke_color_mode') as 'multi' | 'single') || 'multi';
+    singleColor = localStorage.getItem('kanji_stroke_single_color') || '#0f172a';
+  } catch {}
+
+  // Parse SVG XML và áp dụng màu sắc nét vẽ theo cấu hình hệ thống
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawSvg, 'image/svg+xml');
+  const paths = Array.from(doc.querySelectorAll('path[d]'));
+
+  paths.forEach((path, idx) => {
+    const strokeColor = colorMode === 'multi'
+      ? MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length]
+      : singleColor;
+    path.setAttribute('stroke', strokeColor);
+    path.setAttribute('style', `stroke: ${strokeColor} !important; stroke-width: 3.3px !important; stroke-linecap: round; stroke-linejoin: round; fill: none;`);
+  });
+
+  // Áp dụng màu tương ứng cho các số thứ tự nét 1, 2, 3...
+  const numberGroup = doc.querySelector('g[id*="StrokeNumbers"]');
+  if (numberGroup) {
+    numberGroup.setAttribute('style', 'display: block;');
+    const textElements = Array.from(numberGroup.querySelectorAll('text'));
+    textElements.forEach((textEl, idx) => {
+      const numColor = colorMode === 'multi'
+        ? MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length]
+        : '#475569';
+
+      textEl.setAttribute('fill', numColor);
+      textEl.setAttribute('style', `fill: ${numColor} !important; font-size: 6.5px !important; font-weight: 500 !important; font-family: system-ui, -apple-system, sans-serif !important; fill-opacity: 0.82 !important;`);
+    });
+  }
+
+  const serializer = new XMLSerializer();
+  const cleanSvg = serializer.serializeToString(doc);
 
   return new Promise<Blob>((resolve, reject) => {
     const svgBlob = new Blob([cleanSvg], { type: 'image/svg+xml;charset=utf-8' });

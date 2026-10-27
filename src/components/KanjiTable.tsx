@@ -13,6 +13,7 @@ import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
 import { getPrimaryHiragana } from '../utils/kanji';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
+import { KanjiSvgView } from './KanjiSvgView';
 
 interface KanjiTableProps {
   kanjiList: KanjiItem[];
@@ -86,21 +87,10 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   title="Click để mở hoạt ảnh vẽ từng nét"
                 >
                   {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
-                  <img
-                    src={item.svgUrl}
-                    alt={`Nét viết ${item.kanji}`}
-                    loading="lazy"
-                    className="w-full h-full object-contain filter contrast-125 relative z-0"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                      const parent = (e.target as HTMLElement).parentElement;
-                      if (parent) {
-                        const fallback = document.createElement('div');
-                        fallback.className = 'text-center p-1 text-[10px] text-slate-400';
-                        fallback.innerText = 'Chưa có ảnh';
-                        parent.appendChild(fallback);
-                      }
-                    }}
+                  <KanjiSvgView
+                    svgUrl={item.svgUrl}
+                    kanji={item.kanji}
+                    className="w-full h-full object-contain relative z-0"
                   />
                   <div className="absolute bottom-1 right-1 bg-white/90 rounded-md p-0.5 shadow-2xs border border-slate-200 text-teal-700">
                     <PlayCircle className="w-3.5 h-3.5" />
@@ -339,21 +329,10 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                         {/* Lưới ô chữ nét đứt mảnh tinh tế */}
                         {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
 
-                        <img
-                          src={item.svgUrl}
-                          alt={`Thứ tự nét chữ ${item.kanji}`}
-                          loading="lazy"
-                          className="w-full h-full object-contain filter contrast-125 transform group-hover/img:scale-105 transition-transform relative z-0"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                            const parent = (e.target as HTMLElement).parentElement;
-                            if (parent) {
-                              const fallback = document.createElement('div');
-                              fallback.className = 'text-center p-2 text-xs text-slate-400 font-medium';
-                              fallback.innerText = 'Chưa có ảnh nét vẽ';
-                              parent.appendChild(fallback);
-                            }
-                          }}
+                        <KanjiSvgView
+                          svgUrl={item.svgUrl}
+                          kanji={item.kanji}
+                          className="w-full h-full object-contain transform group-hover/img:scale-105 transition-transform relative z-0"
                         />
                         <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-2xs">
                           <span className="bg-white/95 text-slate-800 font-bold text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 border border-slate-200">

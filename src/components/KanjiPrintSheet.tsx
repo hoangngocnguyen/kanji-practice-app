@@ -1,6 +1,7 @@
 import React from 'react';
 import { KanjiItem } from '../types/kanji';
 import { getPrimaryHiragana, katakanaToHiragana } from '../utils/kanji';
+import { KanjiSvgView } from './KanjiSvgView';
 
 interface KanjiPrintSheetProps {
   kanjiList: KanjiItem[];
@@ -95,11 +96,10 @@ export const KanjiPrintSheet: React.FC<KanjiPrintSheetProps> = ({ kanjiList }) =
                 {/* 3. Stroke order diagram SVG */}
                 <td className="p-2 border-r border-slate-300 text-center align-middle">
                   <div className="w-20 h-20 mx-auto border border-slate-200 rounded p-1 flex items-center justify-center bg-white">
-                    <img
-                      src={item.svgUrl}
-                      alt={`Nét viết ${item.kanji}`}
+                    <KanjiSvgView
+                      svgUrl={item.svgUrl}
+                      kanji={item.kanji}
                       className="w-full h-full object-contain"
-                      loading="eager"
                     />
                   </div>
                 </td>

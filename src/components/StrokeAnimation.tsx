@@ -469,7 +469,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
           {/* 4. Số thứ tự các nét (Stroke numbers matching stroke color) */}
           {showNumbers && (
-            <g style={{ fontSize: '8px', fontWeight: 600 }}>
+            <g style={{ fontSize: '6.5px', fontWeight: 500 }}>
               {strokeNumbers.map((num, i) => {
                 // Chỉ hiện số nét cho các nét đã hoặc đang vẽ
                 if (i <= currentStrokeIdx) {
@@ -483,7 +483,9 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
                       transform={num.transform}
                       style={{
                         fill: numColor,
-                        fontWeight: i === currentStrokeIdx ? 900 : 700,
+                        fontWeight: i === currentStrokeIdx ? 600 : 500,
+                        fillOpacity: 0.85,
+                        fontSize: '6.5px',
                       }}
                     >
                       {num.text}

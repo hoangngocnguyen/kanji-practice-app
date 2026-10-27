@@ -23,6 +23,7 @@ import { MnemonicStoryCard } from './MnemonicStoryCard';
 import { getKanjiDecomposition } from '../data/radicalsData';
 import { fetchAndDecomposeKanji } from '../utils/kanjiSubElementParser';
 import { KanjiDecomposition } from '../types/radical';
+import { KanjiSvgView } from './KanjiSvgView';
 
 interface PracticeModalProps {
   item: KanjiItem | null;
@@ -470,11 +471,12 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                 {/* Lưới ô nét đứt nếu bật Kèm lưới */}
                 {showGrid && <KanjiGridOverlay />}
 
-                {/* SVG Background template */}
-                <img
-                  src={item.svgUrl}
-                  alt={`Nét viết ${item.kanji}`}
-                  className="w-full h-full object-contain pointer-events-none select-none filter opacity-35"
+                {/* SVG Background template for hand-tracing */}
+                <KanjiSvgView
+                  svgUrl={item.svgUrl}
+                  kanji={item.kanji}
+                  monochrome={true}
+                  className="w-full h-full object-contain pointer-events-none select-none opacity-30 p-2"
                 />
 
                 {/* Tracing canvas */}

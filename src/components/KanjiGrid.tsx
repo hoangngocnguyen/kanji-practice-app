@@ -12,6 +12,7 @@ import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
 import { getPrimaryHiragana } from '../utils/kanji';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
+import { KanjiSvgView } from './KanjiSvgView';
 
 interface KanjiGridProps {
   kanjiList: KanjiItem[];
@@ -126,11 +127,10 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
               {/* Lưới ô nét đứt mảnh */}
               {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
 
-              <img
-                src={item.svgUrl}
-                alt={`Thứ tự nét ${item.kanji}`}
-                className="w-full h-full object-contain filter contrast-125 transform group-hover/box:scale-105 transition-transform relative z-0"
-                loading="lazy"
+              <KanjiSvgView
+                svgUrl={item.svgUrl}
+                kanji={item.kanji}
+                className="w-full h-full object-contain transform group-hover/box:scale-105 transition-transform relative z-0"
               />
               <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/box:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-2xs">
                 <span className="bg-white/95 text-slate-800 font-bold text-xs px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 border border-slate-200">
