@@ -33,6 +33,8 @@ import { KanjiPrintSheet } from './components/KanjiPrintSheet';
 import { UserGuideModal } from './components/UserGuideModal';
 import { RadicalExplorer } from './components/RadicalExplorer';
 import { SettingsModal } from './components/SettingsModal';
+import { ExtensionExporter } from './components/ExtensionExporter';
+import { ExtensionPlayground } from './components/ExtensionPlayground';
 
 export default function App() {
   // Input text state
@@ -98,11 +100,61 @@ export default function App() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Read URL parameters and static path routes (e.g. https://luyenkanji.vercel.app/?text=... or /text/... or #text=...)
+  useEffect(() => {
+    const handleUrlUpdate = () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        let extracted = urlParams.get('text') || urlParams.get('kanji') || urlParams.get('q') || urlParams.get('query');
+
+        if (!extracted && window.location.hash) {
+          const hashStr = window.location.hash.replace(/^#\/?/, '');
+          if (hashStr.includes('=')) {
+            const hashParams = new URLSearchParams(hashStr);
+            extracted = hashParams.get('text') || hashParams.get('kanji') || hashParams.get('q') || hashParams.get('query');
+          } else {
+            try {
+              extracted = decodeURIComponent(hashStr);
+            } catch {
+              extracted = hashStr;
+            }
+          }
+        }
+
+        if (!extracted && window.location.pathname) {
+          const match = window.location.pathname.match(/^\/(?:text|kanji|q|search)\/(.+)/i);
+          if (match && match[1]) {
+            try {
+              extracted = decodeURIComponent(match[1]);
+            } catch {
+              extracted = match[1];
+            }
+          }
+        }
+
+        if (extracted && extracted.trim()) {
+          setInputText(extracted.trim());
+        }
+      } catch (e) {
+        console.warn('Lỗi đọc tham số URL:', e);
+      }
+    };
+
+    handleUrlUpdate();
+
+    window.addEventListener('popstate', handleUrlUpdate);
+    window.addEventListener('hashchange', handleUrlUpdate);
+    return () => {
+      window.removeEventListener('popstate', handleUrlUpdate);
+      window.removeEventListener('hashchange', handleUrlUpdate);
+    };
+  }, []);
+
   // Auto-show guide modal for first-time visitors
   useEffect(() => {
     try {
       const dismissed = localStorage.getItem('kanji_guide_dismissed_v1');
-      if (!dismissed) {
+      if (!dismissed && !window.location.search.includes('text=')) {
         const timer = setTimeout(() => {
           setIsGuideOpen(true);
         }, 600);
@@ -673,6 +725,10 @@ export default function App() {
           )}
         </section>
 
+        {/* Chrome Extension Download Section & Live Playground */}
+        <ExtensionExporter />
+        <ExtensionPlayground />
+
         {/* Dedicated Printable Worksheet (Auto-shown on window.print(), styled for A4 paper) */}
         <KanjiPrintSheet kanjiList={mergedKanjiList} />
       </main>
@@ -688,9 +744,9 @@ export default function App() {
         onSelectKanji={(char) => handleSelectRecentKanji(char)}
       />
 
-      {/* 214 Radical Explorer Modal */}
+      {/* 214 Radical Explorer Modal (overflow-y-auto allows smooth full-modal scrolling without clipping) */}
       {isRadicalsOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 md:p-6 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 md:p-6 overflow-y-auto">
           <RadicalExplorer
             onSelectKanji={(char) => handleSelectRecentKanji(char)}
             onClose={() => setIsRadicalsOpen(false)}

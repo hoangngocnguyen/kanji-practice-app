@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for Advanced Multi-Radical Kanji Decomposition Engine & KanjiVG Sub-element Parser.",
-  "updatedAt":  "2026-10-25T04:25:19.935024826Z",
+  "summary":  "Detailed implementation plan for building the Chrome Extension 'Luyện Kanji' (Manifest V3) for selecting text on any web page to trigger a floating Kanji analysis tooltip and rich interactive modal, along with a full web playground simulator and downloadable ZIP bundle.",
+  "updatedAt":  "2026-10-27T15:47:37.974658209Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

@@ -1,86 +1,115 @@
-# Advanced Multi-Component Kanji Decomposition Plan
+# Chrome Extension: Luyện Kanji - Phân tích & Học Kanji trên trang web
 
-Kế hoạch nâng cấp toàn diện **Bộ máy Phân tách Bộ thủ Kanji Đa thành phần (Multi-Component Kanji Decomposition Engine)**, giải quyết triệt để vấn đề các chữ Kanji phức tạp (như 能, 警, 躍, 鬱, 語, 働...) bị thiếu bộ thủ hoặc chỉ hiển thị 1 thành phần đơn lẻ.
+Kế hoạch xây dựng **Chrome Extension Manifest V3 "Luyện Kanji"** kết hợp với **Trình giả lập Web Interactive Playground** trong ứng dụng React Vite. Extension giúp người dùng bôi đen đoạn văn bản tiếng Nhật bất kỳ trên trình duyệt để hiển thị Floating Tooltip, mở Modal phân tích nét vẽ động, âm thanh phát âm, Hán-Việt, dịch câu bằng AI và xuất thẻ Anki.
 
 ---
 
 ## User Review & Critical Decisions
 
-> [!IMPORTANT] Giải pháp kỹ thuật được xác nhận dựa trên phản hồi và ảnh chụp màn hình từ người dùng:
+> [!IMPORTANT] Các quyết định tính năng dựa trên câu trả lời của người dùng:
 
-- **Vấn đề thực tế (từ ảnh chụp chữ 能)**: Chữ 能 (NĂNG) gồm có bộ **月** (Nguyệt/Nhục - Bên trái), bộ **厶** (Tư - Giữa trên) và 2 bộ **匕** (Chủy - Bên phải). Thuật toán cũ chỉ nhận diện được 1 bộ đại diện (月), thiếu mất các bộ bên phải.
-- **Thuật toán nâng cấp (Multi-Radical Extractor)**:
-  1. Xây dựng cơ sở dữ liệu bóc tách đa thành phần chuẩn hóa (`FULL_KANJI_DECOMPOSITIONS`) phủ toàn bộ từ vựng JLPT N5, N4, N3, N2, N1.
-  2. Tích hợp bộ bóc tách KanjiVG Sub-element: đọc các thẻ `<g kvg:element="...">` và `<g kvg:original="...">` từ mã nguồn SVG KanjiVG để tự động trích xuất tất cả các bộ thủ bên trái, bên phải, trên, dưới, bao quanh của bất kỳ chữ Kanji nào.
-- **Mẹo nhớ thông minh tự động (Auto-Generated Mnemonic)**: Tự động ghép nối ý nghĩa tất cả các bộ thủ bóc tách thành một câu chuyện hoàn chỉnh, hỗ trợ sửa đổi theo sở thích cá nhân.
+- **Cơ chế kích hoạt (Activation UX)**: Kích hoạt dạng **Floating Tooltip Icon** xuất hiện ngay góc trên bên phải đoạn văn bản vừa bôi đen. Khi nhấp vào icon sẽ mở Modal phân tích chuyên sâu.
+- **Tính năng trong Kanji Analysis Modal**:
+  1. Trích xuất danh sách tất cả chữ Kanji trong đoạn văn bản bôi đen.
+  2. Phát âm chuẩn tiếng Nhật (Web Speech API / Audio TTS).
+  3. Tra Hán-Việt & nghĩa tiếng Việt đầy đủ.
+  4. Trình chiếu nét vẽ động SVG (KanjiVG Stroke Order Animation player).
+  5. Dịch câu ngữ cảnh bằng Gemini AI / Translate.
+  6. Xuất thẻ ghi nhớ Anki (File CSV chuẩn Anki + Kết nối AnkiConnect API trực tiếp).
+  7. Lưu lịch sử tra cứu & Từ vựng yêu thích (Bookmark).
+- **Đóng gói & Phân phối**:
+  1. Xây dựng bộ mã nguồn Chrome Extension Manifest V3 đầy đủ (`manifest.json`, `content.js`, `background.js`, `popup.html`, `popup.js`, `styles.css`).
+  2. Đóng gói nút xuất **Tải ZIP Extension (JSZip)** để người dùng cài đặt Developer Mode (`chrome://extensions`).
+  3. Trình giả lập (Simulator) trên giao diện Web cho phép thử nghiệm tính năng bôi đen văn bản và bật Popup Modal ngay lập tức.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **Mục tiêu**: Bóc tách chính xác 100% tất cả các bộ thủ cấu thành nên một chữ Kanji (dù chữ đó có 2, 3, 4 hay 5+ bộ thủ nhỏ kết hợp).
-- **Ví dụ phân tách thực tế**:
-  - **能 (NĂNG)** ➔ **月** (Nguyệt/Nhục - Trái) + **厶** (Tư - Giữa) + **匕** (Chủy - Trên phải) + **匕** (Chủy - Dưới phải).
-  - **語 (NGỮ)** ➔ **言** (Ngôn - Trái) + **五** (Ngũ - Trên) + **口** (Khẩu - Dưới).
-  - **働 (ĐỘNG)** ➔ **亻** (Nhân - Trái) + **重** (Trọng - Giữa) + **力** (Lực - Phải).
-  - **愛 (ÁI)** ➔ **爪** (Trảo - Trên) + **冖** (Mịch - Giữa) + **心** (Tâm - Trung tâm) + **夂** (Truy - Dưới).
+- **Mục tiêu**: Cung cấp công cụ tra cứu Kanji cá nhân siêu tốc ngay trên mọi trang web khi đọc tin tức, truyện, tài liệu tiếng Nhật mà không cần chuyển tab sang từ điển.
+- **Đối tượng sử dụng**: Người học tiếng Nhật ở mọi cấp độ (N5 - N1) cần tra nét vẽ, nghĩa Hán-Việt và lưu từ vựng sang Anki khi duyệt web.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### A. Dynamic Tree Layout cho Kanji nhiều nét
+### Flow người dùng trên Extension & Web Simulator:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   SƠ ĐỒ BÓC TÁCH ĐẦY ĐỦ CHO CHỮ 能 (NĂNG)                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│                                [Chữ Kanji: 能]                              │
-│                                       │                                     │
-│         ┌─────────────────┬───────────┴───────────┬─────────────────┐       │
-│         ▼                 ▼                       ▼                 ▼       │
-│   ┌───────────┐     ┌───────────┐           ┌───────────┐     ┌───────────┐ │
-│   │ 月 (NGUYỆT)│     │ 厶 (TƯ)   │           │ 匕 (CHỦY) │     │ 匕 (CHỦY) │ │
-│   │ Bên trái  │     │ Giữa trên │           │ Trên phải │     │ Dưới phải │ │
-│   │ 4 nét     │     │ 2 nét     │           │ 2 nét     │     │ 2 nét     │ │
-│   └───────────┘     └───────────┘           └───────────┘     └───────────┘ │
-│                                                                             │
-│  💡 Mẹo nhớ:                                                               │
-│  "Dùng sức mạnh cơ thể (thịt 月) gạt bỏ tư lợi (厶), cầm 2 cái thìa (匕 匕) │
-│   thể hiện NĂNG LỰC (能) thực sự."                                         │
-└─────────────────────────────────────────────────────────────────────────────┘
+[ Bôi đen đoạn chữ tiếng Nhật trên trang web ]
+                    │
+                    ▼
+[ Floating Icon ✒️ / 🏮 xuất hiện tại toạ độ bôi đen ]
+                    │ (Click icon)
+                    ▼
+[ Modal Phân tích Kanji (Shadow DOM - tránh đụng độ CSS trang web) ]
+ ├── Tab 1: Danh sách Kanji trong đoạn văn (Phát âm, Hán Việt, Nét vẽ động)
+ ├── Tab 2: Dịch câu ngữ cảnh bằng AI
+ └── Tab 3: Xuất Anki (Tải CSV hoặc Gửi sang AnkiConnect)
 ```
 
-### B. Cải tiến giao diện Sơ đồ cây (KanjiRadicalTree)
-- Tự động căn chỉnh khoảng cách các node khi Kanji có 3, 4 hoặc 5 bộ thủ cấu thành.
-- Mỗi node hiển thị rõ ràng: Ký tự bộ thủ, Tên Hán Việt, Số nét, Vị trí (Trái, Phải, Trên, Dưới, Trong, Ngoài) và Ý nghĩa ngắn gọn.
+### Visual Identity:
+- **Style**: Japanese Editorial & Clean SaaS Interface.
+- **Color Budget (60-30-10)**:
+  - 60% Canvas: Light warm gray / white slate (`#F8FAFC`, `#FFFFFF`).
+  - 30% Structure: Emerald green slate (`#0F766E`, `#1E293B`, border `#E2E8F0`).
+  - 10% Accent: Vivid Crimson Japanese Ink (`#E11D48` / `#0D9488`).
+- **Typography**: Inter / Plus Jakarta Sans cho chữ Latin, Noto Sans JP cho chữ Kanji.
 
 ---
 
-## 3. Technical Architecture & Implementation Strategy
+## 3. Technical Architecture & Data Strategy
 
-### A. KanjiVG SVG Sub-element Parser
-Đọc trực tiếp dữ liệu SVG KanjiVG để bóc tách các nguyên tố chữ Hán mà không phụ thuộc vào từ điển tĩnh:
-
-```typescript
-// Trích xuất các element từ thẻ g của KanjiVG SVG
-export function parseKanjiVGSubElements(svgContent: string): RadicalComponent[] {
-  // Parse <g kvg:element="月" kvg:position="left">...
-  // Parse <g kvg:element="厶" kvg:position="top">...
-  // Parse <g kvg:element="匕" kvg:position="right">...
-}
 ```
-
-### B. Mở rộng cơ sở dữ liệu `FULL_KANJI_DECOMPOSITIONS`
-Cập nhật dữ liệu phân tách đa thành phần chuẩn xác cho hàng trăm Kanji thông dụng trong chương trình học JLPT.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          CHROME EXTENSION MANIFEST V3                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────┐           ┌─────────────────────────────────┐  │
+│  │    content.js (DOM)     │           │   background.js (Service Wkr)   │  │
+│  │ ── MouseUp Event        │           │ ── Context Menu Actions         │  │
+│  │ ── Floating Tooltip     │ ────────► │ ── Gemini API Proxy Request     │  │
+│  │ ── Shadow DOM Modal     │           │ ── Chrome Storage Sync          │  │
+│  └─────────────────────────┘           └─────────────────────────────────┘  │
+│               │                                         │                   │
+│               ▼                                         ▼                   │
+│  ┌─────────────────────────┐           ┌─────────────────────────────────┐  │
+│  │  KanjiVG & Audio Engine │           │     popup.html & options.html   │  │
+│  │ ── Animated Stroke Player│           │ ── History & Saved Vocabulary   │  │
+│  │ ── TTS Pronunciation    │           │ ── AnkiConnect & API Config     │  │
+│  └─────────────────────────┘           └─────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Plan Implementation Steps
 
-1. **Cập nhật `src/data/radicalsData.ts`**: Thêm bộ phân tách đa thành phần cho chữ 能, 警, 躍, 鬱, 語, 働, 話, 読, 試, 験, 学, 校, 食, 飲, 男, 女, 愛, 思, 想, 朝, 電, 車, 家, 國... và nâng cấp hàm `getKanjiDecomposition`.
-2. **Xây dựng `src/utils/kanjiSubElementParser.ts`**: Bộ bóc tách tự động KanjiVG Sub-Elements từ file SVG.
-3. **Nâng cấp `KanjiRadicalTree.tsx`**: Hỗ trợ hiển thị từ 2 đến 6 node con mượt mà, căn chỉnh connector lines chuẩn xác.
-4. **Cập nhật `MnemonicStoryCard.tsx`**: Tự động sinh mẹo nhớ thông minh từ tất cả các bộ thủ được bóc tách.
-5. **Kiểm tra build & linting**: Chạy `lint_applet` và `compile_applet` xác minh không lỗi.
+1. **Tạo dữ liệu & Service cho Chrome Extension Engine (`src/services/` & `src/extension/`)**:
+   - Viết bộ trích xuất Kanji từ chuỗi văn bản (`extractKanjiFromText`).
+   - Tích hợp từ điển Hán-Việt, âm On/Kun, cấp độ JLPT, bộ thủ cấu thành.
+   - Xây dựng SVG Stroke Order renderer & player cho từng nét chữ.
+
+2. **Xây dựng Chrome Extension Codebase Files (`src/extension/files/`)**:
+   - `manifest.json`: Khai báo Manifest V3, permissions (`storage`, `activeTab`, `scripting`), host permissions.
+   - `content.js`: Trình bắt sự kiện `mouseup`, tính toán toạ độ hiển thị Floating Tooltip, chèn Shadow DOM Modal để không bị đè CSS của trang gốc.
+   - `background.js`: Service worker xử lý tin nhắn (messages), gọi Gemini API dịch câu, lưu trữ Chrome storage.
+   - `popup.html` & `popup.js`: Giao diện Popup Extension khi click icon trên thanh công cụ trình duyệt (xem lịch sử tra, từ vựng lưu, xuất Anki).
+   - `styles.css`: Scoped CSS cho Floating Tooltip & Modal.
+
+3. **Xây dựng Nút Xuất ZIP Extension (`src/components/ExtensionExporter.tsx`)**:
+   - Tích hợp library `jszip` và `file-saver` để nén toàn bộ thư mục Extension thành file `LuyenKanji-Extension-v1.0.zip` chỉ với 1 click.
+   - Cung cấp Hướng dẫn cài đặt từng bước (Developer Mode -> Load unpacked).
+
+4. **Xây dựng Web Simulator & Tab Chức năng (`src/components/ExtensionPlayground.tsx`)**:
+   - Tạo môi trường trang web giả định có sẵn nhiều đoạn văn tiếng Nhật tin tức / truyện.
+   - Cho phép người dùng thử bôi đen chữ trên màn hình web simulator để trải nghiệm chính xác luồng hoạt động của Chrome Extension.
+   - Tích hợp đầy đủ tính năng tra nét vẽ, nghe âm thanh, dịch câu ngữ cảnh bằng AI và xuất file CSV Anki.
+
+5. **Cập nhật giao diện chính & Header**:
+   - Đổi tên ứng dụng thành **Luyện Kanji**.
+   - Thêm Tab / Nút "Tải Chrome Extension" nổi bật trên Header.
+
+6. **Kiểm tra & Biên dịch**:
+   - Chạy `lint_applet` và `compile_applet` đảm bảo không có bất kỳ lỗi TypeScript nào.

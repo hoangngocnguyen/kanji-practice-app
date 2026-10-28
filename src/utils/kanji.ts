@@ -25,7 +25,7 @@ export const SAMPLE_PRESETS: SamplePreset[] = [
 ];
 
 /**
- * Quét lọc các ký tự Kanji chuẩn Unicode (U+4E00 -> U+9FAF)
+ * Quét lọc các ký tự Kanji chuẩn Unicode (\p{Script=Han})
  * Loại bỏ trùng lặp, bảo toàn thứ tự xuất hiện đầu tiên
  */
 export function extractUniqueKanji(text: string): KanjiItem[] {
@@ -33,25 +33,23 @@ export function extractUniqueKanji(text: string): KanjiItem[] {
 
   const seen = new Set<string>();
   const list: KanjiItem[] = [];
-  const chars = Array.from(text);
+  const matches = text.match(/\p{Script=Han}/gu) || [];
 
-  for (const char of chars) {
-    if (char >= '\u4e00' && char <= '\u9faf') {
-      if (!seen.has(char)) {
-        seen.add(char);
-        const codePoint = char.codePointAt(0) ?? char.charCodeAt(0);
-        const hex = codePoint.toString(16).toLowerCase().padStart(5, '0');
-        const svgUrl = `https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/${hex}.svg`;
+  for (const char of matches) {
+    if (!seen.has(char)) {
+      seen.add(char);
+      const codePoint = char.codePointAt(0) ?? char.charCodeAt(0);
+      const hex = codePoint.toString(16).toLowerCase().padStart(5, '0');
+      const svgUrl = `https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/${hex}.svg`;
 
-        list.push({
-          id: list.length + 1,
-          kanji: char,
-          hex,
-          svgUrl,
-          unicodeDecimal: codePoint,
-          detail: getKanjiInfo(char),
-        });
-      }
+      list.push({
+        id: list.length + 1,
+        kanji: char,
+        hex,
+        svgUrl,
+        unicodeDecimal: codePoint,
+        detail: getKanjiInfo(char),
+      });
     }
   }
 
@@ -236,11 +234,11 @@ export function katakanaToHiragana(str: string): string {
 }
 
 /**
- * Kiểm tra xem một ký tự có phải là Kanji (U+4E00 đến U+9FAF) hay không
+ * Kiểm tra xem một ký tự có phải là Kanji hay không
  */
 export function isKanjiChar(char: string): boolean {
-  if (!char || char.length !== 1) return false;
-  return char >= '\u4e00' && char <= '\u9faf';
+  if (!char) return false;
+  return /\p{Script=Han}/u.test(char);
 }
 
 /**
