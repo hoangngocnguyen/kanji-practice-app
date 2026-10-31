@@ -1,135 +1,131 @@
-# 🌸 Kanji Stroke Order & Dictionary Tool (漢字書き順・辞書ツール)
+# ⛩️ Luyện Kanji (luyenkanji.vercel.app)
+### Nền tảng tra cứu thứ tự nét viết, bộ thủ Khang Hy & Luyện tập chữ Hán Nhật Bản
+*(漢字書き順・部首・練習・日越辞書ツール)*
 
-Một ứng dụng web hiện đại, tinh tế giúp tra cứu chi tiết Kanji, tự động giải mã thứ tự nét vẽ (Stroke Order), phát hoạt ảnh nét động (Stroke Animation), luyện viết chữ Hán, phiên âm Hiragana (Furigana), dịch nghĩa từng chữ và dịch toàn bộ câu tiếng Nhật sang tiếng Việt.
-
-Được tối ưu hoá đặc biệt cho người học tiếng Nhật, giáo viên và người soạn thẻ Anki, flashcard, tài liệu giảng dạy, hỗ trợ in ấn phiếu tập viết A4 chuẩn mực.
-
----
-
-## ✨ Tính năng nổi bật
-
-### 1. 🔍 Trích xuất & Lọc Kanji thông minh
-- Tự động nhận diện và trích xuất mọi chữ Kanji từ văn bản hỗn hợp (Nhật - Việt - Anh).
-- Tự động loại bỏ chữ trùng lặp mà vẫn giữ nguyên thứ tự xuất hiện ban đầu.
-- Hỗ trợ các bộ mẫu nhanh: Danh ngôn, Thành ngữ 4 chữ Yojijukugo, JLPT N3/N2, Từ vựng cao cấp N1.
-- **Thanh công cụ ghim (Sticky Toolbar):** Luôn cố định khi cuộn trang, cho phép tra cứu, tìm kiếm và thêm chữ liên tục mà không cần kéo lên xuống.
-
-### 2. 🔤 Phiên âm Hiragana (Furigana) & Dịch nghĩa Tiếng Việt từng chữ
-- **Chuẩn HTML5 `<ruby>` & `<rt>`:** Hiển thị chữ Hiragana nhỏ nhắn, căn giữa trang nhã ngay trên đầu chữ Kanji.
-- **Dịch nghĩa tiếng Việt bên dưới:** Hiển thị nhãn nghĩa tiếng Việt thông dụng và âm Hán-Việt ngay dưới chân chữ.
-- **Tùy chọn Bật/Tắt độc lập:** Người dùng có thể linh hoạt bật/tắt hiển thị Hiragana trên đầu hoặc nghĩa tiếng Việt bên dưới tùy nhu cầu học tập.
-- **Thẻ xem trước trực tiếp tại ô tìm kiếm:** Khi gõ hoặc tìm chữ Kanji, hệ thống hiển thị ngay phiên âm Hiragana và nghĩa tiếng Việt tương ứng.
-
-### 3. 🌐 Dịch toàn bộ câu / đoạn văn (Tiếng Nhật ➔ Tiếng Việt)
-- Tính năng **"Dịch cả câu"** sử dụng dịch vụ MyMemory API hỗ trợ chuyển ngữ trọn vẹn đoạn văn sang tiếng Việt mượt mà, chuẩn ngữ cảnh.
-- Tích hợp một chạm: **Nghe phát âm toàn bộ câu tiếng Nhật**, **Sao chép bản dịch** và **Dịch lại**.
-- Bộ nhớ đệm kép (Memory & localStorage) giúp dịch tức thì các mẫu câu quen thuộc mà không tốn dung lượng mạng.
-
-### 4. 📷 Quét ảnh trích xuất chữ Kanji (OCR Client-side)
-- Tích hợp công nghệ nhận diện ký tự quang học **Tesseract.js** chạy 100% trên trình duyệt (WebAssembly).
-- Hỗ trợ tải tệp ảnh từ máy, kéo thả ảnh hoặc **dán trực tiếp ảnh chụp màn hình (`Ctrl + V`)**.
-- Tự động lọc các ký tự Kanji từ hình ảnh và áp dụng trực tiếp vào ô nhập liệu hoặc thanh tìm kiếm.
-
-### 5. ✍️ Hoạt ảnh thứ tự nét vẽ (Stroke Animation)
-- Mô phỏng quá trình viết chữ từng nét tự nhiên với dữ liệu vector chuẩn xác từ KanjiVG.
-- **Vẽ liên tục (Auto-loop mode):** Tự động vẽ từ nét đầu đến nét cuối, dừng nghỉ ngắn để người dùng ngắm chữ hoàn chỉnh, sau đó tự động lặp lại từ nét 1.
-- Trình điều khiển hoạt ảnh linh hoạt: Phát / Tạm dừng / Phát lại / Tua từng nét / Thay đổi tốc độ phát (0.5x - 2.0x) / Bật tắt số nét và lưới ô.
-- Phát âm tiếng Nhật chuẩn bản xứ cho từng chữ Kanji qua Web Speech API.
-
-### 6. 🌳 Phân tích Bộ thủ Đa thành phần & Mẹo nhớ Kanji (Radical Breakdown & Mnemonics)
-- **Sơ đồ cây bóc tách bộ thủ (Multi-Component Radical Tree):** Bóc tách chính xác 100% tất cả các bộ thủ cấu thành của 6.000+ Kanji (như 能, 語, 働, 警, 躍, 鬱, 愛, 議, 新, 親...) với nhãn vị trí Hán học (*Hen - Bên trái*, *Tsukuri - Bên phải*, *Kanmuri - Phía trên*, *Ashi - Phía dưới*, *Kamae - Bao quanh*...).
-- **Tự động bóc tách từ KanjiVG SVG XML:** Tự động tải và phân tích cây thẻ XML SVG để trích xuất 100% các cấu phần nhỏ bên trong bất kỳ chữ Hán nào.
-- **Mẹo nhớ thông minh (Mnemonic Stories):** Tự động ghép nối ý nghĩa từ các bộ thủ cấu thành thành câu chuyện ghi nhớ sâu sắc, hỗ trợ người dùng tự chỉnh sửa và lưu trữ riêng trên thiết bị (`localStorage`).
-- **Tra cứu 214 Bộ thủ Khang Hy (214 Kangxi Radical Explorer):** Bảng tổng hợp 214 bộ thủ Khang Hy lọc theo số nét (1-17 nét) và tìm kiếm họ Kanji liên quan.
-
-### 7. 🖨️ Bảng in A4 chuyên nghiệp (Kanji Practice Worksheet)
-- Tối ưu hóa chuyên dụng cho in ấn (`@media print`) hoặc lưu file PDF:
-  - Tự động ẩn toàn bộ giao diện web thừa (thanh công cụ, ô nhập liệu dài dòng, nút bấm).
-  - Trình trình bày dạng bảng in chuẩn A4 không bao giờ bị cắt rách chữ giữa 2 trang (`page-break-inside: avoid`).
-  - Bao gồm: STT, Kanji to rõ nét + Hiragana + Hán-Việt + JLPT, sơ đồ nét vẽ, âm On/Kun và **4 ô kẻ chữ điền (Genkouyoushi)** có nét đứt chữ thập `+` để người học tự tay cầm bút luyện viết chữ đẹp.
-
-### 8. 📋 Xuất dữ liệu & Tạo thẻ Anki
-- **Chép ảnh nét vẽ có nền trắng và lưới ô:** Chuyển đổi SVG sang PNG độ phân giải 600×600px sắc nét với 1 cú click để dán vào Anki, Notion, Word, GoodNotes.
-- **Xuất file CSV:** Định dạng chuẩn sẵn sàng nhập trực tiếp vào phần mềm Anki (gồm STT, Kanji, Hán-Việt, On, Kun, Nghĩa, JLPT, URL ảnh).
-
-### 9. 🎨 Giao diện & Nút bấm trực quan
-- Hệ thống màu sắc phân tách rõ rệt:
-  - **Nút Bật/Tắt (Toggle):** Phân biệt rõ trạng thái **`✓ BẬT`** (nền xanh viền đậm) và **`○ TẮT`** (nền xám viền nhạt).
-  - **Nút Hành động:** Phân biệt rõ giữa trạng thái sẵn sàng và trạng thái vô hiệu hóa (`disabled`).
+[![Version](https://img.shields.io/badge/version-v2.0.0-teal.svg)](https://luyenkanji.vercel.app)
+[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-8-purple.svg)](https://vitejs.dev)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![KanjiVG](https://img.shields.io/badge/Data-KanjiVG%20(CC%20BY--SA%203.0)-orange.svg)](https://github.com/KanjiVG/kanjivg)
 
 ---
 
-## 🛠️ Công nghệ sử dụng
+## 📢 Bản phát hành lớn: Luyện Kanji v2.0.0 (Grand Major Release)
 
-- **Frontend Core:** [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Build Tool:** [Vite 8](https://vitejs.dev/)
-- **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
-- **Icons:** [Lucide React](https://lucide.dev/)
-- **Animation Engine:** SVG `strokeDashoffset` + `requestAnimationFrame` (60fps)
-- **Audio:** Web Speech Synthesis API (Native Browser Speech Engine)
+### 🚀 **Tiêu đề phát hành: Luyện Kanji v2.0.0 — Hệ sinh thái Luyện viết chữ Hán, Tiện ích Trình duyệt & Bộ gõ Kana toàn diện**
+*Ngày phát hành: Tháng 10/2026*
+
+Bản phát hành **v2.0.0** đánh dấu bước chuyển mình lớn của **Luyện Kanji**, từ một công cụ web tra cứu đơn lẻ trở thành một **hệ sinh thái học tập toàn diện**: mở rộng sang tiện ích trình duyệt Chrome/Edge độc lập, bổ sung công nghệ so khớp kiểm tra nét vẽ trực tiếp và hỗ trợ bộ gõ Romaji sang Kana mượt mà.
 
 ---
 
-## 🌐 Các thư viện, API & Nguồn tài nguyên bên ngoài (External Dependencies & APIs)
+### 🌟 Các tính năng đột phá trong phiên bản v2.0.0
 
-Dự án sử dụng và tích hợp các tài nguyên, dịch vụ mở bên ngoài sau:
+#### 1. 🧩 Ra mắt Luyện Kanji Extension cho Chrome & Microsoft Edge
+- **Tra cứu ngữ cảnh tức thì**: Khi đang đọc báo tiếng Nhật (NHK Easy, Asahi, Yahoo News...), chỉ cần bôi đen cụm từ hoặc câu tiếng Nhật bất kỳ, nút tra cứu thông minh sẽ lập tức xuất hiện.
+- **Cửa sổ di chuyển tự do (Draggable Window)**: Người dùng có thể kéo thả thanh tiêu đề để di chuyển modal đến bất kỳ góc nào trên màn hình, không còn lo bị che khuất dòng chữ hay hình ảnh bài viết.
+- **Công nghệ cô lập Shadow DOM**: Tách biệt hoàn toàn mã CSS/HTML của extension khỏi website gốc, triệt tiêu 100% nguy cơ vỡ layout hay lỗi font chữ.
+- **Tích hợp liền mạch với Web qua URL Parameter (`?text=...`)**: Nút *"Mở trên luyenkanji.vercel.app"* hỗ trợ đẩy toàn bộ đoạn văn bản bôi đen sang trang web chính để phân tích chuyên sâu và dịch cả câu bằng AI.
 
-| Dịch vụ / Thư viện | Loại | Mục đích sử dụng | Giấy phép / Bản quyền |
+#### 2. 🎯 Chế độ Luyện viết kiểm tra nét & Thứ tự chữ Kanji (Stroke Verification Engine)
+- **So khớp vector hình học (`strokeMatcher`)**: So sánh trực tiếp nét vẽ tay của người dùng với đường cong vector gốc của KanjiVG qua 32 điểm lấy mẫu phân bố đều.
+- **Tự động nhận diện nét vẽ ngược chiều (Reverse Detection)**: Sử dụng độ tương đồng vector (Cosine Similarity) để lập tức phát hiện và cảnh báo khi người dùng vẽ ngược quy tắc thư pháp (từ dưới lên trên hoặc từ phải sang trái).
+- **Chấm điểm độ chính xác theo thời gian thực (0 - 100%)**:
+  - Đánh giá tổng hòa độ lệch quỹ đạo (55%), hướng vector (25%) và độ chuẩn xác của điểm đầu/cuối (20%).
+  - Đạt từ 55% trở lên sẽ được xác nhận hoàn thành và tự động chuyển sang nét kế tiếp.
+- **Chỉ dẫn điểm bắt đầu phát sáng**: Chấm tròn xanh lá (`animate-ping`) hiển thị chính xác vị trí đặt bút kèm số thứ tự và đường nét đứt định hướng nét vẽ.
+- **Thẻ tổng kết & Xếp loại**: Đánh giá điểm trung bình toàn bộ nét, trao cúp thành tích (Xuất sắc A+, Giỏi A, Đạt) kèm nút luyện lại nhanh.
+
+#### 3. ⌨️ Bộ gõ Romaji chuyển trực tiếp sang Kana trong ô nhập (Live Kana IME)
+- **Tùy chọn chuyển đổi nhanh**: `[⌨️ Gõ Romaji: Tắt | あ Hiragana | ア Katakana]`.
+- **Gõ đến đâu đổi đến đó**: Tự động chuyển đổi các ký tự Romaji vừa gõ thành chữ Kana tương ứng ngay trong ô nhập liệu (ví dụ: gõ `nihon` ra `にほん`, `kohi` ra `コーヒ`, `watashi` ra `わたし`).
+- **Hỗ trợ đầy đủ biến âm & âm ngắt**: Âm đục (`ga`, `za`, `da`), âm bán đục (`pa`), âm ghép (`kya`, `shu`, `cho`), âm ngắt sokuon (gõ lặp phụ âm `tt`, `kk`, `ss` ra `っ`) và `nn` thành `ん`.
+- **Chuyển đổi hàng loạt cho văn bản dán**: Tự động phát hiện khi văn bản có chứa chữ cái Latinh và hiển thị 2 nút chuyển đổi toàn bộ thành Hiragana hoặc Katakana chỉ với 1 cú click.
+
+#### 4. 🌳 Bóc tách 100% Cấu trúc Bộ thủ & Mẹo nhớ Mnemonic
+- **Giải mã đệ quy từ KanjiVG SVG XML**: Bóc tách chi tiết 100% tất cả các bộ phận cấu thành của hơn 6.000 chữ Kanji, bao gồm cả các chữ Hán phức tạp nhiều nét.
+- **Gán nhãn Hán học chuẩn mực**: Phân loại rõ vị trí bộ thủ (*Hen - Bên trái*, *Tsukuri - Bên phải*, *Kanmuri - Phía trên*, *Ashi - Phía dưới*, *Kamae - Bao quanh*...).
+- **Mẹo nhớ thông minh (Mnemonics)**: Ghép nối ý nghĩa các bộ thủ thành câu chuyện liên tưởng ghi nhớ sâu sắc; cho phép người dùng tự chỉnh sửa và lưu lại theo ý muốn.
+- **Bảng 214 Bộ thủ Khang Hy**: Khám phá danh mục 214 bộ thủ kinh điển theo số nét (1-17 nét).
+
+#### 5. 🎨 Bảng màu nét vẽ Mazii & Chế độ vẽ lặp lại liên tục
+- **Màu nét trực quan phong cách Mazii**: 10 màu sắc rực rỡ riêng biệt tương ứng với từng nét viết, giúp ghi nhớ thứ tự nét dễ dàng hơn bao giờ hết.
+- **Tùy chọn màu đơn đồng nhất**: Dành cho người thích phong cách tối giản truyền thống (Đỏ chu sa, Xanh ngọc, Đen mực tàu...).
+- **Vẽ nét liên tục (Auto-loop mode)**: Tự động chạy tuần tự các nét, dừng nghỉ ngắn cho người xem quan sát tổng thể rồi tự động lặp lại từ nét 1.
+
+---
+
+## ✨ Tổng quan tính năng của Luyện Kanji
+
+| Tính năng | Mô tả chi tiết |
+| :--- | :--- |
+| **🔍 Tách lọc Kanji** | Tự động trích xuất mọi chữ Kanji từ văn bản hỗn hợp Nhật - Việt - Anh, loại bỏ trùng lặp và giữ nguyên thứ tự. |
+| **🔤 Furigana & Nghĩa chữ** | Hiển thị chữ mềm Hiragana trên đầu và nhãn Hán-Việt/nghĩa tiếng Việt dưới chân chữ (chuẩn `<ruby>`). |
+| **🌐 Dịch cả câu & Audio** | Dịch trọn vẹn đoạn văn sang tiếng Việt bằng Google Dịch (siêu tốc 150ms) hoặc Gemini AI kèm phát âm chuẩn bản xứ. |
+| **🎯 Luyện viết chấm điểm** | Kiểm tra thứ tự và hướng vẽ từng nét, chấm điểm độ chính xác % và cảnh báo vẽ ngược chiều. |
+| **⌨️ Gõ Romaji sang Kana** | Tự động chuyển trực tiếp chữ Latinh thành Hiragana/Katakana khi gõ vào ô nhập liệu. |
+| **🧩 Extension Trình duyệt** | Bôi đen đọc báo tra cứu tức thì, cửa sổ kéo thả tự do, Shadow DOM cách ly và truyền văn bản qua `?text=...`. |
+| **🌳 Bóc tách Bộ thủ 100%** | Sơ đồ cây phân giải các thành phần bộ thủ của 6.000+ Kanji kèm câu chuyện mẹo nhớ tự chỉnh sửa. |
+| **🖨️ Phiếu in tập viết A4** | Bảng in chuẩn giấy A4 dạng kẻ ô chữ điền Genkouyoushi có nét đứt `+` chống cắt trang. |
+| **📋 Xuất thẻ Anki & Ảnh** | Tải ảnh nét vẽ PNG 600×600px nền trắng có lưới và xuất file CSV nhập trực tiếp vào Anki. |
+| **📷 Quét ảnh OCR** | Tesseract.js WebAssembly nhận diện chữ Kanji từ tệp ảnh hoặc ảnh dán từ clipboard (`Ctrl + V`). |
+
+---
+
+## 🛠️ Công nghệ cốt lõi
+
+- **Frontend:** React 19, TypeScript 5.8, Vite 8
+- **Thiết kế UI:** Tailwind CSS v4, Lucide React Icons
+- **Đồ họa & Animation:** SVG Vector Paths, HTML5 Canvas API, `requestAnimationFrame` (60fps)
+- **Thuật toán xử lý:** Vector Cosine Similarity Stroke Matching, Hepburn/Kunrei Romaji Parser
+- **Nhận diện ký tự:** Tesseract.js (Client-side WebAssembly OCR)
+- **Xử lý giọng nói:** Web Speech Synthesis API (`ja-JP`)
+- **Backend & AI:** Node.js Express Server, `@google/genai` (Gemini API)
+
+---
+
+## 🌐 Thư viện & Nguồn dữ liệu mở
+
+| Dịch vụ / Thư viện | Loại | Mục đích | Bản quyền / Giấy phép |
 | :--- | :--- | :--- | :--- |
-| **[Google Translate (Google Dịch)](https://translate.google.com/)** | Dịch vụ Dịch thuật | Engine dịch thuật mặc định siêu tốc (~150ms), dịch câu giao tiếp Nhật - Việt tự nhiên, chuẩn nghĩa và không yêu cầu API key | Dịch vụ Google |
-| **[Gemini AI (@google/genai)](https://ai.google.dev/)** | LLM API Serverless | Phân tích và dịch thuật ngữ cảnh văn hóa sâu sắc với mô hình `gemini-2.5-flash` qua endpoint `/api/translate` | Google AI Studio / Gemini API Terms |
-| **[KanjiVG](https://github.com/KanjiVG/kanjivg)** | Dữ liệu Vector SVG | Cung cấp dữ liệu thứ tự từng nét vẽ vector XML/SVG cho hơn 6.000 chữ Kanji qua mạng phân phối jsDelivr CDN (`https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/{hex}.svg`) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) (Bản quyền Ulrich Apel) |
-| **[kanjiapi.dev](https://kanjiapi.dev/)** | REST API | Tra cứu thông tin chuyên sâu: âm Onyomi, Kunyomi, cấp độ JLPT, số nét cho từng chữ Hán | Miễn phí / Open Source |
-| **[Tesseract.js](https://tesseract.projectnaptha.com/)** | Thư viện OCR WebAssembly | Nhận diện ký tự quang học chữ Kanji từ hình ảnh tải lên hoặc ảnh dán từ clipboard (`Ctrl+V`) chạy 100% Client-side trong trình duyệt | [Apache-2.0 License](https://github.com/naptha/tesseract.js/blob/master/LICENSE) |
-| **[MyMemory Translation API](https://mymemory.translated.net/)** | Dịch vụ Dịch thuật REST API | Tầng dịch máy dự phòng khi ngoại tuyến hoặc mất kết nối | Dịch vụ dịch thuật cộng đồng mở (Translated) |
-| **[Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)** | Web API chuẩn trình duyệt (W3C) | Tổng hợp giọng đọc tiếng Nhật bản xứ (`ja-JP`) để nghe phát âm chữ Kanji và cả câu | Tiêu chuẩn trình duyệt W3C |
-| **[HTML5 Ruby Annotation](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/ruby)** | Tiêu chuẩn HTML5 W3C | Căn chỉnh và hiển thị ngữ âm Hiragana (Furigana) nằm ngay trên đầu chữ Kanji | Tiêu chuẩn web W3C |
-| **[Mazii Dictionary](https://mazii.net/)** | Liên kết tham chiếu từ điển | Cho phép mở rộng tra cứu ngữ cảnh chuyên sâu trên từ điển Mazii Việt - Nhật | Tham chiếu ngoài |
+| **[KanjiVG](https://github.com/KanjiVG/kanjivg)** | Vector SVG Data | Thứ tự nét vẽ vector cho 6.000+ chữ Kanji | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) (Ulrich Apel) |
+| **[kanjiapi.dev](https://kanjiapi.dev/)** | REST API | Tra cứu Onyomi, Kunyomi, JLPT, số nét | Miễn phí / Open Source |
+| **[Google Translate](https://translate.google.com/)** | Dịch thuật | Dịch câu Nhật - Việt siêu tốc 150ms | Google Service |
+| **[Gemini AI](https://ai.google.dev/)** | LLM API | Dịch hiểu sâu sắc văn hóa và ngữ cảnh | Google AI Studio |
+| **[Tesseract.js](https://tesseract.projectnaptha.com/)** | OCR Engine | Quét ảnh trích xuất ký tự chữ Hán | Apache-2.0 |
+| **[Web Speech API](https://www.w3.org/TR/speech-api/)** | Browser API | Tổng hợp giọng đọc tiếng Nhật chuẩn | Tiêu chuẩn web W3C |
 
 ---
 
-## 🚀 Hướng dẫn cài đặt & Khởi chạy
+## 🚀 Hướng dẫn Cài đặt & Khởi chạy
 
-### Yêu cầu hệ thống
-- [Node.js](https://nodejs.org/) (phiên bản 18+ hoặc 20+)
-- Trình quản lý gói: `npm`, `pnpm`, hoặc `yarn`
+### 1. Khởi chạy ứng dụng Web
+```bash
+# Clone repository
+git clone https://github.com/your-username/luyen-kanji.git
+cd luyen-kanji
 
-### Các bước thực hiện
+# Cài đặt thư viện dependencies
+npm install
 
-1. **Clone repository:**
-   ```bash
-   git clone <URL_CUA_REPOSITORY>
-   cd kanji-stroke-tool
-   ```
+# Khởi động server phát triển (Port 3000)
+npm run dev
 
-2. **Cài đặt thư viện dependencies:**
-   ```bash
-   npm install
-   # hoặc: pnpm install
-   ```
+# Đóng gói sản phẩm (Production Build)
+npm run build
+```
 
-3. **Khởi động server phát triển (Development):**
-   ```bash
-   npm run dev
-   # hoặc: pnpm run dev
-   ```
-
-4. **Truy cập ứng dụng:**
-   Mở trình duyệt tại: `http://localhost:3000` (hoặc cổng hiển thị trên terminal).
-
-5. **Build cho môi trường Production:**
-   ```bash
-   npm run build
-   ```
+### 2. Cài đặt Tiện ích Chrome / Edge Extension
+1. Mở trình duyệt Chrome hoặc Microsoft Edge, truy cập: `chrome://extensions` (hoặc `edge://extensions`).
+2. Bật công tắc **Developer mode** (Chế độ dành cho nhà phát triển) ở góc trên.
+3. Nhấp vào nút **Load unpacked** (Tải tiện ích đã giải nén).
+4. Chọn thư mục `src/extension` trong mã nguồn dự án.
+5. Tiện ích **Luyện Kanji** đã sẵn sàng sử dụng trên bất kỳ trang web nào!
 
 ---
 
-## 📚 Ghi nhận bản quyền & Giấy phép (Attribution & Licenses)
+## 📚 Giấy phép (License)
 
-1. **Dữ liệu nét vẽ Kanji (Stroke Order Data):**
-   - Được cung cấp bởi dự án [KanjiVG](https://github.com/KanjiVG/kanjivg) (bản quyền Ulrich Apel và cộng sự).
-   - Phân phối theo giấy phép [Creative Commons Attribution-Share Alike 3.0 (CC BY-SA 3.0)](https://creativecommons.org/licenses/by-sa/3.0/).
-2. **Dữ liệu từ điển & Hán-Việt:**
-   - Dựa trên dữ liệu từ điển mã nguồn mở tiếng Nhật - tiếng Việt và dự án từ điển EDICT/KanjiDic.
-3. **Mã nguồn ứng dụng:**
-   - Phát hành theo giấy phép [MIT License](https://opensource.org/license/mit). Tự do sử dụng, chỉnh sửa và tích hợp vào mục đích học tập cũng như thương mại.
+- Mã nguồn toàn bộ ứng dụng được phát hành theo giấy phép **[MIT License](https://opensource.org/licenses/MIT)**.
+- Dữ liệu thứ tự nét vẽ Kanji thuộc bản quyền dự án **KanjiVG** (Ulrich Apel và cộng sự) theo giấy phép **CC BY-SA 3.0**.

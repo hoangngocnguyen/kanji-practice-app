@@ -1,115 +1,78 @@
-# Chrome Extension: Luyện Kanji - Phân tích & Học Kanji trên trang web
+# Kế hoạch triển khai: Kiểm tra nét Kanji & Bộ gõ Romaji sang Kana
 
-Kế hoạch xây dựng **Chrome Extension Manifest V3 "Luyện Kanji"** kết hợp với **Trình giả lập Web Interactive Playground** trong ứng dụng React Vite. Extension giúp người dùng bôi đen đoạn văn bản tiếng Nhật bất kỳ trên trình duyệt để hiển thị Floating Tooltip, mở Modal phân tích nét vẽ động, âm thanh phát âm, Hán-Việt, dịch câu bằng AI và xuất thẻ Anki.
-
----
-
-## User Review & Critical Decisions
-
-> [!IMPORTANT] Các quyết định tính năng dựa trên câu trả lời của người dùng:
-
-- **Cơ chế kích hoạt (Activation UX)**: Kích hoạt dạng **Floating Tooltip Icon** xuất hiện ngay góc trên bên phải đoạn văn bản vừa bôi đen. Khi nhấp vào icon sẽ mở Modal phân tích chuyên sâu.
-- **Tính năng trong Kanji Analysis Modal**:
-  1. Trích xuất danh sách tất cả chữ Kanji trong đoạn văn bản bôi đen.
-  2. Phát âm chuẩn tiếng Nhật (Web Speech API / Audio TTS).
-  3. Tra Hán-Việt & nghĩa tiếng Việt đầy đủ.
-  4. Trình chiếu nét vẽ động SVG (KanjiVG Stroke Order Animation player).
-  5. Dịch câu ngữ cảnh bằng Gemini AI / Translate.
-  6. Xuất thẻ ghi nhớ Anki (File CSV chuẩn Anki + Kết nối AnkiConnect API trực tiếp).
-  7. Lưu lịch sử tra cứu & Từ vựng yêu thích (Bookmark).
-- **Đóng gói & Phân phối**:
-  1. Xây dựng bộ mã nguồn Chrome Extension Manifest V3 đầy đủ (`manifest.json`, `content.js`, `background.js`, `popup.html`, `popup.js`, `styles.css`).
-  2. Đóng gói nút xuất **Tải ZIP Extension (JSZip)** để người dùng cài đặt Developer Mode (`chrome://extensions`).
-  3. Trình giả lập (Simulator) trên giao diện Web cho phép thử nghiệm tính năng bôi đen văn bản và bật Popup Modal ngay lập tức.
+Người dùng yêu cầu bổ sung 2 tính năng trọng tâm cho ứng dụng:
+1. **Kiểm tra viết đúng nét và thứ tự chữ Kanji**: Có hướng dẫn từng nét tuần tự, phát hiện vẽ đúng/sai hướng nét, chấm điểm độ chính xác (accuracy score %) và phản hồi trực quan.
+2. **Bộ gõ chuyển đổi Romaji sang tiếng Nhật (Kana)**: Tự động chuyển đổi trực tiếp khi gõ chữ Romaji (Latinh) trong ô nhập văn bản thành Hiragana/Katakana.
 
 ---
 
-## 1. Overview & Core Concept
+## I. User Review Required (Điểm cần xác nhận)
 
-- **Mục tiêu**: Cung cấp công cụ tra cứu Kanji cá nhân siêu tốc ngay trên mọi trang web khi đọc tin tức, truyện, tài liệu tiếng Nhật mà không cần chuyển tab sang từ điển.
-- **Đối tượng sử dụng**: Người học tiếng Nhật ở mọi cấp độ (N5 - N1) cần tra nét vẽ, nghĩa Hán-Việt và lưu từ vựng sang Anki khi duyệt web.
-
----
-
-## 2. User Experience & Visual Design
-
-### Flow người dùng trên Extension & Web Simulator:
-
-```
-[ Bôi đen đoạn chữ tiếng Nhật trên trang web ]
-                    │
-                    ▼
-[ Floating Icon ✒️ / 🏮 xuất hiện tại toạ độ bôi đen ]
-                    │ (Click icon)
-                    ▼
-[ Modal Phân tích Kanji (Shadow DOM - tránh đụng độ CSS trang web) ]
- ├── Tab 1: Danh sách Kanji trong đoạn văn (Phát âm, Hán Việt, Nét vẽ động)
- ├── Tab 2: Dịch câu ngữ cảnh bằng AI
- └── Tab 3: Xuất Anki (Tải CSV hoặc Gửi sang AnkiConnect)
-```
-
-### Visual Identity:
-- **Style**: Japanese Editorial & Clean SaaS Interface.
-- **Color Budget (60-30-10)**:
-  - 60% Canvas: Light warm gray / white slate (`#F8FAFC`, `#FFFFFF`).
-  - 30% Structure: Emerald green slate (`#0F766E`, `#1E293B`, border `#E2E8F0`).
-  - 10% Accent: Vivid Crimson Japanese Ink (`#E11D48` / `#0D9488`).
-- **Typography**: Inter / Plus Jakarta Sans cho chữ Latin, Noto Sans JP cho chữ Kanji.
+> [!NOTE]
+> - **Chế độ kiểm tra nét**: Trong tab "Tập viết tay", người dùng có thể linh hoạt chuyển đổi giữa **"Viết tự do"** (chế độ vẽ tay tự do trước đây) và **"Kiểm tra nét & Thứ tự"** (chế độ mới có chấm điểm, hướng dẫn nét tiếp theo, phát hiện ngược nét).
+> - **Bộ gõ Romaji**: Tích hợp thanh công cụ chuyển đổi `[⌨️ Romaji: Tắt | あ Hiragana | ア Katakana]` ngay trên ô nhập văn bản tiếng Nhật. Hỗ trợ đầy đủ âm ghép (`kya`, `sho`...), âm ngắt (`tt` -> `っ`), âm mũi (`nn` -> `ん`), trường âm (`-` -> `ー`).
 
 ---
 
-## 3. Technical Architecture & Data Strategy
+## II. Đề xuất Thay đổi Chi tiết
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          CHROME EXTENSION MANIFEST V3                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────┐           ┌─────────────────────────────────┐  │
-│  │    content.js (DOM)     │           │   background.js (Service Wkr)   │  │
-│  │ ── MouseUp Event        │           │ ── Context Menu Actions         │  │
-│  │ ── Floating Tooltip     │ ────────► │ ── Gemini API Proxy Request     │  │
-│  │ ── Shadow DOM Modal     │           │ ── Chrome Storage Sync          │  │
-│  └─────────────────────────┘           └─────────────────────────────────┘  │
-│               │                                         │                   │
-│               ▼                                         ▼                   │
-│  ┌─────────────────────────┐           ┌─────────────────────────────────┐  │
-│  │  KanjiVG & Audio Engine │           │     popup.html & options.html   │  │
-│  │ ── Animated Stroke Player│           │ ── History & Saved Vocabulary   │  │
-│  │ ── TTS Pronunciation    │           │ ── AnkiConnect & API Config     │  │
-│  └─────────────────────────┘           └─────────────────────────────────┘  │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### 1. Module Thuật toán Kiểm tra Nét Kanji (`src/utils/strokeMatcher.ts`)
+- **Phân tích KanjiVG Vector Paths**:
+  - Trích xuất danh sách các thẻ `<path d="...">` từ SVG KanjiVG của từng chữ Hán.
+  - Sử dụng `SVGPathElement.getPointAtLength()` để lấy mẫu $N = 32$ điểm tọa độ cách đều cho mỗi nét chuẩn (chuẩn hóa về khung tọa độ 109x109).
+- **Thuật toán Đánh giá Nét vẽ người dùng**:
+  - Chuẩn hóa nét vẽ từ canvas (quy đổi tỷ lệ kích thước canvas sang hệ tọa độ 109x109).
+  - So khớp điểm bắt đầu (Start Point) và điểm kết thúc (End Point) theo bán kính sai số cho phép.
+  - Phân tích vector hướng nét (Directional Angle / Cosine Similarity): Phát hiện lỗi viết ngược nét (ví dụ nét ngang viết từ phải sang trái, nét sổ viết từ dưới lên trên).
+  - Đo độ lệch trung bình (Mean Euclidean Distance / Modified Frechet Distance) giữa nét người dùng vẽ và nét chuẩn.
+  - Tính điểm độ chính xác (0 - 100%):
+    - $\ge 60\%$: Nét ĐẠT -> Hiệu ứng xanh lá, âm thanh báo hoàn thành nét, tự động chuyển sang nét kế tiếp.
+    - $< 60\%$: Nét CHƯA ĐẠT -> Hiệu ứng cảnh báo cam/đỏ, hiển thị mũi tên hướng dẫn nét đúng và cho phép vẽ lại ngay nét đó mà không cần xóa lại từ đầu.
+- **Tổng kết hoàn thành chữ**:
+  - Hiển thị điểm trung bình toàn bộ chữ (VD: 92% - Xuất sắc).
+  - Huy hiệu động viên và nút "Luyện lại" hoặc chuyển sang chữ Kanji tiếp theo.
+
+### 2. Nâng cấp Giao diện Luyện viết (`src/components/PracticeModal.tsx`)
+- Thêm bộ chuyển đổi chế độ trong Tab "Tập viết tay":
+  - **Chế độ Tự do**: Vẽ phác thảo tự do như hiện tại, đổi màu mực, xóa nét.
+  - **Chế độ Kiểm tra nét & Chấm điểm**:
+    - Hiển thị nét hiện tại cần vẽ (nét $i$ sáng lên, kèm số thứ tự và chấm tròn định vị điểm bắt đầu).
+    - Các nét đã vẽ đúng được lưu lại với màu nét chuẩn hoặc màu người dùng chọn.
+    - Thanh tiến trình nét (Ví dụ: `Nét 3/8: Nét ngang`).
+    - Nút thao tác: "Vẽ lại nét hiện tại", "Gợi ý nét này", "Bỏ qua nét".
+    - Bảng thông báo kết quả chấm điểm từng nét và tổng kết sau khi hoàn tất.
+
+### 3. Module Bộ gõ Romaji sang Kana (`src/utils/romajiConverter.ts`)
+- Triển khai bộ chuyển đổi Romaji chuẩn (Hepburn & Kunrei mở rộng) không cần cài thư viện ngoài:
+  - Bản đồ chuyển đổi nguyên âm (`a, i, u, e, o`), phụ âm đơn, phụ âm đôi (`kka -> っか`, `tte -> って`), âm ghép (`kya -> きゃ`, `ryo -> りょ`...), âm đặc biệt (`shi, chi, tsu, fu, ji`).
+  - Xử lý thông minh ký tự `n`: gõ `n` đứng trước phụ âm hoặc `nn` sẽ chuyển thành `ん`, nếu gõ `na` sẽ thành `な`.
+  - Hỗ trợ chuyển đổi sang cả Hiragana và Katakana.
+- Hàm hỗ trợ chèn và thay thế tại vị trí con trỏ chuột (`selectionStart`, `selectionEnd`) để gõ tự nhiên, không bị giật con trỏ.
+
+### 4. Tích hợp Bộ gõ vào Giao diện Nhập liệu (`src/components/InputSection.tsx`)
+- Thêm thanh chuyển đổi chế độ gõ Romaji ngay phía trên góc phải của textarea:
+  - Các chế độ: `[Tắt | Hiragana (あ) | Katakana (ア)]`.
+  - Gợi ý phím tắt chuyển nhanh.
+  - Khi người dùng gõ phím ký tự Latinh trong ô, từ ngữ được tự động chuyển thành chữ Kana tương ứng theo thời gian thực.
+  - Có nút "Chuyển toàn bộ đoạn văn Romaji đã dán thành Kana" cho người dùng khi họ copy cả đoạn Romaji từ nguồn khác dán vào.
 
 ---
 
-## Plan Implementation Steps
+## III. Kế hoạch Kiểm tra (Verification Plan)
 
-1. **Tạo dữ liệu & Service cho Chrome Extension Engine (`src/services/` & `src/extension/`)**:
-   - Viết bộ trích xuất Kanji từ chuỗi văn bản (`extractKanjiFromText`).
-   - Tích hợp từ điển Hán-Việt, âm On/Kun, cấp độ JLPT, bộ thủ cấu thành.
-   - Xây dựng SVG Stroke Order renderer & player cho từng nét chữ.
+### Kiểm tra tự động & Biên dịch
+- Chạy `compile_applet` để đảm bảo TypeScript biên dịch thành công 100%, không phát sinh lỗi types hay cú pháp.
+- Chạy `lint_applet` để xác thực tuân thủ tiêu chuẩn mã nguồn.
 
-2. **Xây dựng Chrome Extension Codebase Files (`src/extension/files/`)**:
-   - `manifest.json`: Khai báo Manifest V3, permissions (`storage`, `activeTab`, `scripting`), host permissions.
-   - `content.js`: Trình bắt sự kiện `mouseup`, tính toán toạ độ hiển thị Floating Tooltip, chèn Shadow DOM Modal để không bị đè CSS của trang gốc.
-   - `background.js`: Service worker xử lý tin nhắn (messages), gọi Gemini API dịch câu, lưu trữ Chrome storage.
-   - `popup.html` & `popup.js`: Giao diện Popup Extension khi click icon trên thanh công cụ trình duyệt (xem lịch sử tra, từ vựng lưu, xuất Anki).
-   - `styles.css`: Scoped CSS cho Floating Tooltip & Modal.
-
-3. **Xây dựng Nút Xuất ZIP Extension (`src/components/ExtensionExporter.tsx`)**:
-   - Tích hợp library `jszip` và `file-saver` để nén toàn bộ thư mục Extension thành file `LuyenKanji-Extension-v1.0.zip` chỉ với 1 click.
-   - Cung cấp Hướng dẫn cài đặt từng bước (Developer Mode -> Load unpacked).
-
-4. **Xây dựng Web Simulator & Tab Chức năng (`src/components/ExtensionPlayground.tsx`)**:
-   - Tạo môi trường trang web giả định có sẵn nhiều đoạn văn tiếng Nhật tin tức / truyện.
-   - Cho phép người dùng thử bôi đen chữ trên màn hình web simulator để trải nghiệm chính xác luồng hoạt động của Chrome Extension.
-   - Tích hợp đầy đủ tính năng tra nét vẽ, nghe âm thanh, dịch câu ngữ cảnh bằng AI và xuất file CSV Anki.
-
-5. **Cập nhật giao diện chính & Header**:
-   - Đổi tên ứng dụng thành **Luyện Kanji**.
-   - Thêm Tab / Nút "Tải Chrome Extension" nổi bật trên Header.
-
-6. **Kiểm tra & Biên dịch**:
-   - Chạy `lint_applet` và `compile_applet` đảm bảo không có bất kỳ lỗi TypeScript nào.
+### Kiểm tra tính năng bằng kịch bản thực tế
+1. **Kiểm tra Bộ gõ Romaji sang Kana**:
+   - Gõ `watashi no namae wa tanaka desu` -> Kiểm tra kết quả tự động chuyển thành `わたしのなまえはたなかです`.
+   - Gõ `nihon` -> `にほん`, gõ `tokyo` -> `とうきょう` hoặc `to-kyo-` -> `とうきょう`.
+   - Chuyển sang Katakana, gõ `konpyu-ta-` -> `コンピューター`.
+   - Tắt chế độ Romaji -> Nhập text thông thường và dán văn bản vẫn hoạt động trơn tru.
+2. **Kiểm tra Chức năng Luyện nét & Chấm điểm**:
+   - Mở modal luyện tập của chữ `日` (4 nét) hoặc `本` (5 nét).
+   - Chọn chế độ "Kiểm tra nét & Chấm điểm".
+   - Vẽ nét 1 đúng chiều (từ trên xuống dưới) -> Hệ thống ghi nhận nét đạt, chấm điểm (ví dụ: 88%), mở khóa nét 2.
+   - Thử cố ý vẽ nét 2 ngược chiều (từ dưới lên trên hoặc từ phải sang trái) -> Hệ thống cảnh báo vẽ ngược hướng nét, giữ nguyên ở nét 2 cho vẽ lại.
+   - Hoàn thành đủ các nét -> Hiển thị popup tổng kết điểm số kèm nút luyện lại.

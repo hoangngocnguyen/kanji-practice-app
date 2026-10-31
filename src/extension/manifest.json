@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Luyện Kanji - Tra Cứu & Dịch Kanji Nhật-Việt",
   "short_name": "Luyện Kanji",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Tiện ích tra cứu Kanji, nét vẽ động, phát âm, âm Hán Việt, dịch câu AI và xuất Anki flashcard trực tiếp từ mọi trang web.",
   "permissions": [
     "activeTab",

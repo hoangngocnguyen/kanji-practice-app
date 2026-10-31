@@ -1,6 +1,6 @@
 {
-  "summary":  "Detailed implementation plan for building the Chrome Extension 'Luyện Kanji' (Manifest V3) for selecting text on any web page to trigger a floating Kanji analysis tooltip and rich interactive modal, along with a full web playground simulator and downloadable ZIP bundle.",
-  "updatedAt":  "2026-10-27T15:47:37.974658209Z",
+  "summary":  "Kế hoạch triển khai: 1) Hệ thống hướng dẫn & kiểm tra viết đúng nét, thứ tự chữ Kanji kèm chấm điểm độ chính xác; 2) Bộ gõ chuyển đổi Romaji sang tiếng Nhật (Kana) trực tiếp trong ô nhập liệu.",
+  "updatedAt":  "2026-10-31T13:54:16.762617892Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

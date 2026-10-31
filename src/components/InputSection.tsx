@@ -22,6 +22,7 @@ import { KanjiItem } from '../types/kanji';
 import { getPresetBadgeClass } from '../utils/colorUtils';
 import { translateJapaneseToVietnamese, translateWithDetails, TranslationEngine } from '../utils/translation';
 import { speakJapanese } from '../utils/speech';
+import { romajiToKana, hasRomaji, KanaMode } from '../utils/romajiConverter';
 
 interface InputSectionProps {
   inputText: string;
@@ -59,6 +60,25 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const [showTranslationCard, setShowTranslationCard] = useState<boolean>(false);
   const [copiedTranslation, setCopiedTranslation] = useState<boolean>(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+
+  // Romaji to Kana live typing conversion mode
+  const [kanaMode, setKanaMode] = useState<KanaMode>('off');
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    if (kanaMode !== 'off') {
+      const converted = romajiToKana(val, kanaMode);
+      setInputText(converted);
+    } else {
+      setInputText(val);
+    }
+  };
+
+  const handleConvertCurrentText = (targetMode: 'hiragana' | 'katakana') => {
+    if (!inputText) return;
+    const converted = romajiToKana(inputText, targetMode);
+    setInputText(converted);
+  };
 
   // Fast lookup map for Kanji items in the list
   const kanjiMap = React.useMemo(() => {
@@ -176,15 +196,96 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
       {/* Textarea Box & Quick Action Toolbar */}
       <div className="space-y-2">
+        {/* Romaji typing switcher header */}
+        <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+          <span className="text-slate-500 font-medium text-[11px] sm:text-xs">
+            Nhập tiếng Nhật hoặc gõ phiên âm Romaji:
+          </span>
+
+          <div className="flex items-center gap-1 text-[11px] bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200">
+            <span className="text-slate-500 font-semibold px-1 text-[10px] sm:text-[11px]">
+              ⌨️ Gõ Romaji:
+            </span>
+            <button
+              type="button"
+              onClick={() => setKanaMode('off')}
+              className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                kanaMode === 'off'
+                  ? 'bg-white text-slate-800 shadow-2xs font-bold'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Tắt tự động chuyển Romaji"
+            >
+              Tắt
+            </button>
+            <button
+              type="button"
+              onClick={() => setKanaMode('hiragana')}
+              className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                kanaMode === 'hiragana'
+                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-teal-900'
+              }`}
+              title="Tự động đổi Romaji thành Hiragana khi gõ (ví dụ: gõ 'nihon' ra 'にほん')"
+            >
+              あ Hiragana
+            </button>
+            <button
+              type="button"
+              onClick={() => setKanaMode('katakana')}
+              className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                kanaMode === 'katakana'
+                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-teal-900'
+              }`}
+              title="Tự động đổi Romaji thành Katakana khi gõ (ví dụ: gõ 'kohi' ra 'コーヒ')"
+            >
+              ア Katakana
+            </button>
+          </div>
+        </div>
+
         <div className="relative">
           <textarea
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Dán đoạn văn tiếng Nhật bất kỳ vào đây... (Ví dụ: 日本語能力試験、漢字の書き順、練習、温故知新)"
+            onChange={handleInputChange}
+            placeholder={
+              kanaMode !== 'off'
+                ? `Đang bật chế độ gõ Romaji -> ${kanaMode === 'hiragana' ? 'Hiragana (あ)' : 'Katakana (ア)'}... Hãy gõ: konnichiwa, tokyo, nihon...`
+                : "Dán đoạn văn tiếng Nhật bất kỳ vào đây... (Ví dụ: 日本語能力試験、漢字の書き順、練習、温故知新)"
+            }
             rows={3}
             className="w-full px-3.5 sm:px-4 py-3 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-2xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans text-xs sm:text-sm resize-y leading-relaxed shadow-inner min-h-[90px] sm:min-h-[105px]"
           />
         </div>
+
+        {/* Romaji detected quick-convert banner */}
+        {hasRomaji(inputText) && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 animate-in fade-in duration-150">
+            <span className="font-medium flex items-center gap-1.5 text-[11px] sm:text-xs">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Phát hiện chữ Latinh/Romaji trong đoạn văn:</span>
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleConvertCurrentText('hiragana')}
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-bold rounded-lg border border-amber-300 shadow-2xs cursor-pointer active:scale-95 text-[11px] transition-all"
+                title="Chuyển toàn bộ các từ Romaji tiếng Nhật thành chữ mềm Hiragana"
+              >
+                Đổi sang Hiragana (あ)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConvertCurrentText('katakana')}
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-bold rounded-lg border border-amber-300 shadow-2xs cursor-pointer active:scale-95 text-[11px] transition-all"
+                title="Chuyển toàn bộ các từ Romaji tiếng Nhật thành chữ cứng Katakana"
+              >
+                Đổi sang Katakana (ア)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Translation Trigger Bar & Engine Selector */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
