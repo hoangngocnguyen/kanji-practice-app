@@ -12,7 +12,7 @@ interface KanjiSvgViewProps {
 }
 
 // Module-level SVG fetch cache to eliminate duplicate network calls
-const svgCache = new Map<string, string>();
+import { fetchKanjiSvg, globalKanjiSvgCache } from '../utils/kanji';
 
 export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
   svgUrl,
@@ -25,6 +25,9 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 }) => {
   const [coloredSvgText, setColoredSvgText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
+
+  const hex = kanji ? kanji.codePointAt(0)?.toString(16).toLowerCase().padStart(5, '0') : undefined;
 
   const [colorMode, setColorMode] = useState<'multi' | 'single'>(() => {
     try {
@@ -57,6 +60,60 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  const colorizeRawSvg = (rawSvg: string): string => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawSvg, 'image/svg+xml');
+      const paths = Array.from(doc.querySelectorAll('path[d]'));
+
+      paths.forEach((path, idx) => {
+        const strokeColor = monochrome
+          ? '#94a3b8'
+          : (colorMode === 'multi' ? MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length] : singleColor);
+
+        path.setAttribute('stroke', strokeColor);
+        path.setAttribute(
+          'style',
+          `stroke: ${strokeColor} !important; stroke-width: 3.2px !important; stroke-linecap: round; stroke-linejoin: round; fill: none;`
+        );
+      });
+
+      const numberGroup = doc.querySelector('g[id*="StrokeNumbers"]');
+      if (numberGroup) {
+        if (monochrome) {
+          numberGroup.setAttribute('style', 'display: none;');
+        } else {
+          numberGroup.setAttribute('style', 'display: block;');
+          const textElements = Array.from(numberGroup.querySelectorAll('text'));
+          textElements.forEach((textEl, idx) => {
+            const numColor =
+              colorMode === 'multi'
+                ? MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length]
+                : '#475569';
+
+            textEl.setAttribute('fill', numColor);
+            textEl.setAttribute(
+              'style',
+              `fill: ${numColor} !important; font-size: 6.5px !important; font-weight: 500 !important; font-family: system-ui, -apple-system, sans-serif !important; fill-opacity: 0.82 !important;`
+            );
+          });
+        }
+      }
+
+      const svgEl = doc.querySelector('svg');
+      if (svgEl) {
+        svgEl.setAttribute('width', '100%');
+        svgEl.setAttribute('height', '100%');
+        svgEl.setAttribute('style', 'width: 100%; height: 100%; display: block;');
+      }
+
+      const serializer = new XMLSerializer();
+      return serializer.serializeToString(doc);
+    } catch {
+      return '';
+    }
+  };
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -64,66 +121,22 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
       if (!svgUrl) return;
 
       try {
-        let rawSvg = svgCache.get(svgUrl);
-        if (!rawSvg) {
-          const res = await fetch(svgUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          rawSvg = await res.text();
-          svgCache.set(svgUrl, rawSvg);
-        }
+        setHasError(false);
+        const rawSvg = await fetchKanjiSvg(svgUrl, hex);
 
         if (isCancelled) return;
 
-        // Parse and apply stroke colors to each stroke path
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(rawSvg, 'image/svg+xml');
-        const paths = Array.from(doc.querySelectorAll('path[d]'));
-
-        paths.forEach((path, idx) => {
-          const strokeColor = monochrome
-            ? '#94a3b8'
-            : (colorMode === 'multi' ? MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length] : singleColor);
-
-          path.setAttribute('stroke', strokeColor);
-          path.setAttribute('style', `stroke: ${strokeColor} !important; stroke-width: 3.2px !important; stroke-linecap: round; stroke-linejoin: round; fill: none;`);
-        });
-
-        // Style stroke numbers (1, 2, 3...) or hide in monochrome tracing pad
-        const numberGroup = doc.querySelector('g[id*="StrokeNumbers"]');
-        if (numberGroup) {
-          if (monochrome) {
-            numberGroup.setAttribute('style', 'display: none;');
-          } else {
-            numberGroup.setAttribute('style', 'display: block;');
-            const textElements = Array.from(numberGroup.querySelectorAll('text'));
-            textElements.forEach((textEl, idx) => {
-              const numColor = colorMode === 'multi'
-                ? MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length]
-                : '#475569';
-
-              textEl.setAttribute('fill', numColor);
-              textEl.setAttribute('style', `fill: ${numColor} !important; font-size: 6.5px !important; font-weight: 500 !important; font-family: system-ui, -apple-system, sans-serif !important; fill-opacity: 0.82 !important;`);
-            });
-          }
-        }
-
-        // Ensure SVG root element expands to 100% width & height inside parent container
-        const svgEl = doc.querySelector('svg');
-        if (svgEl) {
-          svgEl.setAttribute('width', '100%');
-          svgEl.setAttribute('height', '100%');
-          svgEl.setAttribute('style', 'width: 100%; height: 100%; display: block;');
-        }
-
-        const serializer = new XMLSerializer();
-        const output = serializer.serializeToString(doc);
-
-        if (!isCancelled) {
+        const output = colorizeRawSvg(rawSvg);
+        if (output) {
           setColoredSvgText(output);
+          setLoading(false);
+        } else {
+          setHasError(true);
           setLoading(false);
         }
       } catch {
         if (!isCancelled) {
+          setHasError(true);
           setLoading(false);
         }
       }
@@ -131,10 +144,31 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 
     loadAndColorizeSvg();
 
+    // Listen for cache updates (e.g. when user clicks 'Xem nét vẽ' or modal preloads)
+    const handleSvgCached = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key: string; rawSvg: string }>;
+      if (
+        customEvent.detail &&
+        (customEvent.detail.key === svgUrl ||
+          (hex && customEvent.detail.key.includes(hex)) ||
+          (kanji && customEvent.detail.key.includes(kanji)))
+      ) {
+        const output = colorizeRawSvg(customEvent.detail.rawSvg);
+        if (output && !isCancelled) {
+          setColoredSvgText(output);
+          setLoading(false);
+          setHasError(false);
+        }
+      }
+    };
+
+    window.addEventListener('kanji-svg-cached', handleSvgCached);
+
     return () => {
       isCancelled = true;
+      window.removeEventListener('kanji-svg-cached', handleSvgCached);
     };
-  }, [svgUrl, colorMode, singleColor]);
+  }, [svgUrl, colorMode, singleColor, hex, monochrome]);
 
   if (loading) {
     return (
@@ -144,16 +178,21 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
     );
   }
 
-  if (!coloredSvgText) {
+  if (hasError || !coloredSvgText) {
     return (
-      <img
-        src={svgUrl}
-        alt={`Nét viết ${kanji || ''}`}
-        className={className}
+      <div
+        className={`flex flex-col items-center justify-center text-center p-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 hover:bg-teal-50/50 transition-colors cursor-pointer ${className}`}
         style={style}
         onClick={onClick}
-        title={title}
-      />
+        title={title || `Click để xem nét vẽ chữ ${kanji || ''}`}
+      >
+        <span className="font-kanji font-bold text-3xl sm:text-4xl text-slate-800 leading-none">
+          {kanji || '字'}
+        </span>
+        <span className="text-[10px] text-teal-700 font-semibold mt-1 flex items-center gap-0.5">
+          Xem nét
+        </span>
+      </div>
     );
   }
 

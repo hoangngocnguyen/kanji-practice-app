@@ -146,7 +146,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
             <button
               type="button"
               onClick={onOpenScanner}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs min-h-[34px] active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 h-9 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
               title="Quét ảnh hoặc dán ảnh chụp màn hình để trích xuất chữ Kanji"
             >
               <Camera className="w-3.5 h-3.5 text-teal-700" />
@@ -158,7 +158,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
             type="button"
             onClick={onClear}
             disabled={!inputText}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all min-h-[34px] ${
+            className={`inline-flex items-center gap-1.5 px-3 h-9 text-xs font-semibold rounded-xl transition-all shrink-0 ${
               inputText
                 ? 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 cursor-pointer shadow-2xs active:scale-95'
                 : 'text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-50'
@@ -656,20 +656,20 @@ export const InputSection: React.FC<InputSectionProps> = ({
             <button
               type="button"
               onClick={onCopyAllText}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 rounded-xl transition-all font-medium cursor-pointer border border-teal-200 shadow-2xs min-h-[34px] sm:min-h-[36px] text-[13px] active:scale-95"
+              className="flex-1 md:flex-none h-9 inline-flex items-center justify-center gap-1.5 px-3 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 rounded-xl transition-all font-semibold cursor-pointer border border-teal-200 shadow-2xs text-xs active:scale-95"
               title="Sao chép toàn bộ các chữ Kanji lọc được dưới dạng văn bản"
             >
               <Copy className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-              <span style={{ fontSize: '13px' }}>Chép chuỗi Kanji</span>
+              <span>Chép chuỗi Kanji</span>
             </button>
             <button
               type="button"
               onClick={onExportCsv}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:border-slate-300 rounded-xl transition-all font-medium cursor-pointer border border-slate-200 shadow-2xs min-h-[34px] sm:min-h-[36px] text-[13px] active:scale-95"
+              className="flex-1 md:flex-none h-9 inline-flex items-center justify-center gap-1.5 px-3 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:border-slate-300 rounded-xl transition-all font-semibold cursor-pointer border border-slate-200 shadow-2xs text-xs active:scale-95"
               title="Xuất danh sách gồm URL ảnh, Hán-Việt & nghĩa sang định dạng CSV để nhập vào Anki"
             >
               <Download className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-              <span style={{ fontSize: '13px' }}>Xuất CSV (Anki)</span>
+              <span>Xuất CSV (Anki)</span>
             </button>
           </div>
         )}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { speakJapanese } from '../utils/speech';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
+import { fetchKanjiSvg, saveKanjiSvgToCache } from '../utils/kanji';
 
 // Mazii-style multi-color palette for stroke order visualization
 export const MAZII_STROKE_COLORS = [
@@ -138,10 +139,9 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
     async function fetchSvg() {
       try {
-        const res = await fetch(svgUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = await res.text();
+        const text = await fetchKanjiSvg(svgUrl);
         if (isCancelled) return;
+        saveKanjiSvgToCache(svgUrl, text);
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'image/svg+xml');
@@ -670,6 +670,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
                 onClick={() => {
                   setColorMode('multi');
                   localStorage.setItem('kanji_stroke_color_mode', 'multi');
+                  window.dispatchEvent(new Event('storage'));
                 }}
                 className={`p-2 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
                   colorMode === 'multi'
@@ -692,6 +693,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
                 onClick={() => {
                   setColorMode('single');
                   localStorage.setItem('kanji_stroke_color_mode', 'single');
+                  window.dispatchEvent(new Event('storage'));
                 }}
                 className={`p-2 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
                   colorMode === 'single'
@@ -728,6 +730,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
                       onClick={() => {
                         setSingleColor(color);
                         localStorage.setItem('kanji_stroke_single_color', color);
+                        window.dispatchEvent(new Event('storage'));
                       }}
                       style={{ backgroundColor: color }}
                       className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${

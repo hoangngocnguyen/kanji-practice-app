@@ -58,16 +58,57 @@ export function extractUniqueKanji(text: string): KanjiItem[] {
 
 import { MAZII_STROKE_COLORS } from '../components/StrokeAnimation';
 
+// Global SVG XML cache across all components to eliminate duplicate requests and synchronize instantly
+export const globalKanjiSvgCache = new Map<string, string>();
+
+export function saveKanjiSvgToCache(urlOrHex: string, rawSvg: string) {
+  if (!rawSvg || !rawSvg.includes('<svg')) return;
+  globalKanjiSvgCache.set(urlOrHex, rawSvg);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('kanji-svg-cached', {
+        detail: { key: urlOrHex, rawSvg },
+      })
+    );
+  }
+}
+
+export async function fetchKanjiSvg(svgUrl: string, hex?: string): Promise<string> {
+  let cached = globalKanjiSvgCache.get(svgUrl);
+  if (cached) return cached;
+  if (hex) {
+    cached = globalKanjiSvgCache.get(hex);
+    if (cached) return cached;
+  }
+
+  const urlsToTry = [svgUrl];
+  if (hex) {
+    urlsToTry.push(`https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/${hex}.svg`);
+    urlsToTry.push(`https://raw.githubusercontent.com/KanjiVG/kanjivg/master/kanji/${hex}.svg`);
+  }
+
+  for (const url of urlsToTry) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const text = await res.text();
+        if (text && text.includes('<svg')) {
+          saveKanjiSvgToCache(svgUrl, text);
+          if (hex) saveKanjiSvgToCache(hex, text);
+          return text;
+        }
+      }
+    } catch {}
+  }
+  throw new Error(`Không thể tải hình ảnh nét vẽ SVG: ${svgUrl}`);
+}
+
 /**
  * Chuyển SVG từ KanjiVG CDN sang PNG Blob với nền trắng tinh khiết (#FFFFFF)
  * Áp dụng chế độ Đa màu nét (Mazii style) hoặc Đơn màu người dùng cấu hình
  */
 export async function convertSvgToPngBlob(svgUrl: string, addPracticeGrid: boolean = false): Promise<Blob> {
-  const response = await fetch(svgUrl);
-  if (!response.ok) {
-    throw new Error(`Không thể tải hình ảnh nét vẽ (HTTP ${response.status})`);
-  }
-  const rawSvg = await response.text();
+  const rawSvg = await fetchKanjiSvg(svgUrl);
 
   let colorMode: 'multi' | 'single' = 'multi';
   let singleColor = '#0f172a';

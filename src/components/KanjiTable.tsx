@@ -178,42 +178,44 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               {/* Action Buttons Row */}
               <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-100">
                 <button
+                  type="button"
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`py-1.5 px-2 rounded-xl font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95 shadow-2xs min-h-[34px] sm:min-h-[36px] whitespace-nowrap ${
+                  className={`h-9 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap border ${
                     isCopied
-                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                      ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300/40 shadow-xs'
                       : isCopying
-                      ? 'bg-teal-100 text-teal-900 cursor-wait'
-                      : 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-900/15'
+                      ? 'bg-teal-100 text-teal-900 border-teal-200 cursor-wait'
+                      : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800 shadow-teal-900/15 hover:shadow-xs'
                   }`}
                   title="Sao chép ảnh nét vẽ vào Clipboard"
                 >
                   {isCopied ? (
                     <>
                       <CheckCheck className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
-                      <span className="whitespace-nowrap">Đã chép!</span>
+                      <span>Đã chép!</span>
                     </>
                   ) : isCopying ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200 shrink-0" />
-                      <span className="whitespace-nowrap">Đang tạo...</span>
+                      <span>Đang tạo...</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5 shrink-0" />
-                      <span className="whitespace-nowrap">Sao chép ảnh</span>
+                      <span>Sao chép ảnh</span>
                     </>
                   )}
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onInspect(item)}
-                  className="py-1.5 px-2 rounded-xl font-medium text-[11px] sm:text-xs flex items-center justify-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200/80 min-h-[34px] sm:min-h-[36px] whitespace-nowrap"
+                  className="h-9 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 transition-all cursor-pointer border border-slate-200 hover:border-teal-300 shadow-2xs hover:shadow-xs active:scale-95 whitespace-nowrap"
                   title="Xem hoạt ảnh vẽ từng nét"
                 >
                   <PlayCircle className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                  <span className="whitespace-nowrap">Xem nét vẽ</span>
+                  <span>Xem nét vẽ</span>
                 </button>
               </div>
             </div>
@@ -404,14 +406,15 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   <td className="py-4 px-4 lg:px-6 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <button
+                        type="button"
                         onClick={() => onCopyImage(item)}
                         disabled={isCopying}
-                        className={`w-full sm:w-36 lg:w-40 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl font-semibold text-xs transition-all cursor-pointer active:scale-95 shadow-xs min-h-[36px] ${
+                        className={`w-full sm:w-36 lg:w-40 h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl font-semibold text-xs transition-all cursor-pointer active:scale-95 shadow-2xs border ${
                           isCopied
-                            ? 'bg-emerald-600 text-white shadow-emerald-500/20 ring-2 ring-emerald-300'
+                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-emerald-500/20 ring-2 ring-emerald-300/40'
                             : isCopying
-                            ? 'bg-teal-100 text-teal-900 cursor-wait'
-                            : 'bg-teal-700 hover:bg-teal-800 text-white shadow-teal-900/15 hover:shadow-sm'
+                            ? 'bg-teal-100 text-teal-900 border-teal-200 cursor-wait'
+                            : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800 shadow-teal-900/15 hover:shadow-xs'
                         }`}
                         title="Vẽ ảnh lên Canvas nền trắng (#FFFFFF) và sao chép trực tiếp vào Clipboard"
                       >
@@ -435,8 +438,9 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
 
                       <div className="flex items-center gap-1.5 w-full justify-center">
                         <button
+                          type="button"
                           onClick={() => onInspect(item)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-lg transition-colors cursor-pointer font-medium"
+                          className="h-8 inline-flex items-center gap-1 px-2.5 text-xs text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer font-semibold shadow-2xs hover:shadow-xs active:scale-95"
                           title="Xem hoạt ảnh từng nét vẽ"
                         >
                           <PlayCircle className="w-3.5 h-3.5 text-teal-600" />
@@ -444,11 +448,12 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => onDownloadPng(item)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          className="h-8 inline-flex items-center gap-1 px-2.5 text-xs text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer font-semibold shadow-2xs hover:shadow-xs active:scale-95"
                           title="Tải ảnh PNG nền trắng về máy tính"
                         >
-                          <Download className="w-3.5 h-3.5" />
+                          <Download className="w-3.5 h-3.5 text-slate-600" />
                           <span>Tải ảnh</span>
                         </button>
                       </div>

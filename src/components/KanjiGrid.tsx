@@ -142,48 +142,51 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             </div>
 
             {/* Bottom Actions */}
-            <div className="w-full space-y-1.5 pt-1">
+            <div className="w-full space-y-2 pt-1">
               <button
+                type="button"
                 onClick={() => onInspect(item)}
-                className="w-full py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-medium bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1 transition-colors cursor-pointer border border-slate-200 hover:border-teal-200 min-h-[32px] sm:min-h-[36px] whitespace-nowrap"
+                className="w-full h-9 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-slate-200 hover:border-teal-300 shadow-2xs hover:shadow-xs active:scale-95 whitespace-nowrap"
               >
                 <PlayCircle className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                <span className="whitespace-nowrap">Xem nét vẽ</span>
+                <span>Xem nét vẽ</span>
               </button>
 
               <div className="w-full flex items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] sm:text-xs font-medium flex items-center justify-center gap-1 transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[32px] sm:min-h-[36px] whitespace-nowrap ${
+                  className={`flex-1 h-9 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap border ${
                     isCopied
-                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                      ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300/40 shadow-xs'
                       : isCopying
-                      ? 'bg-teal-100 text-teal-900'
-                      : 'bg-teal-700 hover:bg-teal-800 text-white hover:shadow-xs shadow-teal-900/15'
+                      ? 'bg-teal-100 text-teal-900 border-teal-200'
+                      : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800 hover:shadow-xs shadow-teal-900/15'
                   }`}
                 >
                   {isCopied ? (
                     <>
                       <CheckCheck className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
-                      <span className="whitespace-nowrap">Đã chép!</span>
+                      <span>Đã chép!</span>
                     </>
                   ) : isCopying ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200 shrink-0" />
-                      <span className="whitespace-nowrap">Đang tạo...</span>
+                      <span>Đang tạo...</span>
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5 shrink-0" />
-                      <span className="whitespace-nowrap">Sao chép ảnh</span>
+                      <span>Sao chép ảnh</span>
                     </>
                   )}
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => onDownloadPng(item)}
-                  className="p-1.5 sm:p-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-colors min-h-[32px] min-w-[32px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center"
+                  className="h-9 w-9 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 cursor-pointer transition-all flex items-center justify-center shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
                   title="Tải ảnh PNG về máy"
                 >
                   <Download className="w-3.5 h-3.5" />

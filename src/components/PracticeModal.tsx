@@ -23,6 +23,7 @@ import { StrokeAnimation, MAZII_STROKE_COLORS } from './StrokeAnimation';
 import { getFullKanjiDetail } from '../utils/kanjiApi';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
+import { fetchKanjiSvg, saveKanjiSvgToCache } from '../utils/kanji';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
 import { KanjiRadicalTree } from './KanjiRadicalTree';
 import { MnemonicStoryCard } from './MnemonicStoryCard';
@@ -124,10 +125,9 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
     async function loadStrokesForPractice() {
       try {
-        const res = await fetch(item!.svgUrl);
-        if (!res.ok) return;
-        const text = await res.text();
+        const text = await fetchKanjiSvg(item!.svgUrl, item!.hex);
         if (isCancelled) return;
+        saveKanjiSvgToCache(item!.svgUrl, text);
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'image/svg+xml');
