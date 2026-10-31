@@ -13,7 +13,7 @@
 
 ## 📢 Bản phát hành lớn: Luyện Kanji v2.0.0 (Grand Major Release)
 
-### 🚀 **Tiêu đề phát hành: Luyện Kanji v2.0.0 — Hệ sinh thái Luyện viết chữ Hán, Tiện ích Trình duyệt & Bộ gõ Kana toàn diện**
+### 🚀 **Luyện Kanji v2.0.0 — Hệ sinh thái Luyện viết chữ Hán, Tiện ích Trình duyệt & Bộ gõ Kana toàn diện**
 *Ngày phát hành: Tháng 10/2026*
 
 Bản phát hành **v2.0.0** đánh dấu bước chuyển mình lớn của **Luyện Kanji**, từ một công cụ web tra cứu đơn lẻ trở thành một **hệ sinh thái học tập toàn diện**: mở rộng sang tiện ích trình duyệt Chrome/Edge độc lập, bổ sung công nghệ so khớp kiểm tra nét vẽ trực tiếp và hỗ trợ bộ gõ Romaji sang Kana mượt mà.
