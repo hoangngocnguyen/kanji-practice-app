@@ -226,7 +226,7 @@ export const ExtensionPlayground: React.FC = () => {
           <div>
             <h3 className="text-lg font-bold text-slate-900">Trải Nghiệm Tiện Ích Trình Duyệt (Web Simulator)</h3>
             <p className="text-xs text-slate-500">
-              Bôi đen đoạn văn hoặc bấm Chụp khoanh vùng để kiểm tra toàn bộ tính năng của Extension v2.1!
+              Bôi đen đoạn văn hoặc bấm Chụp khoanh vùng để kiểm tra toàn bộ tính năng của Extension v3.0!
             </p>
           </div>
         </div>

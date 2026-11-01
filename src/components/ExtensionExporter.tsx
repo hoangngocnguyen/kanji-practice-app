@@ -20,8 +20,8 @@ export const ExtensionExporter: React.FC = () => {
         manifest_version: 3,
         name: "Luyện Kanji - Tra Cứu & Dịch Kanji Nhật-Việt",
         short_name: "Luyện Kanji",
-        version: "2.1.0",
-        description: "Tiện ích tra cứu Kanji, nét vẽ động, âm Hán Việt, khoanh vùng chụp màn hình quét OCR (Alt+Shift+S) và đồng bộ Web App.",
+        version: "3.0.0",
+        description: "Tiện ích tra cứu Kanji v3.0, nét vẽ động SVG, 11.000+ âm Hán Việt, khoanh vùng chụp màn hình quét OCR (Ctrl+Shift+K) và đồng bộ Web App.",
         permissions: ["activeTab", "tabs", "storage", "contextMenus", "scripting"],
         host_permissions: ["<all_urls>"],
         action: {
@@ -1182,7 +1182,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 </head>
 <body>
   <div class="header">
-    <h2>⛩️ Luyện Kanji <span class="badge">v2.1</span></h2>
+    <h2>⛩️ Luyện Kanji <span class="badge">v3.0</span></h2>
   </div>
   <div class="content">
     <button class="btn-snip" id="btn-snip-capture">
@@ -1301,7 +1301,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       // Generate ZIP blob
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `LuyenKanji-ChromeExtension-v2.1.zip`);
+      saveAs(content, `LuyenKanji-ChromeExtension-v3.0.0.zip`);
 
       setExportDone(true);
     } catch (err) {
@@ -1320,11 +1320,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               <Chrome className="w-5 h-5" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-teal-400 bg-teal-950/80 px-2.5 py-1 rounded-full border border-teal-700/50">
-              Manifest V3 Standard • Snipping OCR & Dual Search (v2.1)
+              Manifest V3 Standard • Snipping OCR & Dual Search (v3.0.0)
             </span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Tải Tiện Ích Chrome Extension "Luyện Kanji" (v2.1)
+            Tải Tiện Ích Chrome Extension "Luyện Kanji" (v3.0.0)
           </h3>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
             Tiện ích bôi đen văn bản hoặc <strong>khoanh vùng chụp màn hình (Alt+Shift+S)</strong> để quét ảnh OCR chữ Hán trên mọi trang web (NHK News, YouTube, Manga), tra cứu trực tiếp với 
