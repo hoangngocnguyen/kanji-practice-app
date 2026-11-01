@@ -2,7 +2,7 @@
 ### Nền tảng tra cứu thứ tự nét viết, bộ thủ Khang Hy & Luyện tập chữ Hán Nhật Bản
 *(漢字書き順・部首・練習・日越辞書ツール)*
 
-[![Version](https://img.shields.io/badge/version-v2.0.0-teal.svg)](https://luyenkanji.vercel.app)
+[![Version](https://img.shields.io/badge/version-v2.1.0-teal.svg)](https://luyenkanji.vercel.app)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-8-purple.svg)](https://vitejs.dev)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com)
@@ -11,7 +11,22 @@
 
 ---
 
-## 📢 Bản phát hành lớn: Luyện Kanji v2.0.0 (Grand Major Release)
+## 📢 Bản phát hành mới: Luyện Kanji v2.1.0 (Snipping OCR & Dual Search)
+
+### 📸 **Luyện Kanji v2.1.0 — Khoanh vùng chụp quét ảnh OCR & Ô tìm kiếm tiện ích kép**
+*Ngày phát hành: Tháng 10/2026*
+
+Bản cập nhật **v2.1.0** mang đến bước tiến đột phá cho tiện ích mở rộng Chrome/Edge **Luyện Kanji**:
+- **📸 Chụp màn hình khoanh vùng (Screen Snipping OCR)**: Không còn giới hạn ở văn bản bôi đen được bằng chuột. Giờ đây bạn có thể khoanh vùng chụp bất kỳ chữ Hán nào trên video YouTube, phim Anime, truyện tranh Manga scan, hình ảnh hoặc tệp PDF.
+- **⚡ Phím tắt nhanh toàn cục (`Ctrl + Shift + K` / `Cmd + Shift + K`)**: Kích hoạt công cụ khoanh vùng tức thì bằng phím tắt, menu chuột phải hoặc nút bấm trong Popup tiện ích (tránh hoàn toàn xung đột với bộ chuyển đổi ngôn ngữ của hệ điều hành).
+- **🔍 Ô tìm kiếm kép đồng bộ (Dual Search Bar)**:
+  - Tích hợp ô tìm kiếm ngay trong **Extension Popup**.
+  - Tích hợp ô tìm kiếm trên **thanh Header của Floating Modal** trên mọi trang web — tự động nhận diện và điền các chữ Hán vừa quét được từ ảnh.
+- **🌐 Chuyển tiếp 1-chạm sang Web App**: Mở ngay trên `https://luyenkanji.vercel.app/?text=...` để xem chi tiết hoạt ảnh nét vẽ, tra cứu bộ thủ và xuất flashcard Anki.
+
+---
+
+## 📢 Bản phát hành: Luyện Kanji v2.0.0 (Grand Major Release)
 
 ### 🚀 **Luyện Kanji v2.0.0 — Hệ sinh thái Luyện viết chữ Hán, Tiện ích Trình duyệt & Bộ gõ Kana toàn diện**
 *Ngày phát hành: Tháng 10/2026*

@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "name": "Luyện Kanji - Tra Cứu & Dịch Kanji Nhật-Việt",
   "short_name": "Luyện Kanji",
-  "version": "2.0.0",
-  "description": "Tiện ích tra cứu Kanji, nét vẽ động, phát âm, âm Hán Việt, dịch câu AI và xuất Anki flashcard trực tiếp từ mọi trang web.",
+  "version": "2.1.0",
+  "description": "Tiện ích tra cứu Kanji, nét vẽ động, âm Hán Việt, khoanh vùng chụp màn hình quét OCR (Ctrl+Shift+K) và đồng bộ Web App.",
   "permissions": [
     "activeTab",
+    "tabs",
     "storage",
     "contextMenus",
     "scripting"
@@ -35,6 +36,15 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "commands": {
+    "capture-screen-kanji": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Khoanh vùng chụp ảnh màn hình để quét Kanji (Snipping OCR)"
+    }
   },
   "web_accessible_resources": [
     {

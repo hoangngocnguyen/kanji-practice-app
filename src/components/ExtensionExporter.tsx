@@ -20,9 +20,9 @@ export const ExtensionExporter: React.FC = () => {
         manifest_version: 3,
         name: "Luyện Kanji - Tra Cứu & Dịch Kanji Nhật-Việt",
         short_name: "Luyện Kanji",
-        version: "1.0.0",
-        description: "Tiện ích bôi đen tra cứu Kanji, nét vẽ động KanjiVG, âm Hán-Việt, từ ghép và chuyển hướng Web App.",
-        permissions: ["activeTab", "storage", "contextMenus", "scripting"],
+        version: "2.1.0",
+        description: "Tiện ích tra cứu Kanji, nét vẽ động, âm Hán Việt, khoanh vùng chụp màn hình quét OCR (Alt+Shift+S) và đồng bộ Web App.",
+        permissions: ["activeTab", "tabs", "storage", "contextMenus", "scripting"],
         host_permissions: ["<all_urls>"],
         action: {
           default_popup: "popup.html",
@@ -33,6 +33,15 @@ export const ExtensionExporter: React.FC = () => {
           }
         },
         background: { service_worker: "background.js" },
+        commands: {
+          "capture-screen-kanji": {
+            suggested_key: {
+              default: "Ctrl+Shift+K",
+              mac: "Command+Shift+K"
+            },
+            description: "Khoanh vùng chụp ảnh màn hình để quét Kanji (Snipping OCR)"
+          }
+        },
         content_scripts: [
           {
             matches: ["<all_urls>"],
@@ -61,14 +70,106 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Phân tích Kanji '%s' với Luyện Kanji",
     contexts: ["selection"]
   });
+  chrome.contextMenus.create({
+    id: "luyen-kanji-snipping",
+    title: "📸 Khoanh vùng quét Kanji (Ctrl+Shift+K)",
+    contexts: ["all"]
+  });
 });
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === "luyen-kanji-analyze" && info.selectionText && tab?.id) {
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  return (
+    url.startsWith("chrome://") ||
+    url.startsWith("edge://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("about:") ||
+    url.includes("chrome.google.com/webstore") ||
+    url.includes("chromewebstore.google.com")
+  );
+}
+
+function handleCaptureRequest(tab) {
+  if (!tab || !tab.id) return;
+  if (isRestrictedUrl(tab.url)) {
+    chrome.tabs.create({ url: "https://luyenkanji.vercel.app" });
+    return;
+  }
+  chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }, (dataUrl) => {
+    const imgUri = chrome.runtime.lastError ? null : dataUrl;
     chrome.tabs.sendMessage(tab.id, {
-      action: "OPEN_KANJI_MODAL",
-      text: info.selectionText
-    }).catch(err => console.warn("Lỗi gửi message:", err));
+      action: "START_SCREEN_SNIP",
+      imageUri: imgUri
+    }, (res) => {
+      if (chrome.runtime.lastError) {
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"]
+        }, () => {
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tab.id, {
+              action: "START_SCREEN_SNIP",
+              imageUri: imgUri
+            }).catch(e => console.warn(e));
+          }, 100);
+        });
+      }
+    });
+  });
+}
+
+function handleSearchRequest(tab, text) {
+  if (!tab || !tab.id || !text) return;
+  if (isRestrictedUrl(tab.url)) {
+    chrome.tabs.create({ url: 'https://luyenkanji.vercel.app/?text=' + encodeURIComponent(text) });
+    return;
+  }
+  chrome.tabs.sendMessage(tab.id, { action: "OPEN_KANJI_MODAL", text: text }, () => {
+    if (chrome.runtime.lastError) {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"]
+      }, () => {
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tab.id, { action: "OPEN_KANJI_MODAL", text: text }).catch(e => console.warn(e));
+        }, 100);
+      });
+    }
+  });
+}
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "luyen-kanji-analyze" && info.selectionText && tab) {
+    handleSearchRequest(tab, info.selectionText);
+  } else if (info.menuItemId === "luyen-kanji-snipping" && tab) {
+    handleCaptureRequest(tab);
+  }
+});
+
+if (chrome.commands && chrome.commands.onCommand) {
+  chrome.commands.onCommand.addListener((command) => {
+    if (command === "capture-screen-kanji") {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) handleCaptureRequest(tabs[0]);
+      });
+    }
+  });
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "TRIGGER_CAPTURE_SCREEN") {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) handleCaptureRequest(tabs[0]);
+    });
+    sendResponse({ status: "ok" });
+    return true;
+  }
+  if (request.action === "TRIGGER_SEARCH" && request.text) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) handleSearchRequest(tabs[0], request.text);
+    });
+    sendResponse({ status: "ok" });
+    return true;
   }
 });
       `);
@@ -93,10 +194,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
       // 3. Add Content Script
       const contentJsCode = `/**
- * Luyện Kanji - Content Script với Shadow DOM Isolation & Real SVG Stroke Order Animation
+ * Luyện Kanji - Content Script với Shadow DOM Isolation, Screen Snipping Overlay & Real SVG Stroke Order Animation
  */
 (function () {
-  if (window.__LUYEN_KANJI_CONTENT_LOADED__) return;
+  // Luôn chạy bản mới: dọn bản cũ (nếu có) thay vì thoát im lặng, tránh trường hợp
+  // flag cũ còn sót trong tab (sau khi reload extension) khiến listener không được đăng ký.
+  if (typeof window.__LUYEN_KANJI_CLEANUP__ === 'function') {
+    try { window.__LUYEN_KANJI_CLEANUP__(); } catch (e) { /* ignore */ }
+  }
   window.__LUYEN_KANJI_CONTENT_LOADED__ = true;
 
   const TARGET_WEB_APP_URL = "https://luyenkanji.vercel.app";
@@ -168,9 +273,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!hostDiv) {
     hostDiv = document.createElement('div');
     hostDiv.id = 'luyen-kanji-root';
-    document.body.appendChild(hostDiv);
+    (document.body || document.documentElement).appendChild(hostDiv);
   }
-  const shadowRoot = hostDiv.attachShadow({ mode: 'open' });
+  let shadowRoot = hostDiv.shadowRoot || hostDiv.attachShadow({ mode: 'open' });
 
   const css = "* { box-sizing: border-box; margin: 0; padding: 0; } " +
     ".lk-tooltip-btn { position: absolute; z-index: 2147483647; display: inline-flex; align-items: center; gap: 8px; background: #0f172a; color: #ffffff; padding: 7px 14px; border-radius: 20px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); cursor: pointer; font-size: 13px; font-weight: 700; border: 1px solid rgba(255,255,255,0.2); transition: all 0.15s ease; user-select: none; } " +
@@ -181,6 +286,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     ".lk-header:active { cursor: grabbing; } " +
     ".lk-header h3 { font-size: 15px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px; } " +
     ".lk-body { padding: 20px; overflow-y: auto; flex: 1; user-select: text; } " +
+    ".lk-ocr-banner { display: flex; align-items: center; gap: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; } " +
+    ".lk-ocr-thumb { max-width: 100px; max-height: 50px; object-fit: contain; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; } " +
     ".lk-kanji-card { display: flex; gap: 16px; background: #ffffff; padding: 16px; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 14px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s ease; } " +
     ".lk-kanji-card:hover { border-color: #0d9488; } " +
     ".lk-kanji-col1 { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 90px; flex-shrink: 0; text-align: center; } " +
@@ -209,7 +316,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     ".lk-subtab { padding: 10px 14px; font-size: 12px; font-weight: 700; color: #64748b; border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent; } " +
     ".lk-subtab.active { color: #0f766e; border-bottom-color: #0f766e; background: #ffffff; } " +
     ".lk-canvas-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 10px; } " +
-    "canvas { border: 2px dashed #cbd5e1; border-radius: 16px; background: #ffffff; cursor: crosshair; }";
+    "canvas { border: 2px dashed #cbd5e1; border-radius: 16px; background: #ffffff; cursor: crosshair; } " +
+    ".lk-snipping-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2147483647; cursor: crosshair; user-select: none; background: rgba(15, 23, 42, 0.45); } " +
+    ".lk-snipping-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: block; pointer-events: none; border: none !important; border-radius: 0 !important; background: transparent !important; } " +
+    ".lk-snipping-hud { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); color: #ffffff; padding: 10px 24px; border-radius: 9999px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 14px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.25); z-index: 2147483647; cursor: default; } " +
+    ".lk-hud-btn { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s; } " +
+    ".lk-hud-btn:hover { background: rgba(255,255,255,0.35); } " +
+    ".lk-hud-btn-cancel { background: #ef4444; border-color: #f87171; } " +
+    ".lk-hud-btn-cancel:hover { background: #dc2626; }";
 
   const styleEl = document.createElement('style');
   styleEl.textContent = css;
@@ -219,6 +333,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   let currentModal = null;
   let activePracticeTab = 'animation';
   let animTimerId = null;
+  let snippingContainer = null;
 
   function extractKanji(text) {
     if (!text) return [];
@@ -235,7 +350,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     window.speechSynthesis.speak(utterance);
   }
 
-  document.addEventListener('mouseup', (e) => {
+  const onDocMouseUp = (e) => {
+    if (snippingContainer) return;
     if (e.target && e.target.closest && e.target.closest('#luyen-kanji-root')) return;
 
     setTimeout(() => {
@@ -279,9 +395,210 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         currentTooltip = btn;
       }
     }, 10);
-  });
+  };
+  document.addEventListener('mouseup', onDocMouseUp);
 
-  function openModal(text) {
+  // ========== SCREEN SNIPPING OVERLAY ==========
+  function startScreenSnipping(imageUri) {
+    if (snippingContainer) {
+      snippingContainer.remove();
+      snippingContainer = null;
+    }
+
+    const container = document.createElement('div');
+    container.className = 'lk-snipping-layer';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'lk-snipping-canvas';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    container.appendChild(canvas);
+
+    const hud = document.createElement('div');
+    hud.className = 'lk-snipping-hud';
+    hud.innerHTML = '<span>📸 <strong>Kéo chuột để khoanh vùng Kanji</strong></span>' +
+      '<span style="opacity: 0.5;">|</span>' +
+      '<button class="lk-hud-btn" id="lk-hud-scan-all">⚡ Quét nhanh trang</button>' +
+      '<button class="lk-hud-btn lk-hud-btn-cancel" id="lk-hud-cancel">✕ Hủy (Esc)</button>';
+    container.appendChild(hud);
+
+    shadowRoot.appendChild(container);
+    snippingContainer = container;
+
+    const ctx = canvas.getContext('2d');
+    let bgImg = null;
+    if (imageUri) {
+      bgImg = new Image();
+    }
+
+    let isSelecting = false;
+    let startX = 0, startY = 0;
+    let currentX = 0, currentY = 0;
+
+    function renderSelection() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Lớp phủ tối mờ
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.62)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (isSelecting) {
+        const x = Math.min(startX, currentX);
+        const y = Math.min(startY, currentY);
+        const w = Math.abs(currentX - startX);
+        const h = Math.abs(currentY - startY);
+
+        // Khoét vùng chọn trong suốt
+        ctx.clearRect(x, y, w, h);
+
+        // Viền vùng chọn
+        ctx.strokeStyle = '#2dd4bf';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(x, y, w, h);
+
+        // Nhãn kích thước
+        const badgeY = y - 24 > 0 ? y - 24 : y + h + 6;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(x, badgeY, 96, 20);
+        ctx.fillStyle = '#2dd4bf';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(Math.round(w) + ' × ' + Math.round(h) + ' px', x + 6, badgeY + 14);
+      }
+    }
+
+    // 1. Vẽ NGAY LẬP TỨC để lớp phủ và HUD hiển thị không có độ trễ
+    renderSelection();
+
+    // 2. onload chỉ làm nhiệm vụ vẽ lại canvas sau khi ảnh Base64 tải xong
+    if (bgImg) {
+      bgImg.onload = () => {
+        renderSelection();
+      };
+      bgImg.src = imageUri;
+    }
+
+    const handleMouseDown = (e) => {
+      if (e.target && e.target.closest && e.target.closest('.lk-snipping-hud')) return;
+      isSelecting = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      currentX = startX;
+      currentY = startY;
+      renderSelection();
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isSelecting) return;
+      currentX = e.clientX;
+      currentY = e.clientY;
+      renderSelection();
+    };
+
+    const handleMouseUp = () => {
+      if (!isSelecting) return;
+      isSelecting = false;
+
+      const cropX = Math.min(startX, currentX);
+      const cropY = Math.min(startY, currentY);
+      const cropW = Math.abs(currentX - startX);
+      const cropH = Math.abs(currentY - startY);
+
+      cleanup();
+
+      if (cropW >= 8 && cropH >= 8) {
+        processSnippedArea(bgImg, cropX, cropY, cropW, cropH);
+      } else {
+        const elements = document.elementsFromPoint(cropX, cropY);
+        let found = [];
+        for (const el of elements) {
+          if (el.id === 'luyen-kanji-root') continue;
+          const t = el.innerText || el.textContent || '';
+          const ks = extractKanji(t);
+          if (ks.length > 0) found = found.concat(ks);
+        }
+        found = [...new Set(found)];
+        openModal(found.join(''));
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') cleanup();
+    };
+
+    function cleanup() {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      if (snippingContainer) {
+        snippingContainer.remove();
+        snippingContainer = null;
+      }
+    }
+
+    container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('keydown', handleKeyDown, true);
+
+    hud.querySelector('#lk-hud-cancel').onclick = (e) => {
+      e.stopPropagation();
+      cleanup();
+    };
+
+    hud.querySelector('#lk-hud-scan-all').onclick = (e) => {
+      e.stopPropagation();
+      cleanup();
+      const allText = document.body ? document.body.innerText : '';
+      const ks = extractKanji(allText);
+      openModal(ks.slice(0, 20).join(''));
+    };
+  }
+
+  function processSnippedArea(img, x, y, w, h) {
+    let croppedDataUrl = null;
+
+    if (img && img.complete && img.naturalWidth > 0) {
+      try {
+        const scaleX = img.naturalWidth / window.innerWidth;
+        const scaleY = img.naturalHeight / window.innerHeight;
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = w;
+        cropCanvas.height = h;
+        const cropCtx = cropCanvas.getContext('2d');
+        cropCtx.drawImage(img, x * scaleX, y * scaleY, w * scaleX, h * scaleY, 0, 0, w, h);
+        croppedDataUrl = cropCanvas.toDataURL('image/png');
+      } catch (err) {
+        console.warn('Lỗi crop canvas:', err);
+      }
+    }
+
+    let detected = [];
+    const samplePoints = [
+      { x: x + w * 0.2, y: y + h * 0.2 },
+      { x: x + w * 0.5, y: y + h * 0.5 },
+      { x: x + w * 0.8, y: y + h * 0.8 },
+      { x: x + w * 0.5, y: y + h * 0.2 },
+      { x: x + w * 0.5, y: y + h * 0.8 }
+    ];
+
+    for (const pt of samplePoints) {
+      const elements = document.elementsFromPoint(pt.x, pt.y);
+      for (const el of elements) {
+        if (el.id === 'luyen-kanji-root') continue;
+        const t = el.innerText || el.textContent || '';
+        const ks = extractKanji(t);
+        if (ks.length > 0) detected = detected.concat(ks);
+      }
+    }
+
+    detected = [...new Set(detected)];
+    openModal(detected.join(''), croppedDataUrl);
+  }
+
+  window.__LUYEN_KANJI_START_SNIP__ = startScreenSnipping;
+  // ========== END SCREEN SNIPPING ==========
+
+  function openModal(text, croppedImgUrl) {
     if (currentModal) currentModal.remove();
     if (animTimerId) { clearTimeout(animTimerId); animTimerId = null; }
 
@@ -371,23 +688,31 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       }
     };
 
-    renderMainKanjiList(text, kanjis);
+    renderMainKanjiList(text, kanjis, croppedImgUrl);
   }
 
-  function renderMainKanjiList(rawText, kanjis) {
+  function renderMainKanjiList(rawText, kanjis, croppedImgUrl) {
     const container = currentModal.querySelector('#lk-modal-content');
     if (!container) return;
 
+    let bannerHtml = '';
+    if (croppedImgUrl) {
+      bannerHtml = '<div class="lk-ocr-banner">' +
+        '<img src="' + croppedImgUrl + '" class="lk-ocr-thumb" alt="Vùng ảnh vừa chụp" />' +
+        '<div style="flex: 1; font-size: 12px; color: #166534;"><strong>Ảnh chụp màn hình:</strong> Đã trích xuất <strong>' + kanjis.length + '</strong> chữ Hán trong vùng khoanh.</div>' +
+      '</div>';
+    }
+
     if (kanjis.length === 0) {
-      container.innerHTML = '<div style="text-align:center; padding: 40px 20px; color: #64748b;">' +
+      container.innerHTML = bannerHtml + '<div style="text-align:center; padding: 40px 20px; color: #64748b;">' +
         '<div style="font-size: 32px; margin-bottom: 8px;">🔍</div>' +
-        '<div style="font-size: 14px; font-weight: 700; color: #0f172a;">Không tìm thấy chữ Kanji nào trong đoạn văn đã chọn</div>' +
-        '<div style="font-size: 12px; margin-top: 4px;">Hãy chọn đoạn văn tiếng Nhật có chứa chữ Hán (Kanji).</div>' +
+        '<div style="font-size: 14px; font-weight: 700; color: #0f172a;">Không tìm thấy chữ Kanji nào trong vùng đã chọn</div>' +
+        '<div style="font-size: 12px; margin-top: 4px;">Hãy chọn đoạn văn tiếng Nhật có chứa chữ Hán (Kanji) hoặc khoanh vùng khác.</div>' +
       '</div>';
       return;
     }
 
-    container.innerHTML = kanjis.map((k, idx) => {
+    container.innerHTML = bannerHtml + kanjis.map((k, idx) => {
       const info = KANJI_DICTIONARY[k] || {
         hanviet: 'HÁN VIỆT', onyomi: ['-'], kunyomi: ['-'],
         jlpt: 'N3', strokeCount: 5, meaning: 'Chữ Kanji ' + k, radical: 'Bộ thủ', examples: []
@@ -453,7 +778,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
     container.querySelector('#lk-back-to-list').onclick = () => {
       if (animTimerId) { clearTimeout(animTimerId); animTimerId = null; }
-      renderMainKanjiList(rawText, kanjis);
+      renderMainKanjiList(rawText, kanjis, null);
     };
 
     const subtabs = container.querySelectorAll('.lk-subtab');
@@ -763,28 +1088,141 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (clearBtn) clearBtn.onclick = drawTemplate;
   }
 
+  const onRuntimeMessage = (req, sender, sendResponse) => {
+    if (req.action === "START_SCREEN_SNIP" || req.action === "ACTIVATE_SNIP_MODE") {
+      startScreenSnipping(req.imageUri || null);
+      sendResponse({ success: true });
+      return true;
+    }
+    if (req.action === "OPEN_KANJI_MODAL" && req.text) {
+      openModal(req.text);
+      sendResponse({ success: true });
+      return true;
+    }
+  };
+
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-    chrome.runtime.onMessage.addListener((req) => {
-      if (req.action === "OPEN_KANJI_MODAL" && req.text) {
-        openModal(req.text);
-      }
-    });
+    chrome.runtime.onMessage.addListener(onRuntimeMessage);
   }
+
+  // Cho phép bản script kế tiếp dọn sạch bản này trước khi chạy
+  window.__LUYEN_KANJI_CLEANUP__ = function () {
+    try { document.removeEventListener('mouseup', onDocMouseUp); } catch (e) {}
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.removeListener(onRuntimeMessage);
+      }
+    } catch (e) {}
+    try { if (snippingContainer) { snippingContainer.remove(); snippingContainer = null; } } catch (e) {}
+    try { if (currentModal) { currentModal.remove(); currentModal = null; } } catch (e) {}
+    try { if (currentTooltip) { currentTooltip.remove(); currentTooltip = null; } } catch (e) {}
+    try { if (animTimerId) { clearTimeout(animTimerId); animTimerId = null; } } catch (e) {}
+    try { if (styleEl && styleEl.parentNode) styleEl.parentNode.removeChild(styleEl); } catch (e) {}
+  };
 })();`;
       zip.file('content.js', contentJsCode);
 
-      // 4. Add Popup HTML
-      zip.file('popup.html', `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Luyện Kanji Popup</title></head>
-<body style="width: 280px; font-family: sans-serif; padding: 16px; background: #0f172a; color: #ffffff;">
-  <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #2dd4bf;">⛩️ Luyện Kanji</h3>
-  <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">Bôi đen chữ Kanji trên trang web bất kỳ để mở Floating Tooltip tra cứu nét vẽ động và thông tin từ điển Hán-Việt.</p>
-  <a href="https://luyenkanji.vercel.app" target="_blank" style="display: block; margin-top: 14px; padding: 8px 12px; background: #0d9488; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 12px; font-weight: 700; text-align: center;">🌐 Mở Trang Web Luyện Kanji</a>
+      // 4. Add Popup HTML & JS
+      zip.file('popup.html', `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Luyện Kanji Popup</title>
+  <style>
+    body { width: 340px; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #ffffff; color: #0f172a; }
+    .header { background: #0f172a; color: #ffffff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .header h2 { margin: 0; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .badge { font-size: 10px; background: #0d9488; color: #ffffff; padding: 2px 7px; border-radius: 9999px; font-weight: 700; }
+    .content { padding: 16px; }
+    .btn-snip { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; background: #0d9488; color: #ffffff; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; margin-bottom: 14px; transition: background 0.15s; }
+    .btn-snip:hover { background: #0f766e; }
+    .search-box { display: flex; gap: 6px; margin-bottom: 14px; }
+    input[type="text"] { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; }
+    input[type="text"]:focus { border-color: #0d9488; }
+    .btn-search { padding: 8px 14px; background: #0f172a; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .footer { padding: 10px 16px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; display: flex; align-items: center; justify-content: space-between; color: #64748b; }
+    .footer a { color: #0d9488; text-decoration: none; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>⛩️ Luyện Kanji <span class="badge">v2.1</span></h2>
+  </div>
+  <div class="content">
+    <button class="btn-snip" id="btn-snip-capture">
+      <span>📸 Khoanh vùng quét Kanji (Ctrl+Shift+K)</span>
+    </button>
+    <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px;">TRA CỨU NHANH KANJI</div>
+    <div class="search-box">
+      <input type="text" id="quick-search-input" placeholder="Ví dụ: 日本語, 勉強, 駅...">
+      <button class="btn-search" id="quick-search-btn">Tra</button>
+    </div>
+  </div>
+  <div class="footer">
+    <span>Luyện Kanji Extension</span>
+    <a href="https://luyenkanji.vercel.app" target="_blank" id="open-web-app">🌐 Web App ↗</a>
+  </div>
+  <script src="popup.js"></script>
 </body>
-</html>
-      `);
+</html>`);
+
+      zip.file('popup.js', `document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('quick-search-input');
+  const searchBtn = document.getElementById('quick-search-btn');
+  const snipBtn = document.getElementById('btn-snip-capture');
+  const openWebLink = document.getElementById('open-web-app');
+
+  if (snipBtn) {
+    snipBtn.addEventListener('click', () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id;
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, { action: "START_SCREEN_SNIP" }, () => {
+            if (chrome.runtime.lastError) {
+              chrome.scripting.executeScript({ target: { tabId: tabId }, files: ["content.js"] }, () => {
+                chrome.tabs.sendMessage(tabId, { action: "START_SCREEN_SNIP" });
+                window.close();
+              });
+            } else {
+              window.close();
+            }
+          });
+        } else {
+          chrome.runtime.sendMessage({ action: "TRIGGER_CAPTURE_SCREEN" }, () => window.close());
+        }
+      });
+    });
+  }
+
+  function triggerSearch() {
+    const text = searchInput ? searchInput.value.trim() : '';
+    if (!text) return;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, { action: "OPEN_KANJI_MODAL", text: text }, () => {
+          if (chrome.runtime.lastError) {
+            chrome.scripting.executeScript({ target: { tabId: tabId }, files: ["content.js"] }, () => {
+              chrome.tabs.sendMessage(tabId, { action: "OPEN_KANJI_MODAL", text: text });
+              window.close();
+            });
+          } else {
+            window.close();
+          }
+        });
+      }
+    });
+  }
+
+  if (searchBtn) searchBtn.addEventListener('click', triggerSearch);
+  if (searchInput) searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') triggerSearch(); });
+  if (openWebLink) {
+    openWebLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: "https://luyenkanji.vercel.app" });
+    });
+  }
+});`);
 
       // 5. Generate actual PNG icons for Chrome Extension Manifest V3
       const createIconBlob = (size: number): Promise<Blob> => {
@@ -827,7 +1265,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
       // Generate ZIP blob
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `LuyenKanji-ChromeExtension-v1.0.zip`);
+      saveAs(content, `LuyenKanji-ChromeExtension-v2.1.zip`);
 
       setExportDone(true);
     } catch (err) {
@@ -846,16 +1284,16 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
               <Chrome className="w-5 h-5" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-teal-400 bg-teal-950/80 px-2.5 py-1 rounded-full border border-teal-700/50">
-              Manifest V3 Standard • Dynamic Stroke Animation
+              Manifest V3 Standard • Snipping OCR & Dual Search (v2.1)
             </span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Tải Tiện Ích Chrome Extension "Luyện Kanji"
+            Tải Tiện Ích Chrome Extension "Luyện Kanji" (v2.1)
           </h3>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-            Tiện ích bôi đen văn bản trên mọi trang web (NHK News, Twitter, Manga) để bật nút 
-            <strong> Tra Kanji</strong>, xem nét vẽ SVG hoạt ảnh động có điều khiển tốc độ/phát lại, âm Hán-Việt, từ ghép và nút 
-            <strong> 🌐 Mở trên Web</strong> chuyển toàn bộ câu tới <code>https://luyenkanji.vercel.app</code>.
+            Tiện ích bôi đen văn bản hoặc <strong>khoanh vùng chụp màn hình (Alt+Shift+S)</strong> để quét ảnh OCR chữ Hán trên mọi trang web (NHK News, YouTube, Manga), tra cứu trực tiếp với 
+            <strong> ô tìm kiếm kép</strong>, xem nét vẽ SVG hoạt ảnh động và nút 
+            <strong> 🌐 Mở trên Web App</strong> chuyển toàn bộ câu tới <code>https://luyenkanji.vercel.app</code>.
           </p>
         </div>
 

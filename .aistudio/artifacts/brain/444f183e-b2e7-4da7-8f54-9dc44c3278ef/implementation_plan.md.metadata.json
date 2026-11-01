@@ -1,6 +1,6 @@
 {
-  "summary":  "Kế hoạch triển khai: 1) Hệ thống hướng dẫn & kiểm tra viết đúng nét, thứ tự chữ Kanji kèm chấm điểm độ chính xác; 2) Bộ gõ chuyển đổi Romaji sang tiếng Nhật (Kana) trực tiếp trong ô nhập liệu.",
-  "updatedAt":  "2026-10-31T13:54:16.762617892Z",
+  "summary":  "Kế hoạch chi tiết nghiên cứu và triển khai tính năng Chụp màn hình khoanh vùng (Screen Snipping OCR) trên trình duyệt cho Tiện ích mở rộng Luyện Kanji, tái sử dụng bộ nhận diện Kanji OCR từ Web App và tích hợp ô tìm kiếm Kanji tiện ích kép.",
+  "updatedAt":  "2026-11-01T01:27:20.835992540Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

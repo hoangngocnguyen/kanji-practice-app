@@ -5,7 +5,7 @@
   <title>Luyện Kanji - Chrome Extension</title>
   <style>
     body {
-      width: 340px;
+      width: 350px;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -13,7 +13,7 @@
       color: #0f172a;
     }
     .header {
-      background: #0f172a;
+      background: linear-gradient(135deg, #0f172a 0%, #134e4a 100%);
       color: #ffffff;
       padding: 14px 16px;
       display: flex;
@@ -22,27 +22,68 @@
     }
     .header h2 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 800;
       display: flex;
       align-items: center;
       gap: 8px;
     }
     .badge {
       font-size: 10px;
-      background: #0284c7;
+      background: #0d9488;
       color: #ffffff;
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 2px 7px;
+      border-radius: 9999px;
       font-weight: 700;
     }
     .content {
       padding: 16px;
     }
+    /* Snipping OCR Main Action Button */
+    .btn-snip {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(13, 148, 136, 0.35);
+      transition: all 0.15s ease;
+      margin-bottom: 14px;
+    }
+    .btn-snip:hover {
+      background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+      transform: translateY(-1px);
+    }
+    .btn-snip .shortcut-hint {
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    /* Search Box */
+    .search-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
     .search-box {
       display: flex;
       gap: 6px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
     input[type="text"] {
       flex: 1;
@@ -51,14 +92,15 @@
       border-radius: 8px;
       font-size: 13px;
       outline: none;
+      transition: border-color 0.15s;
     }
     input[type="text"]:focus {
-      border-color: #0284c7;
-      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+      border-color: #0d9488;
+      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
     }
-    button {
-      padding: 8px 12px;
-      background: #0284c7;
+    .btn-search {
+      padding: 8px 14px;
+      background: #0f172a;
       color: #ffffff;
       border: none;
       border-radius: 8px;
@@ -67,23 +109,29 @@
       cursor: pointer;
       transition: background 0.15s ease;
     }
-    button:hover {
-      background: #0369a1;
+    .btn-search:hover {
+      background: #1e293b;
     }
+
+    .divider {
+      height: 1px;
+      background: #f1f5f9;
+      margin: 12px 0;
+    }
+
     .setting-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #f1f5f9;
-      font-size: 13px;
+      padding: 8px 0;
+      font-size: 12px;
       color: #334155;
     }
     .toggle-switch {
       position: relative;
       display: inline-block;
-      width: 38px;
-      height: 22px;
+      width: 36px;
+      height: 20px;
     }
     .toggle-switch input {
       opacity: 0;
@@ -96,53 +144,74 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background-color: #cbd5e1;
       transition: .2s;
-      border-radius: 22px;
+      border-radius: 20px;
     }
     .slider:before {
       position: absolute;
       content: "";
-      height: 16px; width: 16px;
+      height: 14px; width: 14px;
       left: 3px; bottom: 3px;
       background-color: white;
       transition: .2s;
       border-radius: 50%;
     }
     input:checked + .slider {
-      background-color: #0284c7;
+      background-color: #0d9488;
     }
     input:checked + .slider:before {
       transform: translateX(16px);
     }
     .footer {
-      padding: 12px 16px;
+      padding: 10px 16px;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
-      font-size: 12px;
-      text-align: center;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       color: #64748b;
     }
     .footer a {
-      color: #0284c7;
+      color: #0d9488;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 700;
+    }
+    .footer a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h2>⛩️ Luyện Kanji <span class="badge">v1.0</span></h2>
+    <h2>⛩️ Luyện Kanji <span class="badge">v2.1</span></h2>
+    <span style="font-size: 11px; color: #99f6e4;">Extension</span>
   </div>
 
   <div class="content">
+    <!-- Screen Snipping OCR Trigger Button -->
+    <button class="btn-snip" id="btn-snip-capture" title="Khoanh vùng chụp một khu vực trên màn hình để quét Kanji bằng OCR">
+      <span>📸 Khoanh vùng quét Kanji</span>
+      <span class="shortcut-hint">Ctrl+Shift+K</span>
+    </button>
+
+    <!-- Unified Search Box -->
+    <div class="search-label">
+      <span>TRA CỨU NHANH KANJI</span>
+      <span style="font-weight: normal; font-size: 10px; color: #94a3b8;">Nhập chữ Hán hoặc từ vựng</span>
+    </div>
     <div class="search-box">
-      <input type="text" id="quick-search-input" placeholder="Nhập Kanji hoặc câu tiếng Nhật...">
-      <button id="quick-search-btn">Tra cứu</button>
+      <input type="text" id="quick-search-input" placeholder="Ví dụ: 日本語, 勉強, 駅..." autofocus>
+      <button class="btn-search" id="quick-search-btn">Tra</button>
     </div>
 
-    <div style="font-size:12px; font-weight:700; color:#64748b; margin-top:12px; margin-bottom:6px; text-transform:uppercase;">Cài đặt tiện ích</div>
+    <div class="divider"></div>
+
+    <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase;">
+      Tùy chọn hiển thị
+    </div>
     
     <div class="setting-row">
-      <span>Nút nổi Tra Kanji (Floating Tooltip)</span>
+      <span>Nút nổi Tra Kanji khi bôi đen</span>
       <label class="toggle-switch">
         <input type="checkbox" id="toggle-tooltip" checked>
         <span class="slider"></span>
@@ -150,7 +219,7 @@
     </div>
 
     <div class="setting-row">
-      <span>Tự động phát âm khi tra cứu</span>
+      <span>Tự động phát âm khi mở từ</span>
       <label class="toggle-switch">
         <input type="checkbox" id="toggle-autospeech">
         <span class="slider"></span>
@@ -159,7 +228,8 @@
   </div>
 
   <div class="footer">
-    Truy cập Web Playground: <a href="#" id="open-web-app">Luyện Kanji Web App</a>
+    <span>Luyện Kanji Pro</span>
+    <a href="#" id="open-web-app">🌐 Mở Web App đầy đủ ↗</a>
   </div>
 
   <script src="popup.js"></script>

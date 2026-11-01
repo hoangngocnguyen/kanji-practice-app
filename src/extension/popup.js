@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('quick-search-input');
   const searchBtn = document.getElementById('quick-search-btn');
+  const snipBtn = document.getElementById('btn-snip-capture');
   const tooltipToggle = document.getElementById('toggle-tooltip');
   const autoSpeechToggle = document.getElementById('toggle-autospeech');
   const openWebLink = document.getElementById('open-web-app');
@@ -33,20 +34,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Search Action
+  // Snipping Screen Capture Action: Send fire-and-forget message to Background Service Worker
+  if (snipBtn) {
+    snipBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: "TRIGGER_CAPTURE_SCREEN" });
+      window.close();
+    });
+  }
+
+  // Search Action: Send fire-and-forget message to Background Service Worker
   function triggerSearch() {
-    const text = searchInput.value.trim();
+    const text = searchInput ? searchInput.value.trim() : '';
     if (!text) return;
 
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]?.id) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          action: "OPEN_KANJI_MODAL",
-          text: text
-        });
-        window.close();
-      }
-    });
+    chrome.runtime.sendMessage({ action: "TRIGGER_SEARCH", text: text });
+    window.close();
   }
 
   if (searchBtn) searchBtn.addEventListener('click', triggerSearch);
