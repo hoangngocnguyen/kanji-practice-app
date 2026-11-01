@@ -29,7 +29,7 @@ import { Toast } from './components/Toast';
 import { Footer } from './components/Footer';
 import { LicenseModal } from './components/LicenseModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
-import { KanjiPrintSheet } from './components/KanjiPrintSheet';
+import { KanjiPrintModal } from './components/KanjiPrintModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import { RadicalExplorer } from './components/RadicalExplorer';
 import { SettingsModal } from './components/SettingsModal';
@@ -80,6 +80,9 @@ export default function App() {
 
   // Google Docs Table Exporter Modal state
   const [isGoogleDocsExporterOpen, setIsGoogleDocsExporterOpen] = useState<boolean>(false);
+
+  // Print Modal state
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
   // Setting: Show Hiragana above Kanji in lookup list (Default OFF as requested)
   const [showListFurigana, setShowListFurigana] = useState<boolean>(() => {
@@ -442,7 +445,7 @@ export default function App() {
 
       {/* Header */}
       <Header
-        onPrint={() => window.print()}
+        onPrint={() => setIsPrintModalOpen(true)}
         kanjiCount={extractedKanjiList.length}
         historyCount={recentlyViewed.length}
         onOpenGuide={() => setIsGuideOpen(true)}
@@ -745,9 +748,6 @@ export default function App() {
 
         {/* Chrome Extension Download Section */}
         <ExtensionExporter />
-
-        {/* Dedicated Printable Worksheet (Auto-shown on window.print(), styled for A4 paper) */}
-        <KanjiPrintSheet kanjiList={mergedKanjiList} />
       </main>
 
       {/* Practice / Inspection Modal */}
@@ -812,6 +812,14 @@ export default function App() {
         kanjiList={mergedKanjiList}
         isOpen={isGoogleDocsExporterOpen}
         onClose={() => setIsGoogleDocsExporterOpen(false)}
+        showToast={showToast}
+      />
+
+      {/* Print Customization Modal */}
+      <KanjiPrintModal
+        kanjiList={mergedKanjiList}
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
         showToast={showToast}
       />
 
