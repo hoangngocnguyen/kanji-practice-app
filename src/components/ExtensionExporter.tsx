@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { Download, Chrome, CheckCircle2 } from 'lucide-react';
-import { KANJI_DICTIONARY } from '../data/kanjiDictionary';
+import { KANJI_DICTIONARY, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
 
 export const ExtensionExporter: React.FC = () => {
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -179,7 +179,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         Object.entries(KANJI_DICTIONARY).map(([k, v]) => [
           k,
           {
-            hanviet: v.hanViet || 'HÁN VIỆT',
+            hanviet: v.hanViet || (SINO_VIETNAMESE_MAP[k] || 'HÁN VIỆT'),
             onyomi: v.on || [],
             kunyomi: v.kun || [],
             jlpt: v.jlpt || 'N3',
@@ -191,6 +191,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         ])
       );
       const bundledDictJson = JSON.stringify(bundledDictObj);
+      const bundledSinoVietJson = JSON.stringify(SINO_VIETNAMESE_MAP);
 
       // 3. Add Content Script
       const contentJsCode = `/**
@@ -206,6 +207,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   const TARGET_WEB_APP_URL = "https://luyenkanji.vercel.app";
   const KANJI_DICTIONARY = ${bundledDictJson};
+  const SINO_VIETNAMESE_MAP = ${bundledSinoVietJson};
+
+  function getKanjiDetails(k) {
+    if (KANJI_DICTIONARY && KANJI_DICTIONARY[k]) {
+      const d = KANJI_DICTIONARY[k];
+      return {
+        hanviet: d.hanviet || d.hanViet || (SINO_VIETNAMESE_MAP && SINO_VIETNAMESE_MAP[k]) || 'HÁN VIỆT',
+        onyomi: d.onyomi || d.on || ['-'],
+        kunyomi: d.kunyomi || d.kun || ['-'],
+        jlpt: d.jlpt || 'N3',
+        strokeCount: d.strokeCount || 8,
+        meaning: d.meaning || (Array.isArray(d.meanings) ? d.meanings.join(', ') : '') || (SINO_VIETNAMESE_MAP && SINO_VIETNAMESE_MAP[k] ? ('Âm Hán Việt: ' + SINO_VIETNAMESE_MAP[k] + '. Bấm nút Mazii ↗ để xem chi tiết.') : ('Chữ Kanji ' + k)),
+        radical: d.radical || 'Bộ thủ',
+        examples: d.examples || []
+      };
+    }
+    const hv = (typeof SINO_VIETNAMESE_MAP !== 'undefined' && SINO_VIETNAMESE_MAP[k]) ? SINO_VIETNAMESE_MAP[k] : null;
+    if (hv) {
+      return {
+        hanviet: hv,
+        onyomi: ['Tra Mazii ↗'],
+        kunyomi: ['Tra Mazii ↗'],
+        jlpt: 'N3',
+        strokeCount: 8,
+        meaning: 'Âm Hán Việt: ' + hv + '. Bấm "Luyện nét" hoặc nút Mazii ↗ để xem nghĩa chi tiết.',
+        radical: 'Bộ thủ',
+        examples: []
+      };
+    }
+    return {
+      hanviet: 'HÁN VIỆT',
+      onyomi: ['-'],
+      kunyomi: ['-'],
+      jlpt: 'N3',
+      strokeCount: 5,
+      meaning: 'Chữ Kanji ' + k,
+      radical: 'Bộ thủ',
+      examples: []
+    };
+  }
 
   const STROKE_COLORS = [
     '#2563eb', '#ef4444', '#0f172a', '#16a34a', '#d97706',
@@ -713,10 +754,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     container.innerHTML = bannerHtml + kanjis.map((k, idx) => {
-      const info = KANJI_DICTIONARY[k] || {
-        hanviet: 'HÁN VIỆT', onyomi: ['-'], kunyomi: ['-'],
-        jlpt: 'N3', strokeCount: 5, meaning: 'Chữ Kanji ' + k, radical: 'Bộ thủ', examples: []
-      };
+      const info = getKanjiDetails(k);
 
       const onyomiStr = Array.isArray(info.onyomi) ? info.onyomi.join(', ') : info.onyomi;
       const kunyomiStr = Array.isArray(info.kunyomi) ? info.kunyomi.join(', ') : info.kunyomi;
@@ -758,9 +796,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   function openPracticeModal(char, rawText, kanjis) {
     activePracticeTab = 'animation';
-    const info = KANJI_DICTIONARY[char] || {
-      hanviet: 'HÁN VIỆT', onyomi: ['-'], kunyomi: ['-'], jlpt: 'N3', strokeCount: 5, meaning: 'Chữ ' + char, radical: 'Bộ thủ', examples: []
-    };
+    const info = getKanjiDetails(char);
 
     const container = currentModal.querySelector('#lk-modal-content');
     if (!container) return;

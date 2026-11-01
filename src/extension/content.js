@@ -39,8 +39,46 @@
     '道': { hanviet: 'ĐẠO', onyomi: ['ドウ', 'TOU'], kunyomi: ['michi'], jlpt: 'N4', strokeCount: 12, meaning: 'Con đường, đạo đức, phương pháp', radical: '辵 (Sước)' },
     '東': { hanviet: 'ĐÔNG', onyomi: ['トウ'], kunyomi: ['higashi'], jlpt: 'N5', strokeCount: 8, meaning: 'Phía đông, Tokyo', radical: '木 (Mộc)' },
     '京': { hanviet: 'KINH', onyomi: ['キョウ', 'ケイ'], kunyomi: ['miyako'], jlpt: 'N5', strokeCount: 8, meaning: 'Kinh đô, thành phố lớn', radical: '亠 (Đầu)' },
-    '駅': { hanviet: 'DỊCH', onyomi: ['エキ'], kunyomi: [], jlpt: 'N5', strokeCount: 14, meaning: 'Nhà ga xe điện, trạm', radical: '馬 (Mã)' }
+    '駅': { hanviet: 'DỊCH', onyomi: ['エキ'], kunyomi: [], jlpt: 'N5', strokeCount: 14, meaning: 'Nhà ga xe điện, trạm', radical: '馬 (Mã)' },
+    '制': { hanviet: 'CHẾ', onyomi: ['セイ'], kunyomi: [], jlpt: 'N3', strokeCount: 8, meaning: 'Chế độ, quy định, kiểm soát, ban hành', radical: '刀 (Đao)' },
+    '限': { hanviet: 'HẠN', onyomi: ['ゲン'], kunyomi: ['かぎ.る', 'かぎ.り'], jlpt: 'N3', strokeCount: 9, meaning: 'Giới hạn, hạn mức, phạm vi, ranh giới', radical: '阜 (Phụ)' },
+    '定': { hanviet: 'ĐỊNH', onyomi: ['テイ', 'ジョウ'], kunyomi: ['さだ.める', 'さだ.まる'], jlpt: 'N3', strokeCount: 8, meaning: 'Quyết định, cố định, quy định, ổn định', radical: '宀 (Miên)' },
+    '切': { hanviet: 'THIẾT / CẮT', onyomi: ['セツ', 'サイ'], kunyomi: ['き.る', 'き.れる'], jlpt: 'N4', strokeCount: 4, meaning: 'Cắt, thái, khẩn thiết, hết', radical: '刀 (Đao)' },
+    '符': { hanviet: 'PHÙ', onyomi: ['フ'], kunyomi: [], jlpt: 'N3', strokeCount: 11, meaning: 'Phù hiệu, tấm vé, dấu hiệu', radical: '竹 (Trúc)' },
+    '票': { hanviet: 'PHIẾU', onyomi: ['ヒョウ'], kunyomi: [], jlpt: 'N3', strokeCount: 11, meaning: 'Lá phiếu, vé, phiếu bầu', radical: '示 (Thị)' },
+    '勝': { hanviet: 'THẮNG', onyomi: ['ショウ'], kunyomi: ['か.つ', 'まさ.る'], jlpt: 'N3', strokeCount: 12, meaning: 'Thắng lợi, vượt qua, cảnh đẹp', radical: '力 (Lực)' },
+    '負': { hanviet: 'PHỤ', onyomi: ['フ'], kunyomi: ['ま.ける', 'ま.かす'], jlpt: 'N3', strokeCount: 9, meaning: 'Thua, gánh vác, âm', radical: '貝 (Bối)' },
+    '約': { hanviet: 'ƯỚC', onyomi: ['ヤク'], kunyomi: [], jlpt: 'N3', strokeCount: 9, meaning: 'Lời hứa, khoảng chừng, tóm tắt', radical: '糸 (Mịch)' },
+    '束': { hanviet: 'THÚC', onyomi: ['ソク'], kunyomi: ['たば', 'たば.ねる'], jlpt: 'N3', strokeCount: 7, meaning: 'Bó, buộc, ràng buộc', radical: '木 (Mộc)' },
+    '階': { hanviet: 'GIAI', onyomi: ['カイ'], kunyomi: [], jlpt: 'N3', strokeCount: 12, meaning: 'Tầng nhà, cầu thang, giai cấp', radical: '阜 (Phụ)' },
+    '段': { hanviet: 'ĐOẠN', onyomi: ['ダン'], kunyomi: [], jlpt: 'N3', strokeCount: 9, meaning: 'Bậc, giai đoạn, đoạn văn', radical: '殳 (Thù)' },
+    '格': { hanviet: 'CÁCH', onyomi: ['カク', 'コウ'], kunyomi: [], jlpt: 'N3', strokeCount: 10, meaning: 'Tư cách, quy cách, khung', radical: '木 (Mộc)' },
+    '規': { hanviet: 'QUY', onyomi: ['キ'], kunyomi: [], jlpt: 'N3', strokeCount: 11, meaning: 'Quy tắc, khuôn thước, quy mô', radical: '見 (Kiến)' }
   };
+
+  function getKanjiDetails(k) {
+    if (KANJI_DICTIONARY[k]) {
+      const d = KANJI_DICTIONARY[k];
+      return {
+        hanviet: d.hanviet || d.hanViet || 'HÁN VIỆT',
+        onyomi: d.onyomi || d.on || ['-'],
+        kunyomi: d.kunyomi || d.kun || ['-'],
+        jlpt: d.jlpt || 'N3',
+        strokeCount: d.strokeCount || 8,
+        meaning: d.meaning || (Array.isArray(d.meanings) ? d.meanings.join(', ') : `Chữ Kanji ${k}`),
+        radical: d.radical || 'Bộ thủ'
+      };
+    }
+    return {
+      hanviet: 'HÁN VIỆT',
+      onyomi: ['Tra Mazii ↗'],
+      kunyomi: ['Tra Mazii ↗'],
+      jlpt: 'N3',
+      strokeCount: 8,
+      meaning: `Âm Hán Việt & nghĩa chữ ${k}. Bấm nút Mazii ↗ để xem chi tiết.`,
+      radical: 'Bộ thủ'
+    };
+  }
 
   // Shadow DOM Container Setup with Failsafe Host Positioning
   let hostDiv = document.getElementById('luyen-kanji-root');
@@ -672,12 +710,7 @@
     }
 
     container.innerHTML = bannerHtml + kanjis.map((k, idx) => {
-      const info = KANJI_DICTIONARY[k] || {
-        hanviet: 'HÁN VIỆT',
-        onyomi: ['-'], kunyomi: ['-'],
-        jlpt: 'N3', strokeCount: 5,
-        meaning: `Chữ Kanji ${k}`, radical: 'Bộ thủ'
-      };
+      const info = getKanjiDetails(k);
 
       const onyomiStr = Array.isArray(info.onyomi) ? info.onyomi.join(', ') : info.onyomi;
       const kunyomiStr = Array.isArray(info.kunyomi) ? info.kunyomi.join(', ') : info.kunyomi;
@@ -734,9 +767,7 @@
   // Open Practice Detail
   function openPracticeModal(char, rawText, kanjis) {
     activePracticeChar = char;
-    const info = KANJI_DICTIONARY[char] || {
-      hanviet: 'HÁN VIỆT', onyomi: ['-'], kunyomi: ['-'], jlpt: 'N3', strokeCount: 5, meaning: `Chữ ${char}`, radical: 'Bộ thủ'
-    };
+    const info = getKanjiDetails(char);
 
     const container = currentModal.querySelector('#lk-modal-content');
     if (!container) return;
