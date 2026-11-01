@@ -30,6 +30,11 @@ Thư mục này chứa toàn bộ tài liệu kỹ thuật chi tiết giải th�
    * Thuật toán so sánh đường cong (Stroke Geometry Matching): Khoảng cách điểm đầu, vector hướng nét vẽ, tỷ lệ độ dài.
    * Thang điểm chính xác (0-100%) và quy trình chuyển nét tự động.
 
+6. [06. Cơ Chế Xuất Bảng 1 Cột Tối Ưu Dán Google Docs & Word](./06-xuat-google-docs.md)
+   * Chuyển đổi SVG nét vẽ sang PNG Base64 độ nét cao.
+   * Tùy chọn bật/tắt linh hoạt các cột (STT, Chữ Hán, Âm đọc/Ý nghĩa, Ảnh nét vẽ).
+   * Gói dữ liệu Clipboard HTML Rich-Text cho phép dán trực tiếp vào Google Docs chỉ với 1 cú nhấp.
+
 ---
 
 *Tài liệu kỹ thuật hệ thống Luyện Kanji v3.0.0* 🚀

@@ -34,6 +34,7 @@ import { UserGuideModal } from './components/UserGuideModal';
 import { RadicalExplorer } from './components/RadicalExplorer';
 import { SettingsModal } from './components/SettingsModal';
 import { ExtensionExporter } from './components/ExtensionExporter';
+import { GoogleDocsTableExporter } from './components/GoogleDocsTableExporter';
 
 export default function App() {
   // Input text state
@@ -76,6 +77,9 @@ export default function App() {
 
   // Global Settings Modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+
+  // Google Docs Table Exporter Modal state
+  const [isGoogleDocsExporterOpen, setIsGoogleDocsExporterOpen] = useState<boolean>(false);
 
   // Setting: Show Hiragana above Kanji in lookup list (Default OFF as requested)
   const [showListFurigana, setShowListFurigana] = useState<boolean>(() => {
@@ -657,6 +661,18 @@ export default function App() {
                     </span>
                   </button>
 
+                  {/* Google Docs Table Exporter Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsGoogleDocsExporterOpen(true)}
+                    className="h-9 inline-flex items-center gap-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
+                    title="Xuất bảng 1 cột chứa ảnh nét vẽ để dán sang Google Docs"
+                  >
+                    <TableIcon className="w-3.5 h-3.5 text-emerald-700" />
+                    <span className="hidden sm:inline">Dán Google Docs</span>
+                    <span className="sm:hidden">Docs</span>
+                  </button>
+
                   {/* View Switcher: Table vs Cards */}
                   <div className="h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0">
                     <button
@@ -788,6 +804,14 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         historyCount={recentlyViewed.length}
         onClearHistory={handleClearRecentHistory}
+        showToast={showToast}
+      />
+
+      {/* Google Docs Table Exporter Modal */}
+      <GoogleDocsTableExporter
+        kanjiList={mergedKanjiList}
+        isOpen={isGoogleDocsExporterOpen}
+        onClose={() => setIsGoogleDocsExporterOpen(false)}
         showToast={showToast}
       />
 

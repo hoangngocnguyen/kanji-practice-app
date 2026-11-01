@@ -16,7 +16,8 @@ import {
   Grid,
   Chrome,
   Scissors,
-  Bookmark
+  Bookmark,
+  Table
 } from 'lucide-react';
 
 interface UserGuideModalProps {
@@ -390,21 +391,31 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
               <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 p-4 rounded-xl border border-emerald-100">
                 <h3 className="font-bold text-emerald-900 text-sm sm:text-base flex items-center gap-2 mb-1">
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  6. Xuất File CSV Thẻ Nhớ & In Bảng Nét Khổ A4
+                  6. Xuất Dữ Liệu Google Docs, Anki CSV & In Bảng Nét A4
                 </h3>
                 <p className="text-slate-600 leading-relaxed">
-                  Tạo dữ liệu học tập cá nhân hóa để mang đi mọi nơi hoặc in ấn tập viết thủ công.
+                  Tạo dữ liệu học tập cá nhân hóa để mang đi mọi nơi hoặc sao chép thẳng vào Google Docs / Word.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold text-xs sm:text-sm">
+                    <Table className="w-4 h-4 text-emerald-600" />
+                    Dán Google Docs (1 Cột)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-normal">
+                    Bấm <strong>Dán Google Docs</strong> trên thanh công cụ để xuất bảng ảnh nét vẽ Kanji. Tùy chọn bật/tắt linh hoạt các cột (STT, Chữ Hán, Âm đọc, Ảnh nét vẽ) và sao chép 1 chạm để dán trực tiếp (`Ctrl + V`).
+                  </p>
+                </div>
+
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center gap-2 text-emerald-700 font-semibold text-xs sm:text-sm">
                     <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                     Xuất CSV Anki / Excel
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">
-                    Nhấp vào <strong>Xuất CSV (Anki)</strong> trên thanh công cụ. File CSV tạo ra có chứa sẵn các cột: <em>Kanji, Âm Hán Việt, Nghĩa Việt, Onyomi, Kunyomi, Cấp độ JLPT & Mã SVG</em>.
+                    Nhấp vào <strong>Xuất CSV (Anki)</strong> trên thanh công cụ để tạo file CSV chứa sẵn dữ liệu chữ, Hán-Việt, On/Kun và nghĩa để import vào Anki.
                   </p>
                 </div>
 
@@ -414,14 +425,14 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                     In Bảng Nét / Tạo PDF A4
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">
-                    Bấm <strong>In bảng nét</strong> trên thanh Header để mở giao diện in tập viết. Có thể chọn căn lề, hiển thị ô lưới mễ và xuất trực tiếp ra file PDF để in ra giấy A4.
+                    Bấm <strong>In bảng nét</strong> trên thanh Header để mở giao diện in phiếu tập viết A4 kèm ô lưới Mễ.
                   </p>
                 </div>
               </div>
 
               <div className="p-3 bg-slate-100 rounded-xl text-xs text-slate-600 flex items-center gap-2 border border-slate-200">
                 <Layers className="w-4 h-4 text-slate-500 shrink-0" />
-                <span>Hỗ trợ tương thích chuẩn Anki 2.1+, Quizlet, Excel và Google Sheets.</span>
+                <span>Hỗ trợ tương thích chuẩn Google Docs, Anki 2.1+, Quizlet, Excel và Google Sheets.</span>
               </div>
             </div>
           )}
