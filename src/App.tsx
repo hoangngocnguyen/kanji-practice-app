@@ -34,7 +34,6 @@ import { UserGuideModal } from './components/UserGuideModal';
 import { RadicalExplorer } from './components/RadicalExplorer';
 import { SettingsModal } from './components/SettingsModal';
 import { ExtensionExporter } from './components/ExtensionExporter';
-import { ExtensionPlayground } from './components/ExtensionPlayground';
 
 export default function App() {
   // Input text state
@@ -728,9 +727,8 @@ export default function App() {
           )}
         </section>
 
-        {/* Chrome Extension Download Section & Live Playground */}
+        {/* Chrome Extension Download Section */}
         <ExtensionExporter />
-        <ExtensionPlayground />
 
         {/* Dedicated Printable Worksheet (Auto-shown on window.print(), styled for A4 paper) */}
         <KanjiPrintSheet kanjiList={mergedKanjiList} />

@@ -13,7 +13,10 @@ import {
   Lightbulb,
   Layers,
   Camera,
-  Grid
+  Grid,
+  Chrome,
+  Scissors,
+  Bookmark
 } from 'lucide-react';
 
 interface UserGuideModalProps {
@@ -22,7 +25,7 @@ interface UserGuideModalProps {
   onOpenScanner?: () => void;
 }
 
-type TabKey = 'lookup' | 'anki' | 'export' | 'tools';
+type TabKey = 'lookup' | 'extension' | 'scanner' | 'radicals' | 'anki' | 'export';
 
 export const UserGuideModal: React.FC<UserGuideModalProps> = ({
   isOpen,
@@ -48,25 +51,35 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
   const tabs: { id: TabKey; label: string; icon: React.ReactNode; badge?: string }[] = [
     {
       id: 'lookup',
-      label: 'Tra cứu & Nét vẽ',
+      label: 'Tra Cứu & Nét Vẽ',
       icon: <Search className="w-4 h-4" />,
     },
     {
+      id: 'extension',
+      label: 'Chrome Extension v3.0',
+      icon: <Chrome className="w-4 h-4" />,
+      badge: 'HOT',
+    },
+    {
+      id: 'scanner',
+      label: 'Quét Ảnh OCR & Dịch AI',
+      icon: <Camera className="w-4 h-4" />,
+    },
+    {
+      id: 'radicals',
+      label: '214 Bộ Thủ Kangxi',
+      icon: <Bookmark className="w-4 h-4" />,
+    },
+    {
       id: 'anki',
-      label: 'Chép Anki & Word',
+      label: 'Chép Thẻ Anki & Word',
       icon: <Copy className="w-4 h-4" />,
       badge: 'Phổ biến',
     },
     {
       id: 'export',
-      label: 'Xuất CSV & In ấn',
+      label: 'Xuất CSV & In Bảng Nét A4',
       icon: <FileSpreadsheet className="w-4 h-4" />,
-    },
-    {
-      id: 'tools',
-      label: 'Dịch & Quét OCR',
-      icon: <Sparkles className="w-4 h-4" />,
-      badge: 'Mới',
     },
   ];
 
@@ -82,14 +95,14 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold tracking-tight">
-                  Hướng dẫn sử dụng & Mẹo học Kanji
+                  Hướng Dẫn Cẩm Nang Học & Tra Cứu Kanji Toàn Diện
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 rounded-full">
-                  v1.2
+                <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase bg-amber-400 text-slate-950 rounded-full shadow-xs">
+                  v3.0.0
                 </span>
               </div>
               <p className="text-xs text-teal-100/80 hidden sm:block">
-                Khám phá các tính năng tra nét vẽ, sao chép thẻ Anki, xuất CSV và phát âm
+                Khám phá trọn bộ tính năng Web App & Chrome Extension: Tra nét vẽ, quét OCR, bộ thủ, Anki & In ấn
               </p>
             </div>
           </div>
@@ -142,7 +155,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
               <div className="bg-gradient-to-br from-teal-50 to-emerald-50/50 p-4 rounded-xl border border-teal-100">
                 <h3 className="font-bold text-teal-900 text-sm sm:text-base flex items-center gap-2 mb-1">
                   <Search className="w-4 h-4 text-teal-600" />
-                  1. Tra cứu câu/từ vựng & Trích xuất Kanji
+                  1. Tra Cứu Câu / Văn Bản & Trích Xuất Kanji Tự Động
                 </h3>
                 <p className="text-slate-600 leading-relaxed">
                   Nhập bất kỳ đoạn văn bản tiếng Nhật (ví dụ: <code className="bg-teal-100/80 text-teal-900 px-1.5 py-0.5 rounded font-mono">一期一会 温故知新</code>), ứng dụng sẽ tự động tách các ký tự Hán tự độc nhất và hiển thị bảng tra cứu cùng thứ tự nét vẽ.
@@ -153,7 +166,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
                     <Play className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-                    Hoạt ảnh nét vẽ động (Dynamic SVG)
+                    Hoạt Ảnh Nét Vẽ Động (SVG Stroke Animation)
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">
                     Mỗi chữ Kanji có ảnh nét vẽ được vẽ hoạt hình sinh động. Bạn có thể tạm dừng, chạy lại hoặc thay đổi tốc độ (0.5x, 1x, 2x) theo nhu cầu luyện tập.
@@ -163,7 +176,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
                     <Grid className="w-4 h-4 text-teal-600" />
-                    Chế độ Lưới kẻ ô Mễ (米)
+                    Chế Độ Lưới Kẻ Ô Mễ (米)
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">
                     Bật công tắc <strong>+ Ô lưới</strong> để hiển thị đường căn nét chữ (tâm, đường chéo mễ) giúp bạn tập viết Kanji chuẩn tỉ lệ như trong vở luyện chữ.
@@ -174,19 +187,157 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
               <div className="p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 flex items-start gap-3">
                 <Lightbulb className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-900">
-                  <strong className="font-semibold">Mẹo nhỏ:</strong> Bạn có thể nhấp chuột trực tiếp vào bất kỳ ô chữ Kanji nào để mở <strong>Cửa sổ chi tiết (Practice Modal)</strong> để tập vẽ đè nét chữ và nghe âm Hiragana/Kunyomi!
+                  <strong className="font-semibold">Mẹo Luyện Viết:</strong> Bạn có thể nhấp chuột trực tiếp vào bất kỳ ô chữ Kanji nào để mở <strong>Cửa sổ chi tiết (Practice Modal)</strong> để tập vẽ đè nét chữ, xem cách phân tích bộ thủ và nghe âm Hiragana/Kunyomi chuẩn!
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: ANKI & COPYING */}
+          {/* TAB 2: CHROME EXTENSION v3.0.0 */}
+          {activeTab === 'extension' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="bg-gradient-to-br from-teal-900 via-slate-900 to-teal-950 p-4 rounded-xl text-white shadow-sm border border-teal-800/60">
+                <div className="flex items-center gap-2 mb-1 text-teal-300 font-bold text-sm sm:text-base">
+                  <Chrome className="w-5 h-5 text-teal-400" />
+                  <span>2. Tiện Ích Chrome Extension v3.0.0 (Khoanh Vùng Snipping OCR)</span>
+                </div>
+                <p className="text-slate-300 text-xs leading-relaxed">
+                  Tiện ích tra cứu Kanji thế hệ mới giúp bạn đọc tin tức tiếng Nhật (NHK, Yahoo), xem Manga hay Youtube và quét trích xuất Kanji tức thì mà không cần rời trang web.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 font-bold text-teal-800 text-xs sm:text-sm">
+                    <Scissors className="w-4 h-4 text-teal-600" />
+                    Khoanh Vùng Chụp Màn Hình (Ctrl + Shift + K)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Bấm phím tắt <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono font-bold">Ctrl + Shift + K</code> (hoặc <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono font-bold">Cmd + Shift + K</code> trên Mac) rồi kéo chuột khoanh vùng bất kỳ đoạn văn bản hoặc hình ảnh chứa chữ Hán.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 font-bold text-teal-800 text-xs sm:text-sm">
+                    <Layers className="w-4 h-4 text-teal-600" />
+                    Cửa Sổ Tra Cứu Nổi & Ô Tìm Kiếm Kép (Floating Modal)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Kết quả trích xuất được hiển thị ngay trên cửa sổ nổi (có thể nắm kéo di chuyển). Cửa sổ tích hợp ô tìm kiếm giúp tra cứu nhanh câu/từ vựng mới mà không cần mở tab khác.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center gap-2 font-bold text-teal-800 text-xs sm:text-sm">
+                    <BookOpen className="w-4 h-4 text-teal-600" />
+                    Từ Điển 11,000+ Âm Hán-Việt & Hoạt Ảnh SVG Nét Vẽ
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Cung cấp đầy đủ âm Hán Việt chuẩn cho mọi chữ Kanji N5~N1, On/Kun, số nét, bộ thủ và hình vẽ hoạt ảnh nét vẽ chuẩn xác.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-teal-50 rounded-xl text-xs text-teal-900 border border-teal-200 flex items-center justify-between">
+                <span>Tải tệp ZIP cài đặt trong phần <strong>"Tải Tiện Ích Extension"</strong> ở cuối trang Web App.</span>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SCANNER & AI TRANSLATION */}
+          {activeTab === 'scanner' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="bg-gradient-to-br from-purple-50 to-teal-50/50 p-4 rounded-xl border border-purple-100">
+                <h3 className="font-bold text-purple-900 text-sm sm:text-base flex items-center gap-2 mb-1">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  3. Quét Ảnh OCR Chữ Hán & Dịch Câu Tự Động
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Công cụ thông minh giúp xử lý hình ảnh chụp sách báo, biển hiệu hoặc dịch nhanh ngữ cảnh câu văn tiếng Nhật dài.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-semibold text-teal-800 text-xs sm:text-sm">
+                      <Camera className="w-4 h-4 text-teal-600" />
+                      Nhận Diện Chữ Hán Từ Ảnh (Kanji OCR Scanner)
+                    </div>
+                    {onOpenScanner && (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onOpenScanner();
+                        }}
+                        className="px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        Mở Trình Quét <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Tải ảnh sách báo, biển hiệu hoặc chụp màn hình điện thoại để công cụ OCR trích xuất tự động toàn bộ chữ Kanji vào danh sách tra cứu nét vẽ.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-2 font-semibold text-purple-800 text-xs sm:text-sm">
+                    <Languages className="w-4 h-4 text-purple-600" />
+                    Dịch Đoạn Văn Tự Động (Google Translate API)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Nhấn nút <strong>Dịch ngay</strong> trong hộp nhập liệu để tự động chuyển ngữ câu tiếng Nhật sang Tiếng Việt hoặc Tiếng Anh, giúp bạn vừa học nghĩa từ vừa tra nét viết.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: 214 KANGXI RADICALS */}
+          {activeTab === 'radicals' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="bg-gradient-to-br from-amber-50 to-teal-50/50 p-4 rounded-xl border border-amber-100">
+                <h3 className="font-bold text-amber-900 text-sm sm:text-base flex items-center gap-2 mb-1">
+                  <Bookmark className="w-4 h-4 text-amber-600" />
+                  4. Khám Phá 214 Bộ Thủ Khang Hi (214 Kangxi Radicals)
+                </h3>
+                <p className="text-slate-600 leading-relaxed">
+                  Tra cứu chi tiết cấu tạo Kanji theo các bộ thủ từ 1 nét đến 17 nét chuẩn từ điển Khang Hi.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                  <div className="flex items-center gap-2 text-amber-800 font-semibold text-xs sm:text-sm">
+                    <Layers className="w-4 h-4 text-amber-600" />
+                    Phân Loại Theo Số Nét Bộ Thủ
+                  </div>
+                  <p className="text-slate-600 text-xs leading-normal">
+                    Dễ dàng tìm kiếm bộ thủ theo số nét (ví dụ: Bộ 1 nét <code>一</code>, <code>丨</code> đến bộ 17 nét <code>龠</code>).
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                  <div className="flex items-center gap-2 text-teal-800 font-semibold text-xs sm:text-sm">
+                    <Search className="w-4 h-4 text-teal-600" />
+                    Danh Sách Chữ Hán Chứa Bộ Thủ
+                  </div>
+                  <p className="text-slate-600 text-xs leading-normal">
+                    Khi bấm vào một bộ thủ, hệ thống sẽ liệt kê tất cả các chữ Kanji có chứa bộ thủ đó để học từ vựng theo chuỗi logic.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: ANKI & COPYING */}
           {activeTab === 'anki' && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="bg-gradient-to-br from-indigo-50 to-teal-50/50 p-4 rounded-xl border border-indigo-100">
                 <h3 className="font-bold text-indigo-900 text-sm sm:text-base flex items-center gap-2 mb-1">
                   <Copy className="w-4 h-4 text-indigo-600" />
-                  2. Sao chép sơ đồ nét vào Anki, Word & Notion
+                  5. Sao Chép Sơ Đồ Nét Vào Anki, Word & Notion
                 </h3>
                 <p className="text-slate-600 leading-relaxed">
                   Dễ dàng sao chép đồ họa thứ tự nét vẽ vào phần mềm thẻ nhớ Anki hoặc tài liệu học tập chỉ bằng 1 cú nhấp.
@@ -199,7 +350,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                     1
                   </div>
                   <div>
-                    <h4 className="font-semibold text-slate-800 text-xs sm:text-sm">Chép ảnh PNG độ nét cao (High-Res PNG)</h4>
+                    <h4 className="font-semibold text-slate-800 text-xs sm:text-sm">Chép Ảnh PNG Độ Nét Cao (High-Res PNG)</h4>
                     <p className="text-slate-600 text-xs mt-0.5">
                       Bấm nút <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono text-[11px]">Chép PNG</span>. Sau đó mở Anki hoặc Word và nhấn <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">Ctrl + V</code> (Cmd + V trên Mac) để dán trực tiếp.
                     </p>
@@ -211,7 +362,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                     2
                   </div>
                   <div>
-                    <h4 className="font-semibold text-slate-800 text-xs sm:text-sm">Chép mã SVG đường nét (Vector SVG)</h4>
+                    <h4 className="font-semibold text-slate-800 text-xs sm:text-sm">Chép Mã SVG Đường Nét (Vector SVG)</h4>
                     <p className="text-slate-600 text-xs mt-0.5">
                       Bấm nút <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono text-[11px]">Chép SVG</span> để lấy mã vector SVG chuẩn. Thích hợp dán vào các template Anki tùy biến có hỗ trợ SVG nét vẽ.
                     </p>
@@ -223,7 +374,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                     3
                   </div>
                   <div>
-                    <h4 className="font-semibold text-slate-800 text-xs sm:text-sm">Sao chép hàng loạt (Batch Copy)</h4>
+                    <h4 className="font-semibold text-slate-800 text-xs sm:text-sm">Sao Chép Hàng Loạt (Batch Copy)</h4>
                     <p className="text-slate-600 text-xs mt-0.5">
                       Ở góc trên bên phải của bảng tra cứu, sử dụng nút <strong>Chép tất cả nét vẽ</strong> để xuất trọn bộ danh sách chữ dưới dạng hình ảnh.
                     </p>
@@ -233,13 +384,13 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: CSV EXPORT & PRINT */}
+          {/* TAB 6: CSV EXPORT & PRINT */}
           {activeTab === 'export' && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 p-4 rounded-xl border border-emerald-100">
                 <h3 className="font-bold text-emerald-900 text-sm sm:text-base flex items-center gap-2 mb-1">
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  3. Xuất file CSV Thẻ nhớ & In tập viết PDF
+                  6. Xuất File CSV Thẻ Nhớ & In Bảng Nét Khổ A4
                 </h3>
                 <p className="text-slate-600 leading-relaxed">
                   Tạo dữ liệu học tập cá nhân hóa để mang đi mọi nơi hoặc in ấn tập viết thủ công.
@@ -260,7 +411,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
                     <Printer className="w-4 h-4 text-teal-600" />
-                    In bảng nét / Tạo PDF
+                    In Bảng Nét / Tạo PDF A4
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">
                     Bấm <strong>In bảng nét</strong> trên thanh Header để mở giao diện in tập viết. Có thể chọn căn lề, hiển thị ô lưới mễ và xuất trực tiếp ra file PDF để in ra giấy A4.
@@ -271,56 +422,6 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
               <div className="p-3 bg-slate-100 rounded-xl text-xs text-slate-600 flex items-center gap-2 border border-slate-200">
                 <Layers className="w-4 h-4 text-slate-500 shrink-0" />
                 <span>Hỗ trợ tương thích chuẩn Anki 2.1+, Quizlet, Excel và Google Sheets.</span>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: TRANSLATION & OCR */}
-          {activeTab === 'tools' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              <div className="bg-gradient-to-br from-purple-50 to-teal-50/50 p-4 rounded-xl border border-purple-100">
-                <h3 className="font-bold text-purple-900 text-sm sm:text-base flex items-center gap-2 mb-1">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
-                  4. Dịch tự động, Bàn phím gõ Kana & Quét ảnh OCR
-                </h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Các công cụ thông minh giúp xử lý đoạn văn bản tiếng Nhật dài hoặc ảnh chụp sách báo.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5">
-                  <div className="flex items-center gap-2 font-semibold text-purple-800 text-xs sm:text-sm">
-                    <Languages className="w-4 h-4 text-purple-600" />
-                    Dịch đoạn văn tự động (Google Translate API)
-                  </div>
-                  <p className="text-slate-600 text-xs leading-relaxed">
-                    Nhấn nút <strong>Dịch ngay</strong> trong hộp nhập liệu để tự động chuyển ngữ câu tiếng Nhật sang Tiếng Việt hoặc Tiếng Anh, giúp bạn vừa học nghĩa từ vừa tra nét viết.
-                  </p>
-                </div>
-
-                <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-semibold text-teal-800 text-xs sm:text-sm">
-                      <Camera className="w-4 h-4 text-teal-600" />
-                      Nhận diện chữ Hán từ Ảnh (Kanji OCR Scanner)
-                    </div>
-                    {onOpenScanner && (
-                      <button
-                        onClick={() => {
-                          onClose();
-                          onOpenScanner();
-                        }}
-                        className="px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg border border-teal-200 transition-colors cursor-pointer flex items-center gap-1"
-                      >
-                        Thử ngay <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-slate-600 text-xs leading-relaxed">
-                    Tải ảnh sách báo, biển hiệu hoặc màn hình điện thoại để công cụ OCR trích xuất tự động toàn bộ Kanji vào ô tra cứu.
-                  </p>
-                </div>
               </div>
             </div>
           )}
