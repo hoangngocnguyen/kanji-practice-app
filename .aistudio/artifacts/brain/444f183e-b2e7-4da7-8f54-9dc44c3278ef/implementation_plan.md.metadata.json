@@ -1,6 +1,6 @@
 {
-  "summary":  "Kế hoạch chi tiết nghiên cứu và triển khai tính năng Chụp màn hình khoanh vùng (Screen Snipping OCR) trên trình duyệt cho Tiện ích mở rộng Luyện Kanji, tái sử dụng bộ nhận diện Kanji OCR từ Web App và tích hợp ô tìm kiếm Kanji tiện ích kép.",
-  "updatedAt":  "2026-11-01T01:27:20.835992540Z",
+  "summary":  "Implementation plan for decoupling KanjiVG SVG assets into a custom external GitHub repository with fallback and environment configuration.",
+  "updatedAt":  "2026-11-01T03:29:41.511158711Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

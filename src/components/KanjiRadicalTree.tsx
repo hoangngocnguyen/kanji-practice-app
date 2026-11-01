@@ -157,12 +157,16 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
                 </div>
 
                 {/* Radical Meaning & Stroke */}
-                <span className="text-xs font-bold text-slate-800 text-center line-clamp-1">
-                  {comp.hanViet}
-                </span>
-                <span className="text-[11px] font-medium text-slate-500 text-center line-clamp-1 mt-0.5">
-                  {comp.meaning}
-                </span>
+                {comp.hanViet && (
+                  <span className="text-xs font-bold text-slate-800 text-center line-clamp-1">
+                    {comp.hanViet}
+                  </span>
+                )}
+                {comp.meaning && (
+                  <span className="text-[11px] font-medium text-slate-500 text-center line-clamp-1 mt-0.5">
+                    {comp.meaning}
+                  </span>
+                )}
 
                 <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-400">
                   <span className="font-semibold text-slate-600">{comp.strokeCount} nét</span>

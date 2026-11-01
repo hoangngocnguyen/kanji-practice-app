@@ -1,7 +1,127 @@
 import { RadicalComponent, RadicalPositionType, KanjiDecomposition } from '../types/radical';
 import { RADICALS_LIST, KANJI_DECOMPOSITIONS } from '../data/radicalsData';
+import { KANJI_DICTIONARY, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
 
 const DECOMPOSITION_CACHE = new Map<string, KanjiDecomposition>();
+
+// Extensive Sub-component Meaning Database for phonetic & semantic components
+const COMPONENT_MEANINGS: Record<string, string> = {
+  '可': 'Khả năng, có thể',
+  '哥': 'Ca hát / Khúc ca, anh trai',
+  '丁': 'Thành phần đinh, con trai, họ Đinh',
+  '古': 'Xưa cũ, cổ kính',
+  '寺': 'Chùa chiền',
+  '青': 'Màu xanh, thanh xuân',
+  '巴': 'Hình cuộn, nước Ba',
+  '甫': 'Mới bắt đầu, phủ',
+  '莫': 'Chớ, đừng, mạc',
+  '且': 'Thêm vào đó, thả',
+  '分': 'Phân chia, phần',
+  '半': 'Một nửa',
+  '生': 'Sinh sống, tươi mới',
+  '立': 'Đứng thẳng, thiết lập',
+  '主': 'Chủ nhân, làm chủ',
+  '化': 'Biến hóa',
+  '各': 'Mỗi, các',
+  '合': 'Hợp lại, phù hợp',
+  '同': 'Cùng nhau, đồng dạng',
+  '成': 'Thành công, thành tựu',
+  '咸': 'Đều, tất cả',
+  '吉': 'Tốt lành, cát tường',
+  '召': 'Triệu tập, gọi',
+  '反': 'Trái lại, phản đối',
+  '平': 'Bằng phẳng, hòa bình',
+  '皮': 'Da thịt, vỏ ngoài',
+  '申': 'Thân, trình bày, bật mí',
+  '央': 'Ở giữa, trung ương',
+  '加': 'Thêm vào, gia tăng',
+  '句': 'Câu văn, câu thơ',
+  '包': 'Bao bọc, gói lại',
+  '由': 'Do bởi, nguyên do',
+  '曲': 'Khúc ca, uốn cong',
+  '史': 'Lịch sử, sử sách',
+  '令': 'Mệnh lệnh, xinh đẹp',
+  '冊': 'Quyển sách, tập',
+  '司': 'Cơ quan, quản lý',
+  '巨': 'To lớn, khổng lồ',
+  '占': 'Chiếm giữ, bói toán',
+  '付': 'Giao cho, đính kèm',
+  '台': 'Cái bệ, cái đài',
+  '代': 'Thay thế, thời đại',
+  '以': 'Lấy, dùng làm',
+  '正': 'Ngay ngắn, chính xác',
+  '甘': 'Ngọt ngào, ngon',
+  '求': 'Yêu cầu, tìm kiếm',
+  '失': 'Mất mát, thất lạc',
+  '末': 'Gốc ngọn, phần cuối',
+  '未': 'Chưa xong, chưa đến',
+  '亦': 'Cũng là, lại nữa',
+  '兆': 'Điềm báo, triệu lẻ',
+  '舟': 'Con thuyền, xuồng',
+  '虫': 'Côn trùng, sâu bọ',
+  '色': 'Màu sắc, vẻ mặt',
+  '声': 'Âm thanh, tiếng nói',
+  '告': 'Báo cáo, thông báo',
+  '只': 'Chỉ có, độc nhất',
+  '吾': 'Tôi, bản thân',
+  '周': 'Xung quanh, chu kỳ',
+  '味': 'Hương vị, thú vị',
+  '垂': 'Rủ xuống, rủ bóng',
+  '余': 'Dư thừa, tôi',
+  '谷': 'Thung lũng',
+  '束': 'Bó buộc, trói',
+  '来': 'Đến, tương lai',
+  '事': 'Công việc, sự việc',
+  '具': 'Dụng cụ, đầy đủ',
+  '非': 'Phi, không phải',
+  '典': 'Từ điển, điển lễ',
+  '免': 'Miễn trừ, tránh',
+  '冒': 'Mạo hiểm, bốc lên',
+  '制': 'Chế độ, kiểm soát',
+  '協': 'Hiệp lực, hợp tác',
+  '南': 'Phương nam',
+  '厚': 'Dày dặn, nồng hậu',
+  '原': 'Nguồn gốc, nguyên bản',
+  '叔': 'Chú, bác',
+  '取': 'Lấy, tiếp nhận',
+  '受': 'Nhận lấy, chịu đựng',
+  '叙': 'Diễn tả, kể lại',
+  '尚': 'Tôn sùng, còn',
+  '居': 'Cư trú, ở',
+  '刷': 'In ấn, chùi',
+  '券': 'Tấm vé, phiếu',
+  '刺': 'Đâm, gai, thích',
+  '刻': 'Khắc ghi, thời gian',
+  '剃': 'Cạo tóc, cạo râu',
+  '剪': 'Cắt tỉa',
+  '前': 'Phía trước',
+  '剖': 'Mổ xẻ, phẫu thuật',
+  '剛': 'Cứng cỏi, kiên cường',
+  '副': 'Phụ, trợ giúp',
+  '剰': 'Thừa rải',
+  '功': 'Công lao, thành công',
+  '劣': 'Kém cỏi, yếu',
+  '助': 'Giúp đỡ, viện trợ',
+  '努': 'Cố gắng, nỗ lực',
+  '励': 'Khích lệ, động viên',
+  '労': 'Lao động, vất vả',
+  '勢': 'Thế lực, đà',
+  '勤': 'Chăm chỉ, làm việc',
+  '勧': 'Khuyên bảo, khuyến khích',
+  '匕': 'Cái thìa, con dao nhỏ',
+  '厶': 'Riêng tư, tự thân',
+  '重': 'Nặng nề, quan trọng',
+  '式': 'Công thức, quy tắc',
+  '全': 'Hoàn toàn, đầy đủ',
+  '良': 'Tốt lành, ngon lành',
+  '交': 'Giao lưu, kết bạn',
+  '敬': 'Tôn kính, nghiêm túc',
+  '曜': 'Rực rỡ, ngày trong tuần',
+  '売': 'Bán hàng',
+  '舌': 'Cái lưỡi',
+  '五': 'Số 5',
+  '⺍': 'Ba chấm học tập'
+};
 
 /**
  * Trích xuất vị trí bộ thủ từ kvg:position
@@ -41,6 +161,7 @@ function parsePositionType(positionStr?: string | null): { positionType: Radical
  * Tra cứu thông tin đầy đủ Hán Việt, Số nét, Nghĩa cho ký tự bộ thủ
  */
 export function findRadicalInfo(char: string): { hanViet: string; meaning: string; strokeCount: number } {
+  // 1. Check in 214 Primary Kangxi Radicals
   const match = RADICALS_LIST.find(
     (r) => r.character === char || (r.variant && r.variant.includes(char))
   );
@@ -53,31 +174,31 @@ export function findRadicalInfo(char: string): { hanViet: string; meaning: strin
     };
   }
 
-  // Common sub-component map fallback
-  const COMPONENT_MAP: Record<string, { hanViet: string; meaning: string; strokeCount: number }> = {
-    '厶': { hanViet: 'TƯ', meaning: 'Riêng tư, tự thân', strokeCount: 2 },
-    '匕': { hanViet: 'CHỦY', meaning: 'Cái thìa, con dao nhỏ', strokeCount: 2 },
-    '重': { hanViet: 'TRỌNG', meaning: 'Nặng nề, quan trọng', strokeCount: 9 },
-    '式': { hanViet: 'THỨC', meaning: 'Công thức, quy tắc', strokeCount: 6 },
-    '全': { hanViet: 'TOÀN', meaning: 'Hoàn toàn, đầy đủ', strokeCount: 6 },
-    '良': { hanViet: 'LƯƠNG', meaning: 'Tốt lành, ngon lành', strokeCount: 7 },
-    '交': { hanViet: 'GIAO', meaning: 'Giao lưu, kết bạn', strokeCount: 6 },
-    '敬': { hanViet: 'KÍNH', meaning: 'Tôn kính, nghiêm túc', strokeCount: 12 },
-    '曜': { hanViet: 'DIỆU', meaning: 'Rực rỡ, ngày trong tuần', strokeCount: 14 },
-    '⺍': { hanViet: 'TRÚC', meaning: 'Ba chấm học tập', strokeCount: 3 },
-    '売': { hanViet: 'MẠI', meaning: 'Bán hàng', strokeCount: 7 },
-    '舌': { hanViet: 'THIỆT', meaning: 'Cái lưỡi', strokeCount: 6 },
-    '五': { hanViet: 'NGŨ', meaning: 'Số 5', strokeCount: 4 },
-  };
-
-  if (COMPONENT_MAP[char]) {
-    return COMPONENT_MAP[char];
+  // 2. Check in KANJI_DICTIONARY
+  if (KANJI_DICTIONARY[char]) {
+    const kData = KANJI_DICTIONARY[char];
+    return {
+      hanViet: kData.hanViet || (SINO_VIETNAMESE_MAP[char] || ''),
+      meaning: Array.isArray(kData.meanings) ? kData.meanings.slice(0, 2).join(', ') : (kData.meanings || COMPONENT_MEANINGS[char] || ''),
+      strokeCount: kData.strokeCount || 2,
+    };
   }
 
+  // 3. Check in SINO_VIETNAMESE_MAP (11,000+ Kanji)
+  const hv = SINO_VIETNAMESE_MAP[char];
+  if (hv) {
+    return {
+      hanViet: hv,
+      meaning: COMPONENT_MEANINGS[char] || '',
+      strokeCount: char.length > 0 ? char.length * 2 : 2,
+    };
+  }
+
+  // 4. Default Fallback if completely unknown: Leave empty string
   return {
-    hanViet: 'HÁN',
-    meaning: 'Cấu phần chữ Hán',
-    strokeCount: char.length > 0 ? char.length * 2 : 2,
+    hanViet: '',
+    meaning: '',
+    strokeCount: 2,
   };
 }
 
@@ -185,20 +306,24 @@ export async function fetchAndDecomposeKanji(
     return dec;
   }
 
+  const resolvedHv = hanVietName || SINO_VIETNAMESE_MAP[kanji] || '';
+
   // 2. Fetch KanjiVG SVG online for 100% comprehensive coverage
   const svgText = await fetchKanjiVgSvg(kanji);
   if (svgText) {
     const extracted = parseKanjiVgSvgXml(svgText, kanji);
     if (extracted.length > 0) {
       const primaryRad = extracted[0];
-      const storyParts = extracted.map((c) => `[${c.radical} - ${c.hanViet}: ${c.meaning}]`);
+      const storyParts = extracted
+        .filter((c) => c.meaning || c.hanViet)
+        .map((c) => `[${c.radical}${c.hanViet ? ' - ' + c.hanViet : ''}${c.meaning ? ': ' + c.meaning : ''}]`);
 
       const dec: KanjiDecomposition = {
         kanji,
-        hanViet: hanVietName || 'HÁN',
-        primaryRadical: `${primaryRad.radical} (${primaryRad.hanViet})`,
+        hanViet: resolvedHv,
+        primaryRadical: `${primaryRad.radical}${primaryRad.hanViet ? ' (' + primaryRad.hanViet + ')' : ''}`,
         components: extracted,
-        mnemonicStory: `Ghi nhớ chữ ${kanji} (${hanVietName || ''}) bằng cách kết hợp các bộ thủ: ${storyParts.join(', ')}.`,
+        mnemonicStory: `Ghi nhớ chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} bằng cách kết hợp các bộ thủ: ${storyParts.join(', ')}.`,
       };
 
       DECOMPOSITION_CACHE.set(kanji, dec);
@@ -232,8 +357,8 @@ export async function fetchAndDecomposeKanji(
       : [
           {
             radical: kanji,
-            hanViet: hanVietName || 'HÁN',
-            meaning: 'Ký tự độc lập',
+            hanViet: resolvedHv,
+            meaning: '',
             strokeCount: kanji.length,
             positionType: 'center' as RadicalPositionType,
             positionName: 'Gốc',
@@ -242,10 +367,10 @@ export async function fetchAndDecomposeKanji(
 
   const fallbackDec: KanjiDecomposition = {
     kanji,
-    hanViet: hanVietName || 'HÁN',
+    hanViet: resolvedHv,
     primaryRadical,
     components,
-    mnemonicStory: `Mẹo nhớ cho chữ ${kanji} (${hanVietName || ''}): Liên tưởng kết hợp hình ảnh các nét bộ thủ để ghi nhớ lâu hơn.`,
+    mnemonicStory: `Mẹo nhớ cho chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''}: Liên tưởng kết hợp hình ảnh các nét bộ thủ để ghi nhớ lâu hơn.`,
   };
 
   DECOMPOSITION_CACHE.set(kanji, fallbackDec);

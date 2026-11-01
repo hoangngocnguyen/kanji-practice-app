@@ -1,5 +1,6 @@
 import { RadicalInfo, KanjiDecomposition, RadicalPositionType, RadicalComponent } from '../types/radical';
 import { parseKanjiVgSvgXml as extractSubElementsFromSvg, findRadicalInfo } from '../utils/kanjiSubElementParser';
+import { SINO_VIETNAMESE_MAP } from './kanjiDictionary';
 
 /**
  * Danh sách 214 Bộ thủ Khang Hy (Kangxi Radicals) đầy đủ Tên Hán Việt, Số nét, Nghĩa tiếng Việt và Ví dụ
@@ -449,19 +450,23 @@ export function getKanjiDecomposition(
     return KANJI_DECOMPOSITIONS[kanji];
   }
 
+  const resolvedHv = hanVietName || SINO_VIETNAMESE_MAP[kanji] || '';
+
   // Priority 2: Parse SVG KanjiVG XML sub-elements if SVG content is provided
   if (svgContent) {
     const extractedFromSvg = extractSubElementsFromSvg(svgContent, kanji);
     if (extractedFromSvg.length > 0) {
       const primaryRad = extractedFromSvg[0];
-      const storyParts = extractedFromSvg.map((c) => `[${c.radical} - ${c.hanViet}: ${c.meaning}]`);
+      const storyParts = extractedFromSvg
+        .filter((c) => c.meaning || c.hanViet)
+        .map((c) => `[${c.radical}${c.hanViet ? ' - ' + c.hanViet : ''}${c.meaning ? ': ' + c.meaning : ''}]`);
 
       return {
         kanji,
-        hanViet: hanVietName || 'HÁN',
-        primaryRadical: `${primaryRad.radical} (${primaryRad.hanViet})`,
+        hanViet: resolvedHv,
+        primaryRadical: `${primaryRad.radical}${primaryRad.hanViet ? ' (' + primaryRad.hanViet + ')' : ''}`,
         components: extractedFromSvg,
-        mnemonicStory: `Ghi nhớ chữ ${kanji} (${hanVietName || ''}) bằng cách ghép các bộ thủ: ${storyParts.join(', ')}.`,
+        mnemonicStory: `Ghi nhớ chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} bằng cách ghép các bộ thủ: ${storyParts.join(', ')}.`,
       };
     }
   }
@@ -492,8 +497,8 @@ export function getKanjiDecomposition(
       : [
           {
             radical: kanji,
-            hanViet: hanVietName || 'HÁN',
-            meaning: 'Ký tự độc lập',
+            hanViet: resolvedHv,
+            meaning: '',
             strokeCount: kanji.length,
             positionType: 'center' as RadicalPositionType,
             positionName: 'Gốc',
@@ -502,9 +507,9 @@ export function getKanjiDecomposition(
 
   return {
     kanji,
-    hanViet: hanVietName || 'HÁN',
+    hanViet: resolvedHv,
     primaryRadical,
     components,
-    mnemonicStory: `Mẹo nhớ cho chữ ${kanji} (${hanVietName || ''}): Tưởng tượng liên tưởng hình ảnh các nét bộ thủ để ghi nhớ lâu hơn.`,
+    mnemonicStory: `Mẹo nhớ cho chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''}: Tưởng tượng liên tưởng hình ảnh các nét bộ thủ để ghi nhớ lâu hơn.`,
   };
 }

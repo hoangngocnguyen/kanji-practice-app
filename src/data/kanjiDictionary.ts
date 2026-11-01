@@ -4,6 +4,36 @@ import { KanjiDetail } from '../types/kanji';
  * Từ điển Hán-Việt, Nghĩa tiếng Việt, Âm On/Kun, JLPT và ví dụ thực tế
  */
 export const KANJI_DICTIONARY: Record<string, KanjiDetail> = {
+  歌: {
+    kanji: '歌',
+    hanViet: 'CA',
+    meanings: ['Ca hát', 'Bài hát', 'Khúc ca'],
+    on: ['カ'],
+    kun: ['うた', 'うた.う'],
+    jlpt: 'N4',
+    radical: '欠 (Khuyết)',
+    strokeCount: 14,
+    examples: [
+      { word: '歌', reading: 'うた', hanViet: 'CA', meaning: 'Bài hát' },
+      { word: '歌手', reading: 'かしゅ', hanViet: 'CA THỦ', meaning: 'Ca sĩ' },
+      { word: '国歌', reading: 'こっか', hanViet: 'QUỐC CA', meaning: 'Quốc ca' },
+      { word: '歌う', reading: 'うたう', hanViet: 'CA', meaning: 'Ca hát' },
+    ],
+  },
+  哥: {
+    kanji: '哥',
+    hanViet: 'CA',
+    meanings: ['Ca hát / Khúc ca', 'Anh trai (Ca ca)'],
+    on: ['カ'],
+    kun: ['あに', 'うた'],
+    jlpt: 'N1',
+    radical: '口 (Khẩu)',
+    strokeCount: 10,
+    examples: [
+      { word: '大哥', reading: 'たいか', hanViet: 'ĐẠI CA', meaning: 'Đại ca, anh lớn' },
+      { word: '哥', reading: 'あに', hanViet: 'CA', meaning: 'Anh trai, ca ca' },
+    ],
+  },
   日: {
     kanji: '日',
     hanViet: 'NHẬT',
