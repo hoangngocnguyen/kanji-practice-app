@@ -184,9 +184,20 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                   </p>
                 </div>
 
+                <div className="p-3.5 bg-gradient-to-r from-teal-50 to-indigo-50/50 rounded-xl border border-teal-200 shadow-2xs space-y-2 md:col-span-2">
+                  <div className="flex items-center gap-2 text-teal-800 font-bold text-xs sm:text-sm">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    Bộ Gõ IME Nhật Bản: Romaji → Hiragana → Kanji Trực Tiếp (Phím Space / Tab)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Không cần cài đặt thêm bàn phím tiếng Nhật trên máy tính hay điện thoại:
+                    Bật chế độ <strong>漢 Kanji IME</strong>, bạn vẫn gõ Romaji tự nhiên (như <code className="bg-white px-1 py-0.5 rounded border border-teal-200 font-mono text-teal-900">hana</code>, <code className="bg-white px-1 py-0.5 rounded border border-teal-200 font-mono text-teal-900">nihon</code>, <code className="bg-white px-1 py-0.5 rounded border border-teal-200 font-mono text-teal-900">gakusei</code>). Khi nhấn phím <strong>Tab</strong> (hoặc <strong>Space</strong>), hệ thống sẽ mở menu gợi ý Kanji chuẩn IME Nhật Bản. Nhấn tiếp <strong>Tab</strong> để chuyển từ, bấm số <strong>1 - 9</strong> hoặc phím <strong>Enter</strong> để chọn! Tính năng hỗ trợ trên cả khung nhập văn bản chính, thanh tìm kiếm nhanh và ô thêm Kanji.
+                  </p>
+                </div>
+
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 md:col-span-2">
                   <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <Sparkles className="w-4 h-4 text-teal-600" />
                     Điều Hướng Trái / Phải Nhanh Giữa Các Chữ (Phím ← / →)
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">

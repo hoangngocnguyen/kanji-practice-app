@@ -41,6 +41,12 @@ Thư mục này chứa toàn bộ tài liệu kỹ thuật chi tiết giải th�
    * Lặp lại hàng tiêu đề `thead` trên từng trang in A4 mới.
    * Điều hướng tức thì giữa các chữ Kanji trong Modal bằng phím tắt `←` / `→` và giao diện nút bấm nổi trên Desktop/Mobile.
 
+8. [08. Cơ Chế Bộ Gõ IME Tiếng Nhật: Romaji → Hiragana → Kanji](./08-bo-go-ime-nhat-ban.md)
+   * Bộ gõ Web IME tiếng Nhật chuẩn, chuyển Romaji sang Hiragana và mở menu gợi ý Kanji bằng phím `Space`/`Tab`.
+   * Kiến trúc dữ liệu lai (Offline Inverted Index + Context Transliterate API) hỗ trợ từ đơn lẫn từ ghép.
+   * Giao diện Popover hiển thị số thứ tự `1`-`9`, chữ Hán, Furigana, âm Hán-Việt và nghĩa tiếng Việt tóm tắt.
+   * Tích hợp đồng bộ trên khung soạn thảo chính, thanh tìm kiếm nhanh và ô thêm Kanji.
+
 ---
 
 *Tài liệu kỹ thuật hệ thống Luyện Kanji v3.0.0* 🚀

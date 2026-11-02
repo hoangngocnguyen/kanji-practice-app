@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for decoupling KanjiVG SVG assets into a custom external GitHub repository with fallback and environment configuration.",
-  "updatedAt":  "2026-11-01T03:29:41.511158711Z",
+  "summary":  "Kế hoạch triển khai bộ gõ chuyển đổi Romaji -> Hiragana -> Kanji (Japanese IME Engine) với menu gợi ý từ chuẩn IME Nhật Bản bằng phím Space/Tab, tra cứu kết hợp Từ điển Offline và API Ngữ cảnh, tích hợp toàn diện trên Khung nhập văn bản chính và Thanh tìm kiếm nhanh.",
+  "updatedAt":  "2026-11-02T09:06:02.866128522Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

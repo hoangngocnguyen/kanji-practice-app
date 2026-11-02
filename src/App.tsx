@@ -35,6 +35,8 @@ import { RadicalExplorer } from './components/RadicalExplorer';
 import { SettingsModal } from './components/SettingsModal';
 import { ExtensionExporter } from './components/ExtensionExporter';
 import { GoogleDocsTableExporter } from './components/GoogleDocsTableExporter';
+import { useJapaneseIme } from './utils/useJapaneseIme';
+import { ImeCandidatePopover } from './components/ImeCandidatePopover';
 
 export default function App() {
   // Input text state
@@ -42,11 +44,23 @@ export default function App() {
     '日本語能力試験（JLPT）で思い出す漢字の練習：日本人は漢字を毎日勉強する。一期一会、温故知新。'
   );
 
-  // Search filter query
+  // Search filter query & Japanese IME
   const [searchFilter, setSearchFilter] = useState<string>('');
+  const [searchImeMode, setSearchImeMode] = useState<boolean>(true);
+  const searchIme = useJapaneseIme<HTMLInputElement>({
+    value: searchFilter,
+    onChange: setSearchFilter,
+    mode: searchImeMode ? 'kanji' : 'off',
+  });
 
-  // Quick add input for sticky toolbar
+  // Quick add input for sticky toolbar & Japanese IME
   const [quickInput, setQuickInput] = useState<string>('');
+  const [quickImeMode, setQuickImeMode] = useState<boolean>(true);
+  const quickIme = useJapaneseIme<HTMLInputElement>({
+    value: quickInput,
+    onChange: setQuickInput,
+    mode: quickImeMode ? 'kanji' : 'off',
+  });
 
   // View mode: 'table' | 'grid'
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
@@ -567,20 +581,49 @@ export default function App() {
                 <div className="relative w-full">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
+                    ref={searchIme.inputRef}
                     type="text"
                     value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Lọc chữ Hán, Hán-Việt, On, Kun, nghĩa..."
-                    className="w-full pl-9 pr-8 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
+                    onChange={searchIme.handleChange}
+                    onKeyDown={searchIme.handleKeyDown}
+                    placeholder="Lọc chữ Hán (gõ romaji + Space chọn Kanji), Hán-Việt, On, Kun..."
+                    className="w-full pl-9 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
                   />
-                  {searchFilter && (
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => setSearchFilter('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                      onClick={() => setSearchImeMode(!searchImeMode)}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                        searchImeMode
+                          ? 'bg-teal-700 text-white shadow-2xs'
+                          : 'bg-slate-200 text-slate-500 hover:text-slate-700'
+                      }`}
+                      title={searchImeMode ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)' : 'IME đang Tắt (tìm kiếm thường)'}
                     >
-                      <X className="w-3.5 h-3.5" />
+                      IME
                     </button>
+                    {searchFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchFilter('')}
+                        className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                        title="Xóa bộ lọc"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {searchIme.imeState.isOpen && (
+                    <ImeCandidatePopover
+                      candidates={searchIme.imeState.candidates}
+                      selectedIndex={searchIme.imeState.selectedIndex}
+                      onSelectCandidate={searchIme.commitCandidate}
+                      onClose={searchIme.closeIme}
+                      reading={searchIme.imeState.reading}
+                      position={searchIme.imeState.position}
+                      isLoading={searchIme.imeState.isLoading}
+                    />
                   )}
                 </div>
 
@@ -588,23 +631,55 @@ export default function App() {
                 <div className="flex items-center gap-1.5 w-full">
                   <div className="relative flex-1">
                     <input
+                      ref={quickIme.inputRef}
                       type="text"
                       value={quickInput}
-                      onChange={(e) => setQuickInput(e.target.value)}
+                      onChange={quickIme.handleChange}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleQuickAdd();
+                        if (!quickIme.imeState.isOpen && e.key === 'Enter') {
+                          handleQuickAdd();
+                        } else {
+                          quickIme.handleKeyDown(e);
+                        }
                       }}
-                      placeholder="+ Thêm chữ Kanji (ví dụ: 学, 桜, 愛)..."
-                      className="w-full px-3.5 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
+                      placeholder="+ Thêm chữ Kanji (gõ romaji + Space)..."
+                      className="w-full px-3.5 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
                     />
-                    {quickInput && (
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setQuickInput('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                        onClick={() => setQuickImeMode(!quickImeMode)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                          quickImeMode
+                            ? 'bg-teal-700 text-white shadow-2xs'
+                            : 'bg-slate-200 text-slate-500 hover:text-slate-700'
+                        }`}
+                        title={quickImeMode ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)' : 'IME đang Tắt'}
                       >
-                        <X className="w-3.5 h-3.5" />
+                        IME
                       </button>
+                      {quickInput && (
+                        <button
+                          type="button"
+                          onClick={() => setQuickInput('')}
+                          className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                          title="Xóa ô nhập"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {quickIme.imeState.isOpen && (
+                      <ImeCandidatePopover
+                        candidates={quickIme.imeState.candidates}
+                        selectedIndex={quickIme.imeState.selectedIndex}
+                        onSelectCandidate={quickIme.commitCandidate}
+                        onClose={quickIme.closeIme}
+                        reading={quickIme.imeState.reading}
+                        position={quickIme.imeState.position}
+                        isLoading={quickIme.imeState.isLoading}
+                      />
                     )}
                   </div>
                   <button

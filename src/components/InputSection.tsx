@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Columns,
   Minus,
-  Plus
+  Plus,
+  HelpCircle
 } from 'lucide-react';
 import { SAMPLE_PRESETS, isKanjiChar, getPrimaryHiragana } from '../utils/kanji';
 import { KanjiItem } from '../types/kanji';
@@ -23,6 +24,13 @@ import { getPresetBadgeClass } from '../utils/colorUtils';
 import { translateJapaneseToVietnamese, translateWithDetails, TranslationEngine } from '../utils/translation';
 import { speakJapanese } from '../utils/speech';
 import { romajiToKana, hasRomaji, KanaMode } from '../utils/romajiConverter';
+import {
+  ImeCandidate,
+  resolveImeCandidates,
+  resolveImeCandidatesSync,
+  getActiveComposition,
+} from '../utils/kanjiImeEngine';
+import { ImeCandidatePopover } from './ImeCandidatePopover';
 
 interface InputSectionProps {
   inputText: string;
@@ -61,16 +69,176 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const [copiedTranslation, setCopiedTranslation] = useState<boolean>(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
 
-  // Romaji to Kana live typing conversion mode
+  // Romaji to Kana/Kanji live typing conversion mode & guide modal
   const [kanaMode, setKanaMode] = useState<KanaMode>('off');
+  const [showImeGuideModal, setShowImeGuideModal] = useState<boolean>(false);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Japanese IME Candidate State
+  const [imeState, setImeState] = useState<{
+    isOpen: boolean;
+    reading: string;
+    start: number;
+    end: number;
+    candidates: ImeCandidate[];
+    selectedIndex: number;
+    position: { top: number; left: number } | null;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    reading: '',
+    start: 0,
+    end: 0,
+    candidates: [],
+    selectedIndex: 0,
+    position: null,
+    isLoading: false,
+  });
+
+  const commitCandidate = (candidate: ImeCandidate) => {
+    const el = textareaRef.current;
+    const start = imeState.start;
+    const end = imeState.end;
+    const newWord = candidate.word;
+
+    const newText = inputText.slice(0, start) + newWord + inputText.slice(end);
+    setInputText(newText);
+    setImeState((prev) => ({ ...prev, isOpen: false }));
+
+    setTimeout(() => {
+      if (el) {
+        el.focus();
+        const newCaret = start + newWord.length;
+        el.setSelectionRange(newCaret, newCaret);
+      }
+    }, 10);
+  };
+
+  const handleTextareaKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    // Handle keys when IME popup is active
+    if (imeState.isOpen) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setImeState((prev) => ({ ...prev, isOpen: false }));
+        return;
+      }
+
+      if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Tab') {
+        e.preventDefault();
+        setImeState((prev) => ({
+          ...prev,
+          selectedIndex: (prev.selectedIndex + 1) % prev.candidates.length,
+        }));
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setImeState((prev) => ({
+          ...prev,
+          selectedIndex: (prev.selectedIndex + 1) % prev.candidates.length,
+        }));
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setImeState((prev) => ({
+          ...prev,
+          selectedIndex:
+            (prev.selectedIndex - 1 + prev.candidates.length) % prev.candidates.length,
+        }));
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const selected = imeState.candidates[imeState.selectedIndex];
+        if (selected) {
+          commitCandidate(selected);
+        }
+        return;
+      }
+
+      if (/^[1-9]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx < imeState.candidates.length) {
+          e.preventDefault();
+          commitCandidate(imeState.candidates[idx]);
+          return;
+        }
+      }
+    }
+
+    // Trigger IME menu when Space or Tab is pressed in 'kanji' or 'hiragana' mode
+    if (
+      (kanaMode === 'kanji' || kanaMode === 'hiragana') &&
+      (e.key === ' ' || e.key === 'Tab') &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.altKey &&
+      !e.metaKey
+    ) {
+      const caretPos = el.selectionStart;
+      const comp = getActiveComposition(inputText, caretPos);
+
+      if (comp && comp.raw.trim().length > 0) {
+        e.preventDefault();
+        const reading = comp.reading;
+        const syncCandidates = resolveImeCandidatesSync(reading);
+
+        const pos = {
+          top: el.offsetTop + el.offsetHeight + 6,
+          left: Math.min(el.offsetLeft + 8, window.innerWidth - 350),
+        };
+
+        setImeState({
+          isOpen: true,
+          reading,
+          start: comp.start,
+          end: comp.end,
+          candidates: syncCandidates,
+          selectedIndex: 0,
+          position: pos,
+          isLoading: true,
+        });
+
+        // Background resolve context candidates (API + offline)
+        resolveImeCandidates(reading, true).then((fullCandidates) => {
+          setImeState((prev) => {
+            if (!prev.isOpen || prev.reading !== reading) return prev;
+            return {
+              ...prev,
+              candidates: fullCandidates.length > 0 ? fullCandidates : prev.candidates,
+              isLoading: false,
+            };
+          });
+        });
+        return;
+      }
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    if (kanaMode !== 'off') {
-      const converted = romajiToKana(val, kanaMode);
+    if (kanaMode === 'kanji') {
+      // In Kanji mode, keep raw Romaji while typing; convert upon pressing Tab or Space
+      setInputText(val);
+    } else if (kanaMode === 'hiragana') {
+      const converted = romajiToKana(val, 'hiragana', false);
+      setInputText(converted);
+    } else if (kanaMode === 'katakana') {
+      const converted = romajiToKana(val, 'katakana', false);
       setInputText(converted);
     } else {
       setInputText(val);
+    }
+
+    if (imeState.isOpen) {
+      setImeState((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
@@ -173,8 +341,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
       {/* Preset Quick Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 touch-pan-x scroll-smooth">
-        <span className="text-slate-400 font-semibold whitespace-nowrap flex items-center gap-1 shrink-0">
-          <Sparkles className="w-3.5 h-3.5 text-slate-400" />
+        <span className="text-slate-400 font-semibold whitespace-nowrap shrink-0">
           Mẫu có sẵn:
         </span>
         {SAMPLE_PRESETS.map((preset, idx) => {
@@ -220,6 +387,18 @@ export const InputSection: React.FC<InputSectionProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setKanaMode('kanji')}
+              className={`px-2.5 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+                kanaMode === 'kanji'
+                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-teal-900'
+              }`}
+              title="Gõ Romaji -> Hiragana -> bấm Tab/Space để gợi ý và chọn Kanji chuẩn IME Nhật (ví dụ: gõ 'taberu' rồi bấm Tab chọn 食べる)"
+            >
+              <span>漢 Kanji IME</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setKanaMode('hiragana')}
               className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
                 kanaMode === 'hiragana'
@@ -242,29 +421,53 @@ export const InputSection: React.FC<InputSectionProps> = ({
             >
               ア Katakana
             </button>
+            <button
+              type="button"
+              onClick={() => setShowImeGuideModal(true)}
+              className="p-1 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-slate-200 transition-all cursor-pointer ml-0.5 shrink-0"
+              title="Hướng dẫn sử dụng các chế độ gõ Romaji & Kanji IME"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
         <div className="relative">
           <textarea
+            ref={textareaRef}
             value={inputText}
             onChange={handleInputChange}
+            onKeyDown={handleTextareaKeyDown}
             placeholder={
-              kanaMode !== 'off'
+              kanaMode === 'kanji'
+                ? "Đang bật bộ gõ Kanji IME... Hãy gõ Romaji (ví dụ: nihon, taberu, gakusei) rồi bấm phím [Space] hoặc [Tab] để chọn Kanji!"
+                : kanaMode !== 'off'
                 ? `Đang bật chế độ gõ Romaji -> ${kanaMode === 'hiragana' ? 'Hiragana (あ)' : 'Katakana (ア)'}... Hãy gõ: konnichiwa, tokyo, nihon...`
                 : "Dán đoạn văn tiếng Nhật bất kỳ vào đây... (Ví dụ: 日本語能力試験、漢字の書き順、練習、温故知新)"
             }
             rows={3}
             className="w-full px-3.5 sm:px-4 py-3 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-2xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans text-xs sm:text-sm resize-y leading-relaxed shadow-inner min-h-[90px] sm:min-h-[105px]"
           />
+
+          {/* Floating IME Candidate Popover */}
+          {imeState.isOpen && (
+            <ImeCandidatePopover
+              candidates={imeState.candidates}
+              selectedIndex={imeState.selectedIndex}
+              onSelectCandidate={commitCandidate}
+              onClose={() => setImeState((prev) => ({ ...prev, isOpen: false }))}
+              reading={imeState.reading}
+              position={imeState.position}
+              isLoading={imeState.isLoading}
+            />
+          )}
         </div>
 
         {/* Romaji detected quick-convert banner */}
         {hasRomaji(inputText) && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 animate-in fade-in duration-150">
-            <span className="font-medium flex items-center gap-1.5 text-[11px] sm:text-xs">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Phát hiện chữ Latinh/Romaji trong đoạn văn:</span>
+            <span className="font-medium text-[11px] sm:text-xs">
+              Phát hiện chữ Latinh/Romaji trong đoạn văn:
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -290,32 +493,45 @@ export const InputSection: React.FC<InputSectionProps> = ({
         {/* Translation Trigger Bar & Engine Selector */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Primary Action Button: Dịch cả câu */}
+            {/* Action Toggle Button: Dịch câu BẬT/TẮT */}
             <button
               type="button"
-              onClick={() => handleTranslateSentence()}
+              onClick={() => {
+                if (isTranslating) return;
+                if (!sentenceTranslation) {
+                  handleTranslateSentence();
+                } else {
+                  setShowTranslationCard(!showTranslationCard);
+                }
+              }}
               disabled={!inputText.trim() || isTranslating}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all min-h-[34px] sm:min-h-[36px] ${
-                inputText.trim() && !isTranslating
-                  ? 'bg-teal-700 hover:bg-teal-800 text-white shadow-2xs active:scale-95 cursor-pointer border border-teal-800'
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[34px] sm:min-h-[36px] ${
+                showTranslationCard && sentenceTranslation
+                  ? 'bg-teal-50 text-teal-950 border-2 border-teal-600 ring-1 ring-teal-500/20 shadow-xs'
+                  : inputText.trim()
+                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
               }`}
               title={
                 inputText.trim()
-                  ? `Dịch toàn bộ đoạn văn tiếng Nhật bằng ${engine === 'google' ? 'Google Dịch (Nhanh & Chuẩn)' : 'Gemini AI'}`
+                  ? `Bật/Tắt hiển thị bản dịch toàn câu tiếng Việt (${engine === 'google' ? 'Google Dịch' : 'Gemini AI'})`
                   : 'Nhập văn bản trước khi dịch'
               }
             >
+              <Languages className={`w-3.5 h-3.5 ${showTranslationCard && sentenceTranslation ? 'text-teal-700' : 'text-slate-500'}`} />
+              <span>Dịch câu</span>
               {isTranslating ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Đang dịch...</span>
-                </>
+                <span className="w-3 h-3 border-2 border-teal-700 border-t-transparent rounded-full animate-spin ml-0.5" />
               ) : (
-                <>
-                  <Languages className="w-3.5 h-3.5 text-teal-200" />
-                  <span>Dịch câu ({engine === 'google' ? 'Google' : 'Gemini'})</span>
-                </>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                    showTranslationCard && sentenceTranslation
+                      ? 'bg-teal-700 text-white shadow-2xs'
+                      : 'bg-slate-200 text-slate-500'
+                  }`}
+                >
+                  {showTranslationCard && sentenceTranslation ? 'BẬT' : 'TẮT'}
+                </span>
               )}
             </button>
 
@@ -674,6 +890,87 @@ export const InputSection: React.FC<InputSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* IME Typing Guide Modal */}
+      {showImeGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header with website signature theme gradient */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-900 text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-700/60 border border-teal-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                  <HelpCircle className="w-5 h-5 text-teal-200" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold tracking-tight">
+                    Hướng Dẫn Bàn Phím & Bộ Gõ IME
+                  </h3>
+                  <p className="text-xs text-teal-100/80">
+                    Tra cứu & gõ tiếng Nhật tiện lợi trực tiếp trên Web App
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImeGuideModal(false)}
+                className="text-teal-200 hover:text-white p-1 rounded-xl hover:bg-teal-700/60 transition-colors cursor-pointer"
+                title="Đóng (Esc)"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-3.5 text-xs sm:text-sm text-slate-700">
+              {/* Option 1: Off */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                <div className="font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-mono font-bold">1</span>
+                  <span>Tắt (Nhập văn bản thường)</span>
+                </div>
+                <p className="text-slate-600 leading-relaxed text-xs pl-7">
+                  Dán hoặc nhập đoạn văn tiếng Nhật / Việt / Anh bình thường không qua bộ chuyển đổi.
+                </p>
+              </div>
+
+              {/* Option 2: Kanji IME */}
+              <div className="p-3.5 bg-gradient-to-br from-teal-50/90 via-emerald-50/50 to-white rounded-xl border border-teal-200/90 shadow-2xs space-y-2">
+                <div className="font-bold text-teal-950 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-md bg-teal-700 text-white flex items-center justify-center text-[10px] font-mono font-bold">2</span>
+                  <span>漢 Kanji IME (Gõ Romaji → Kanji)</span>
+                </div>
+                <ul className="space-y-1.5 text-xs text-slate-700 pl-7 list-disc">
+                  <li>Gõ phiên âm Romaji tự nhiên (ví dụ: <code className="bg-white px-1.5 py-0.5 rounded border border-teal-200 font-mono text-teal-900 font-bold">hana</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-teal-200 font-mono text-teal-900 font-bold">nihon</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-teal-200 font-mono text-teal-900 font-bold">gakusei</code>).</li>
+                  <li>Nhấn phím <strong>Tab</strong> (hoặc <strong>Space</strong>) để mở menu gợi ý Kanji chuẩn IME Nhật Bản.</li>
+                  <li>Nhấn phím số <strong>1 - 9</strong> hoặc phím <strong>Enter</strong> để chèn Kanji vào văn bản. Bấm <strong>Esc</strong> để hủy.</li>
+                </ul>
+              </div>
+
+              {/* Option 3: Hiragana & Katakana */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                <div className="font-bold text-slate-800 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-md bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-mono font-bold">3</span>
+                  <span>あ Hiragana & ア Katakana</span>
+                </div>
+                <p className="text-slate-600 leading-relaxed text-xs pl-7">
+                  Tự động chuyển trực tiếp ký tự Latinh thành chữ mềm (Hiragana) hoặc chữ cứng (Katakana) ngay khi gõ (ví dụ: <code className="bg-white px-1 py-0.5 rounded border border-slate-300 font-mono">kohi</code> → <code className="bg-white px-1 py-0.5 rounded border border-slate-300 font-mono">コーヒ</code>).
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 px-4 sm:px-6 py-3 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowImeGuideModal(false)}
+                className="px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-2xs transition-all cursor-pointer active:scale-95"
+              >
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

@@ -1,7 +1,7 @@
 // Romaji to Hiragana and Katakana converter
 // Supports Hepburn, Kunrei, double consonants (sokuon), n' combos, and punctuation.
 
-export type KanaMode = 'off' | 'hiragana' | 'katakana';
+export type KanaMode = 'off' | 'hiragana' | 'katakana' | 'kanji';
 
 const HIRAGANA_MAP: Record<string, string> = {
   // Vowels
@@ -98,11 +98,30 @@ export function hiraganaToKatakana(text: string): string {
   return result;
 }
 
+// Convert Katakana character to Hiragana
+export function katakanaToHiragana(text: string): string {
+  let result = '';
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    // Katakana range 0x30A1 to 0x30F6 -> Hiragana range 0x3041 to 0x3096 (-0x60)
+    if (code >= 0x30A1 && code <= 0x30F6) {
+      result += String.fromCharCode(code - 0x60);
+    } else {
+      result += text[i];
+    }
+  }
+  return result;
+}
+
 /**
  * Converts a romaji string to Kana (Hiragana or Katakana).
  * Handles sokuon (double consonants like 'tt', 'kk'), 'nn' -> 'ん', and punctuation.
  */
-export function romajiToKana(text: string, mode: 'hiragana' | 'katakana' = 'hiragana'): string {
+export function romajiToKana(
+  text: string,
+  mode: 'hiragana' | 'katakana' = 'hiragana',
+  finalize: boolean = false
+): string {
   if (!text) return '';
 
   let i = 0;
@@ -165,24 +184,28 @@ export function romajiToKana(text: string, mode: 'hiragana' | 'katakana' = 'hira
       }
     }
 
-    // Check 1-char vowel or 'n' followed by consonant/end
-    if (HIRAGANA_MAP[char]) {
+    // Check 1-char vowel
+    if (HIRAGANA_MAP[char] && /[aeiou]/.test(char)) {
       out += HIRAGANA_MAP[char];
       i += 1;
       continue;
     }
 
-    // If 'n' followed by a consonant (other than y or vowel), convert to 'ん'
+    // If 'n' followed by a consonant (other than y or vowel) or non-letter, convert to 'ん'
     if (char === 'n') {
       const nextChar = i + 1 < lower.length ? lower[i + 1] : '';
-      if (!nextChar || (!/[aeiouy]/.test(nextChar) && /[bcdfghjklmpqrstvwxz]/.test(nextChar))) {
+      const isConsonant = nextChar !== '' && !/[aeiouy]/.test(nextChar) && /[bcdfghjklmpqrstvwxz]/.test(nextChar);
+      const isNonLetter = nextChar !== '' && !/[a-z]/.test(nextChar);
+      const isFinalAtEnd = finalize && !nextChar;
+
+      if (isConsonant || isNonLetter || isFinalAtEnd) {
         out += 'ん';
         i += 1;
         continue;
       }
     }
 
-    // Fallback: keep current character (e.g., kanji, numbers, symbols, spaces)
+    // Fallback: keep current character (e.g., kanji, numbers, symbols, spaces, or pending 'n')
     out += text[i];
     i += 1;
   }
