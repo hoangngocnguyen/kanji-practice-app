@@ -753,6 +753,8 @@ export default function App() {
       {/* Practice / Inspection Modal */}
       <PracticeModal
         item={inspectedKanji}
+        kanjiList={filteredKanjiList}
+        onNavigateKanji={(item) => handleInspectKanji(item)}
         showGrid={includeGrid}
         onToggleGrid={(val) => setIncludeGrid(val)}
         onClose={() => setInspectedKanji(null)}

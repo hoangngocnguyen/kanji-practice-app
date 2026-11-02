@@ -183,6 +183,16 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                     Bật công tắc <strong>+ Ô lưới</strong> để hiển thị đường căn nét chữ (tâm, đường chéo mễ) giúp bạn tập viết Kanji chuẩn tỉ lệ như trong vở luyện chữ.
                   </p>
                 </div>
+
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 md:col-span-2">
+                  <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    Điều Hướng Trái / Phải Nhanh Giữa Các Chữ (Phím ← / →)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-normal">
+                    Khi đang mở modal xem chi tiết, bạn có thể chuyển tức thì sang chữ tiếp theo hoặc trước đó bằng phím mũi tên <strong>Trái (←)</strong> / <strong>Phải (→)</strong> trên bàn phím, hoặc bấm nút điều hướng trên header modal mà không cần đóng modal rồi cuộn trang.
+                  </p>
+                </div>
               </div>
 
               <div className="p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 flex items-start gap-3">
@@ -422,10 +432,10 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                   <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
                     <Printer className="w-4 h-4 text-teal-600" />
-                    In Bảng Nét / Tạo PDF A4
+                    In Bảng Nét / Tạo PDF A4 Đa Trang
                   </div>
                   <p className="text-slate-600 text-xs leading-normal">
-                    Bấm <strong>In bảng nét</strong> trên thanh Header để mở giao diện in phiếu tập viết A4 kèm ô lưới Mễ.
+                    Bấm biểu tượng <strong>Máy in</strong> trên Header để chọn các cột cần in (STT, Chữ Hán, Âm đọc, Ảnh nét vẽ, Ô luyện viết tay) với thuật toán tự động ngắt trang A4 chuẩn (multi-page pagination) không bị cắt ngắn hay nhân bản.
                   </p>
                 </div>
               </div>

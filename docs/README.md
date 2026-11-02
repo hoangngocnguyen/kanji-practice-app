@@ -35,6 +35,12 @@ Thư mục này chứa toàn bộ tài liệu kỹ thuật chi tiết giải th�
    * Tùy chọn bật/tắt linh hoạt các cột (STT, Chữ Hán, Âm đọc/Ý nghĩa, Ảnh nét vẽ).
    * Gói dữ liệu Clipboard HTML Rich-Text cho phép dán trực tiếp vào Google Docs chỉ với 1 cú nhấp.
 
+7. [07. Cơ Chế In Ấn A4 Đa Trang & Điều Hướng Modal Trái / Phải](./07-in-an-va-dieu-huong.md)
+   * Thuật toán mở cuộn CSS Paged Media (`position: static; max-height: none`), khắc phục lỗi chỉ in 1 trang hoặc nhân bản khung giao diện.
+   * Quản lý trạng thái 5 cột in ấn độc lập kèm tùy chọn Chọn/Bỏ chọn tất cả.
+   * Lặp lại hàng tiêu đề `thead` trên từng trang in A4 mới.
+   * Điều hướng tức thì giữa các chữ Kanji trong Modal bằng phím tắt `←` / `→` và giao diện nút bấm nổi trên Desktop/Mobile.
+
 ---
 
 *Tài liệu kỹ thuật hệ thống Luyện Kanji v3.0.0* 🚀

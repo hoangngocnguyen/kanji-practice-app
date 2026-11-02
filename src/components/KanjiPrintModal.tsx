@@ -47,10 +47,10 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fadeIn">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+    <div className="kanji-print-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 animate-fadeIn">
+      <div className="kanji-print-modal-dialog bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-teal-800 via-teal-700 to-emerald-800 text-white flex items-center justify-between shrink-0">
+        <div className="kanji-print-modal-header px-6 py-4 bg-gradient-to-r from-teal-800 via-teal-700 to-emerald-800 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-white/10 rounded-lg backdrop-blur-xs">
               <Printer className="w-5 h-5 text-white" />
@@ -58,21 +58,39 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
             <div>
               <h2 className="text-lg font-bold">Tùy Chọn & In Phiếu Luyện Viết Kanji</h2>
               <p className="text-xs text-teal-100">
-                Tùy chỉnh các cột in ấn • Chuẩn định dạng giấy A4 Genkouyoushi
+                Tùy chỉnh các cột in ấn • Chuẩn định dạng giấy A4 đa trang
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Column Selection Toggles */}
-        <div className="px-6 py-3.5 bg-slate-100/80 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-          <div className="font-bold text-slate-700">Chọn các cột in:</div>
+        <div className="kanji-print-modal-controls px-6 py-3 bg-slate-100/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-800">Chọn các cột in:</span>
+            <button
+              type="button"
+              onClick={() => {
+                const allSelected = printStt && printKanji && printReadings && printImage && printPracticeBoxes;
+                setPrintStt(!allSelected);
+                setPrintKanji(!allSelected);
+                setPrintReadings(!allSelected);
+                setPrintImage(!allSelected);
+                setPrintPracticeBoxes(!allSelected);
+              }}
+              className="text-[11px] text-teal-700 hover:text-teal-900 font-semibold underline cursor-pointer"
+            >
+              {printStt && printKanji && printReadings && printImage && printPracticeBoxes
+                ? 'Bỏ chọn tất cả'
+                : 'Chọn tất cả'}
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <button
               type="button"
@@ -118,23 +136,23 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
         </div>
 
         {/* Toolbar & Action summary */}
-        <div className="px-6 py-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="kanji-print-modal-toolbar px-6 py-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-600">
-            Tổng số: <strong className="text-slate-900 font-bold">{kanjiList.length}</strong> chữ Kanji
+            Tổng số: <strong className="text-slate-900 font-bold">{kanjiList.length}</strong> chữ Kanji • Tự động ngắt trang A4 chuẩn
           </div>
           <button
             onClick={handlePrint}
             disabled={kanjiList.length === 0}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer active:scale-95"
           >
             <Printer className="w-4 h-4" />
-            🖨️ Tiến Hành In Hoặc Lưu PDF
+            <span>🖨️ Tiến Hành In Hoặc Lưu PDF</span>
           </button>
         </div>
 
-        {/* Scrollable Preview Sheet (This is also what prints cleanly via print styles) */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-100/60 printable-sheet-container">
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden p-6 printable-sheet-content">
+        {/* Scrollable Preview Sheet (This also unrolls for clean multi-page print) */}
+        <div className="kanji-print-modal-scrollable flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/60 printable-sheet-container">
+          <div className="kanji-print-paper-sheet bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden p-6 printable-sheet-content">
             {/* Header for print preview */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-center justify-between">
               <div>
@@ -263,11 +281,11 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div className="kanji-print-modal-footer px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
           <span>Hệ thống in ấn bảng nét Kanji chuẩn</span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-xl transition-colors"
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-xl transition-colors cursor-pointer"
           >
             Đóng
           </button>

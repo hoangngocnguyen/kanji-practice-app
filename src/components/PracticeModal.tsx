@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   X,
   Copy,
@@ -14,6 +14,7 @@ import {
   Award,
   CheckCircle2,
   AlertCircle,
+  ChevronLeft,
   ChevronRight,
   RotateCcw,
   Target
@@ -35,6 +36,8 @@ import { evaluateUserStroke, sampleSvgPathPoints, Point, StrokeEvaluationResult 
 
 interface PracticeModalProps {
   item: KanjiItem | null;
+  kanjiList?: KanjiItem[];
+  onNavigateKanji?: (item: KanjiItem) => void;
   showGrid?: boolean;
   onToggleGrid?: (show: boolean) => void;
   onClose: () => void;
@@ -47,6 +50,8 @@ type TabType = 'animation' | 'dictionary' | 'radicals' | 'practice';
 
 export const PracticeModal: React.FC<PracticeModalProps> = ({
   item,
+  kanjiList,
+  onNavigateKanji,
   showGrid = false,
   onToggleGrid,
   onClose,
@@ -179,6 +184,32 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     };
   }, [item, detail?.hanViet]);
 
+  // Navigation indexing across active Kanji list
+  const currentIndex =
+    kanjiList && item
+      ? kanjiList.findIndex((k) => k.kanji === item.kanji || k.hex === item.hex)
+      : -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = kanjiList && currentIndex >= 0 && currentIndex < kanjiList.length - 1;
+
+  const goToPrev = useCallback(() => {
+    if (kanjiList && item) {
+      const idx = kanjiList.findIndex((k) => k.kanji === item.kanji || k.hex === item.hex);
+      if (idx > 0 && onNavigateKanji) {
+        onNavigateKanji(kanjiList[idx - 1]);
+      }
+    }
+  }, [kanjiList, item, onNavigateKanji]);
+
+  const goToNext = useCallback(() => {
+    if (kanjiList && item) {
+      const idx = kanjiList.findIndex((k) => k.kanji === item.kanji || k.hex === item.hex);
+      if (idx >= 0 && idx < kanjiList.length - 1 && onNavigateKanji) {
+        onNavigateKanji(kanjiList[idx + 1]);
+      }
+    }
+  }, [kanjiList, item, onNavigateKanji]);
+
   useEffect(() => {
     if (!item) return;
 
@@ -188,6 +219,20 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
+      } else if (event.key === 'ArrowLeft') {
+        const target = event.target as HTMLElement;
+        if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+        if (hasPrev) {
+          event.preventDefault();
+          goToPrev();
+        }
+      } else if (event.key === 'ArrowRight') {
+        const target = event.target as HTMLElement;
+        if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+        if (hasNext) {
+          event.preventDefault();
+          goToNext();
+        }
       }
     };
 
@@ -197,7 +242,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [item, onClose]);
+  }, [item, onClose, hasPrev, hasNext, goToPrev, goToNext]);
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
@@ -320,51 +365,106 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="relative max-w-2xl w-full flex items-center justify-center"
         onClick={(event) => event.stopPropagation()}
       >
-        {/* Header with Kanji & Sino-Vietnamese Reading */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <span
-              onClick={() => speakJapanese(item.kanji)}
-              className="font-kanji font-black text-3xl sm:text-5xl text-teal-700 leading-none cursor-pointer hover:scale-105 transition-transform shrink-0"
-              title="Click để nghe phát âm tiếng Nhật"
-            >
-              {item.kanji}
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <h4 className="text-sm sm:text-lg font-black text-slate-900 tracking-wide truncate">
-                  {detail?.hanViet ? `Hán-Việt: ${detail.hanViet}` : `Chữ ${item.kanji}`}
-                </h4>
-                {detail?.jlpt && (
-                  <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md border ${getJlptBadgeClass(detail.jlpt)}`}>
-                    {detail.jlpt}
-                  </span>
-                )}
-                <button
-                  onClick={() => speakJapanese(item.kanji)}
-                  className="p-1 rounded-lg text-teal-700 hover:bg-teal-100 transition-colors cursor-pointer"
-                  title="Nghe phát âm"
-                >
-                  <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
+        {/* Desktop Floating Left Arrow */}
+        {hasPrev && (
+          <button
+            type="button"
+            onClick={goToPrev}
+            className="hidden md:flex absolute -left-14 top-1/2 -translate-y-1/2 w-11 h-11 bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-full shadow-xl items-center justify-center border border-slate-200/90 transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
+            title="Chữ Kanji trước (Phím ←)"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Desktop Floating Right Arrow */}
+        {hasNext && (
+          <button
+            type="button"
+            onClick={goToNext}
+            className="hidden md:flex absolute -right-14 top-1/2 -translate-y-1/2 w-11 h-11 bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-full shadow-xl items-center justify-center border border-slate-200/90 transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
+            title="Chữ Kanji tiếp theo (Phím →)"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
+
+        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          {/* Header with Kanji & Sino-Vietnamese Reading */}
+          <div className="flex items-center justify-between px-3 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <span
+                onClick={() => speakJapanese(item.kanji)}
+                className="font-kanji font-black text-3xl sm:text-5xl text-teal-700 leading-none cursor-pointer hover:scale-105 transition-transform shrink-0"
+                title="Click để nghe phát âm tiếng Nhật"
+              >
+                {item.kanji}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <h4 className="text-sm sm:text-lg font-black text-slate-900 tracking-wide truncate">
+                    {detail?.hanViet ? `Hán-Việt: ${detail.hanViet}` : `Chữ ${item.kanji}`}
+                  </h4>
+                  {detail?.jlpt && (
+                    <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md border ${getJlptBadgeClass(detail.jlpt)}`}>
+                      {detail.jlpt}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => speakJapanese(item.kanji)}
+                    className="p-1 rounded-lg text-teal-700 hover:bg-teal-100 transition-colors cursor-pointer"
+                    title="Nghe phát âm"
+                  >
+                    <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] sm:text-xs font-mono text-slate-400 truncate">
+                  U+{item.hex.toUpperCase()} • #{item.id}
+                  {detail?.strokeCount ? ` • ${detail.strokeCount} nét` : ''}
+                </p>
               </div>
-              <p className="text-[11px] sm:text-xs font-mono text-slate-400 truncate">
-                U+{item.hex.toUpperCase()} • #{item.id}
-                {detail?.strokeCount ? ` • ${detail.strokeCount} nét` : ''}
-              </p>
+            </div>
+
+            {/* Header Right Actions: Quick Kanji Switcher + Close */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {kanjiList && kanjiList.length > 1 && currentIndex >= 0 && (
+                <div className="flex items-center bg-white border border-slate-200/90 rounded-xl p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={goToPrev}
+                    disabled={!hasPrev}
+                    className="p-1 sm:p-1.5 text-slate-600 hover:text-teal-800 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    title="Chữ Kanji trước (Phím mũi tên Trái ←)"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-1.5 sm:px-2 text-[10px] sm:text-xs font-mono font-bold text-slate-700 select-none">
+                    {currentIndex + 1}/{kanjiList.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={goToNext}
+                    disabled={!hasNext}
+                    className="p-1 sm:p-1.5 text-slate-600 hover:text-teal-800 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    title="Chữ Kanji tiếp theo (Phím mũi tên Phải →)"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={onClose}
+                className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
+                title="Đóng (Phím Esc)"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
         {/* Tab Navigation with color indicators */}
         <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold overflow-x-auto scrollbar-none">
@@ -887,17 +987,46 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           )}
         </div>
 
-        {/* Footer info */}
-        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400 flex items-center justify-between">
-          <span>Tra cứu chi tiết & Luyện nét Kanji</span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs"
-          >
-            Đóng
-          </button>
+        {/* Footer info & Navigation */}
+        <div className="px-4 sm:px-6 py-3 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>Tra cứu chi tiết & Luyện nét</span>
+            <span className="hidden sm:inline text-slate-400 font-mono">
+              (Phím ← / → chuyển từ nhanh)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {kanjiList && kanjiList.length > 1 && (
+              <div className="flex items-center gap-1 sm:hidden">
+                <button
+                  type="button"
+                  onClick={goToPrev}
+                  disabled={!hasPrev}
+                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold disabled:opacity-30 text-xs flex items-center gap-0.5"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" /> Trước
+                </button>
+                <button
+                  type="button"
+                  onClick={goToNext}
+                  disabled={!hasNext}
+                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold disabled:opacity-30 text-xs flex items-center gap-0.5"
+                >
+                  Sau <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs"
+            >
+              Đóng
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  </div>
   );
 };

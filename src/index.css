@@ -169,63 +169,145 @@
   }
 }
 
-/* Print View Styles: Tối ưu chuẩn in ấn A4 (Worksheet Bảng Luyện Viết) */
+/* Print View Styles: Tối ưu chuẩn in ấn A4 đa trang (Worksheet Bảng Luyện Viết) */
 @media print {
   @page {
     size: A4 portrait;
     margin: 10mm 8mm 10mm 8mm;
   }
 
-  /* Ẩn toàn bộ giao diện web thông thường */
+  /* 1. Ẩn toàn bộ giao diện web thông thường và các nút điều khiển */
   header,
   footer,
+  main,
   #recently-viewed-section,
-  main > section,
-  .no-print,
-  button,
   nav,
+  button,
   input,
-  textarea {
+  textarea,
+  select,
+  .no-print,
+  .print-hidden,
+  .print\:hidden {
     display: none !important;
   }
 
-  /* Hiện bảng in chuyên dụng */
-  .print-only {
-    display: block !important;
-    width: 100% !important;
-  }
-
-  body,
-  main {
-    background: white !important;
-    color: black !important;
+  /* 2. Thiết lập nền trang in trắng tinh khiết, loại bỏ giới hạn chiều cao viewport */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 
-  .shadow-xs,
-  .shadow-sm,
-  .shadow-md,
-  .shadow-lg,
-  .shadow-2xl {
+  /* 3. Mở cuộn Modal in ấn thành tài liệu in tự nhiên nhiều trang (Fix lỗi chỉ in 1 trang & duplicate) */
+  .kanji-print-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    z-index: auto !important;
     box-shadow: none !important;
   }
 
+  .kanji-print-modal-dialog {
+    position: static !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .kanji-print-modal-scrollable {
+    position: static !important;
+    background: #ffffff !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .kanji-print-paper-sheet {
+    position: static !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* 4. Ẩn thanh công cụ, nút bấm & tùy chọn cột của modal khi in */
+  .kanji-print-modal-header,
+  .kanji-print-modal-controls,
+  .kanji-print-modal-toolbar,
+  .kanji-print-modal-footer {
+    display: none !important;
+  }
+
+  /* 5. Cấu hình bảng & phân trang chuẩn A4 */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
   }
 
+  thead {
+    display: table-header-group !important; /* Lặp lại tiêu đề bảng ở mỗi trang in mới */
+  }
+
+  tbody {
+    display: table-row-group !important;
+  }
+
   tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: auto !important;
   }
 
-  img {
+  th,
+  td {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    color: #000000 !important;
+  }
+
+  img,
+  svg {
     max-width: 100% !important;
     page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
+
 

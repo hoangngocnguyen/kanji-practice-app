@@ -17,6 +17,8 @@
 Bản cập nhật **v3.0.0** mang đến bước tiến đột phá cho hệ sinh thái **Luyện Kanji**:
 - **📸 Chụp màn hình khoanh vùng (Screen Snipping OCR - `Ctrl + Shift + K`)**: Khoanh vùng chụp bất kỳ chữ Hán nào trên video YouTube, phim Anime, truyện tranh Manga scan, hình ảnh hoặc tệp PDF để tra cứu tức thì.
 - **📋 Xuất Bảng 1 Cột Tùy Chỉnh (Google Docs Table Exporter)**: Tùy chọn bật/tắt linh hoạt các cột (STT, Chữ Hán & Hán-Việt, Âm đọc & Ý nghĩa, Ảnh nét vẽ) và sao chép toàn bộ bảng ảnh chỉ với 1 cú nhấp để dán trực tiếp (`Ctrl + V`) vào Google Docs hoặc Microsoft Word.
+- **🖨️ In Ấn A4 Đa Trang & Tùy Chọn Cột (Multi-Page Print Engine)**: Thuật toán unroll CSS paged media giúp in trọn vẹn danh sách Kanji qua nhiều trang A4 sạch sẽ, không bị giới hạn 1 trang hay lặp lại giao diện, tùy chọn cột in linh hoạt.
+- **⚡ Điều Hướng Modal Trái / Phải (Modal Fast Navigation)**: Lướt nhanh qua các chữ Kanji trong danh sách bằng phím mũi tên `←` / `→` trên bàn phím hoặc nút điều hướng nổi mà không phải đóng modal rồi cuộn trang.
 - **🌳 Mô hình Tra cứu 4 Tầng Bộ Thủ & Cấu Phần**: Phân tích cấu trúc đệ quy KanjiVG kết hợp 214 Bộ thủ Khang Hi và từ điển 11,000+ chữ Hán-Việt với độ chính xác tuyệt đối.
 - **🎯 Chế độ Luyện viết kiểm tra nét (Stroke Verification Engine)**: So khớp vector hình học, nhận diện vẽ ngược chiều và chấm điểm độ chính xác theo thời gian thực (0 - 100%).
 - **⌨️ Bộ gõ Romaji sang Kana (Live Kana IME)**: Tự động chuyển đổi ký tự Latinh thành Hiragana/Katakana ngay trong ô nhập liệu.
@@ -30,6 +32,8 @@ Bản cập nhật **v3.0.0** mang đến bước tiến đột phá cho hệ si
 Version **v3.0.0** introduces major enhancements to the **Luyện Kanji** ecosystem:
 - **📸 Screen Snipping OCR (`Ctrl + Shift + K`)**: Capture and extract Kanji characters from YouTube videos, Anime, scanned Manga, images, or PDFs using global shortcut or extension popup.
 - **📋 Google Docs Table Exporter**: Export and customize 1-column Kanji stroke order tables with selectable columns (Index, Kanji & Sino-Vietnamese, Readings & Meanings, Stroke Order Images). Copy the entire table with 1 click and paste (`Ctrl + V`) directly into Google Docs or Microsoft Word.
+- **🖨️ Multi-Page A4 Print Engine with Column Options**: CSS paged media unroll engine that paginates all Kanji seamlessly across multiple A4 sheets without single-page truncation or duplicate fixed headers.
+- **⚡ Modal Fast Navigation (Left/Right Keys)**: Instantly cycle through Kanji in the inspection/practice dialog using `←` / `→` arrow keys or floating buttons without closing and scrolling.
 - **🌳 4-Tier Radical & Component Decomposition Engine**: Recursive KanjiVG DOM parsing combined with 214 Kangxi radicals and an 11,000+ Sino-Vietnamese offline dictionary.
 - **🎯 Stroke Verification Engine**: Real-time geometric vector matching for handwriting practice with reverse-stroke detection and accuracy scoring (0 - 100%).
 - **⌨️ Live Kana IME**: Real-time Romaji to Hiragana/Katakana conversion directly inside input fields.
