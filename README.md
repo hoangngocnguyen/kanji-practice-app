@@ -12,9 +12,10 @@
 
 ## 🇻🇳 Tiếng Việt (Vietnamese)
 
-### 📢 Bản phát hành mới: Luyện Kanji v3.0.0 (Snipping OCR, Google Docs Table Exporter & 4-Tier Radicals)
+### 📢 Bản phát hành mới: Luyện Kanji v3.0.0 (Hepburn Romaji Engine, Snipping OCR, Google Docs Exporter & 4-Tier Radicals)
 
 Bản cập nhật **v3.0.0** mang đến bước tiến đột phá cho hệ sinh thái **Luyện Kanji**:
+- **🔤 Phiên âm Romaji Xen kẽ Từng dòng (Interleaved Hepburn Romaji Transliteration Engine)**: Tự động phân tích và chuyển đổi toàn bộ đoạn văn tiếng Nhật (chứa mọi Kanji, Hiragana, Katakana) sang phiên âm Romaji chuẩn Hepburn với khoảng trắng tách từ ngữ cảnh, trường âm nguyên âm (`ō`, `ū`), trợ từ ngữ pháp (`は` → `wa`, `を` → `o`, `へ` → `e`). Trình bày dạng cặp dòng song song `[JP]` & `[ROMAJI]` giúp theo dõi dễ dàng, kèm nút tùy chỉnh cỡ chữ `A-`/`A+` (12px - 18px) trực tiếp trên ô nhập liệu và Cài đặt chung.
 - **⌨️ Bộ gõ IME Nhật Bản Toàn diện (Romaji → Hiragana → Kanji)**: Gõ phiên âm Latinh, bấm phím `Space` hoặc `Tab` để hiển thị menu gợi ý Kanji chuẩn IME Nhật (kèm chữ Hán, Furigana, âm Hán-Việt và nghĩa tiếng Việt). Hỗ trợ phím số `1`-`9`, `Enter`, `↑`/`↓`, tích hợp trên khung nhập chính và thanh tìm kiếm nhanh.
 - **📸 Chụp màn hình khoanh vùng (Screen Snipping OCR - `Ctrl + Shift + K`)**: Khoanh vùng chụp bất kỳ chữ Hán nào trên video YouTube, phim Anime, truyện tranh Manga scan, hình ảnh hoặc tệp PDF để tra cứu tức thì.
 - **📋 Xuất Bảng 1 Cột Tùy Chỉnh (Google Docs Table Exporter)**: Tùy chọn bật/tắt linh hoạt các cột (STT, Chữ Hán & Hán-Việt, Âm đọc & Ý nghĩa, Ảnh nét vẽ) và sao chép toàn bộ bảng ảnh chỉ với 1 cú nhấp để dán trực tiếp (`Ctrl + V`) vào Google Docs hoặc Microsoft Word.
@@ -27,9 +28,10 @@ Bản cập nhật **v3.0.0** mang đến bước tiến đột phá cho hệ si
 
 ### 🌐 English
 
-### 📢 Release: Luyện Kanji v3.0.0 (Japanese IME Engine, Snipping OCR, Google Docs Table Exporter & 4-Tier Radicals)
+### 📢 Release: Luyện Kanji v3.0.0 (Interleaved Hepburn Romaji Engine, Japanese IME, Snipping OCR & Google Docs Exporter)
 
 Version **v3.0.0** introduces major enhancements to the **Luyện Kanji** ecosystem:
+- **🔤 Interleaved Hepburn Romaji Transliteration Engine**: Automatically converts full Japanese text (containing Kanji, Hiragana, Katakana) into Hepburn Romaji with word spacing, long vowel macrons (`ō`, `ū`), and contextual particle pronunciations (`は` → `wa`, `を` → `o`, `へ` → `e`). Displays side-by-side line pairs `[JP]` & `[ROMAJI]` for easy reading, equipped with font size controls (`A-`/`A+`, 12px - 18px) in the input toolbar and General Settings.
 - **⌨️ Built-in Japanese IME Engine (Romaji → Hiragana → Kanji)**: Type Latin Romaji, press `Space` or `Tab` to open the standard Japanese IME candidate popover with Kanji, Furigana, Sino-Vietnamese readings, and meanings. Supports keys `1`-`9`, `Enter`, `↑`/`↓`, available in both main textarea and quick search bars.
 - **📸 Screen Snipping OCR (`Ctrl + Shift + K`)**: Capture and extract Kanji characters from YouTube videos, Anime, scanned Manga, images, or PDFs using global shortcut or extension popup.
 - **📋 Google Docs Table Exporter**: Export and customize 1-column Kanji stroke order tables with selectable columns (Index, Kanji & Sino-Vietnamese, Readings & Meanings, Stroke Order Images). Copy the entire table with 1 click and paste (`Ctrl + V`) directly into Google Docs or Microsoft Word.

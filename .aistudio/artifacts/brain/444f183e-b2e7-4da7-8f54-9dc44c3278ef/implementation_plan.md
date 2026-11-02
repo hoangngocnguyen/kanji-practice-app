@@ -1,184 +1,111 @@
-# Kế hoạch Triển khai Bộ gõ IME Nhật Bản: Romaji → Hiragana → Kanji
+# Kế hoạch Triển khai: Phiên Âm Romaji Phân Tách Từ (Word-Spaced Romaji Transliteration)
 
 ## User Review & Critical Decisions (Xác nhận từ người dùng)
 
-Dựa trên phản hồi làm rõ từ bạn, hệ thống bộ gõ Kanji sẽ tuân thủ nghiêm ngặt 3 quyết định cốt lõi sau:
-1. **Cơ chế kích hoạt chuyển đổi**: Phím `Space` (hoặc `Tab`) kích hoạt mở menu gợi ý Kanji chuẩn IME Nhật (khi đang ở chế độ gõ tiếng Nhật). Tiếp tục nhấn `Space`/`Tab` hoặc `↑`/`↓` để chọn ứng viên; nhấn phím số `1`-`9` hoặc `Enter` để chèn từ đã chọn; nhấn `Esc` để hủy bảng gợi ý và giữ nguyên Hiragana.
-2. **Nguồn dữ liệu chuyển đổi**: Kiến trúc lai (Hybrid).
-   - **Ưu tiên 1 (Offline, tức thì 0ms)**: Sử dụng Inverted Index (bảng chỉ mục ngược) ánh xạ Hiragana → Danh sách Kanji từ dữ liệu có sẵn (`KANJI_DICTIONARY`, `SINO_VIETNAMESE_MAP`, và `kanji_meanings_vi.json`), hiển thị ngay lập tức kèm chữ Hán, âm On/Kun, âm Hán-Việt và nghĩa tiếng Việt.
-   - **Ưu tiên 2 (Context API / Compound words)**: Tự động bổ sung các từ ghép và ngữ cảnh thực tế (ví dụ: `にほん` → `日本`, `がくせい` → `学生`, `とうきょう` → `東京`) thông qua API chuyển đổi ngữ cảnh Google Input Tools Transliterate (với fallback offline thông minh khi không có mạng).
-3. **Phạm vi áp dụng**: Tích hợp đồng bộ ở cả hai vị trí quan trọng nhất:
-   - **Khung nhập văn bản chính (`InputSection.tsx`)**: Hỗ trợ gõ đoạn văn dài, bài tập đọc, flashcard, chuyển đổi trực tiếp ngay vị trí con trỏ (caret).
-   - **Thanh tìm kiếm & Quick Input (`App.tsx`, `KanjiListHeader.tsx`)**: Cho phép người dùng gõ romaji (như `ai`, `taberu`, `gakusei`) rồi bấm `Space` để chọn ngay Kanji cần lọc mà không cần cài thêm bàn phím tiếng Nhật trên hệ điều hành.
+Dựa trên phản hồi từ bạn qua các câu hỏi làm rõ, tính năng chuyển đổi đoạn văn sang Romaji sẽ được thiết kế và xây dựng tuân thủ 3 quyết định cốt lõi:
+
+1. **Vị trí hiển thị**: Hiển thị dòng Romaji phân tách từ ngay bên dưới từng chữ/từ trong **Khung đọc chi tiết từng chữ (Glossed Reader Box)**, kết hợp song song cùng Furigana (Hiragana trên đầu) và Nghĩa tiếng Việt (chân chữ).
+2. **Định dạng & Cách từ (Word Spacing)**: Tuân theo **Chuẩn Romaji Hepburn** có khoảng trắng (`space`) phân tách rõ ràng giữa các từ ghép, cụm từ và từ đơn (ví dụ: `Nihongo nōryoku shiken`, `Nihonjin wa kanji wo mainichi benkyō suru`), giúp người đọc nhịp điệu chính xác mà không bị dính liền ký tự.
+3. **Độ chính xác âm đọc (Kanji Reading Accuracy)**: Tự động phân tích ngữ cảnh từ ghép và từ đơn:
+   - **Từ đơn đứng độc lập**: Ưu tiên âm Kun-yomi (ví dụ: `歌` → `uta`, `日` → `hi`).
+   - **Từ ghép nhiều Kanji (Kanji Compound Words)**: Ưu tiên âm On-yomi ghép liên tục (ví dụ: `日本` → `nihon`, `歌手` → `kashu`, `勉強` → `benkyō`).
 
 ---
 
 ## 1. Tổng quan & Mục tiêu
 
-Hiện tại ứng dụng đã hỗ trợ chuyển đổi Romaji → Hiragana/Katakana thông qua tiện ích `romajiConverter.ts`. Tuy nhiên, người học và người dùng tiếng Nhật khi soạn thảo đều cần gõ Kanji trực tiếp (ví dụ: gõ `taberu` ra `たべる`, nhấn `Space` để đổi thành `食べる`, hoặc `nihon` ra `日本`).
+Mục đích chính của người học khi xem đoạn văn tiếng Nhật là **đọc chính xác từng từ theo đúng ngữ điệu và ngắt nghỉ tự nhiên**.
 
-Mục tiêu của tính năng này là mang đến trải nghiệm **Bộ gõ IME chuẩn Nhật ngay trên giao diện web** (Web-based Japanese IME):
-- Không phụ thuộc vào việc hệ điều hành người dùng đã cài bàn phím tiếng Nhật hay chưa.
-- Cực kỳ trực quan cho người học tiếng Nhật tại Việt Nam: Mỗi ứng viên Kanji trong bảng gợi ý đều hiển thị rõ **Kanji**, **Furigana**, **Âm Hán-Việt** và **Ý nghĩa tiếng Việt**.
-- Mượt mà, hiệu năng cao, không giật lag con trỏ soạn thảo.
+Tính năng mới **Word-Spaced Romaji Reader** sẽ bổ sung một lớp phiên âm Romaji chuẩn Hepburn ngay trong Khung đọc chi tiết với công tắc bật/tắt **`Romaji [BẬT/TẮT]`**:
+- Giúp người mới học hoặc người chưa thuộc hết Kana/Kanji có thể cất tiếng đọc nguyên đoạn văn tiếng Nhật một cách trôi chảy, đúng từ, đúng ngắt nghỉ.
+- Mọi từ ghép (như `日本語`, `能力試験`, `勉強`, `一期一会`) đều được phân tách bằng khoảng trắng rộng `space` rõ ràng.
 
 ---
 
-## 2. Kiến trúc Kỹ thuật & Luồng Dữ liệu (IME Pipeline)
+## 2. Trải nghiệm Người dùng & Thiết kế Giao diện (UI/UX)
 
+### 2.1. Công tắc điều khiển `Romaji [BẬT/TẮT]`
+- Trong **Khung đọc chi tiết từng chữ (`InputSection.tsx`)**, bên cạnh 2 công tắc hiện tại là `Furigana [BẬT/TẮT]` và `Nghĩa chữ [BẬT/TẮT]`, thêm công tắc thứ 3:
+  - **`Romaji [BẬT/TẮT]`**: Kiểu dáng nút bấm nhã nhặn, chuẩn theme (`bg-teal-50 text-teal-950 border-2 border-teal-600` khi BẬT kèm badge `BẬT`; `bg-slate-100 text-slate-500` khi TẮT).
+
+### 2.2. Hiển thị Romaji theo từng từ ghép / từ đơn trong Khung đọc
+Mỗi ô từ vựng trong Khung đọc chi tiết sẽ có cấu trúc 4 tầng hoàn chỉnh (tùy theo công tắc người dùng bật):
 ```
-[Bàn phím người dùng]
-       │
-       ▼ (Gõ ký tự Romaji: ví dụ "t-a-b-e-r-u")
-┌────────────────────────────────────────────────────────┐
-│ 1. Active Composition Tracker                          │
-│    Theo dõi từ đang gõ tại vị trí con trỏ (caret)      │
-└────────────────────────────────────────────────────────┘
-       │
-       ▼ (Tự động biến đổi tức thì theo KanaMode)
-┌────────────────────────────────────────────────────────┐
-│ 2. Live Kana Conversion (`たべる`)                      │
-└────────────────────────────────────────────────────────┘
-       │
-       ▼ (Người dùng nhấn Space hoặc Tab)
-┌────────────────────────────────────────────────────────┐
-│ 3. IME Engine Event Interceptor                        │
-│    - Chặn phím Space mặc định (preventDefault)         │
-│    - Trích xuất buffer âm Hiragana hiện tại            │
-└────────────────────────────────────────────────────────┘
-       │
-       ├─────────────────────────────────┐
-       ▼ (Tìm kiếm Offline)              ▼ (Tìm kiếm Online song song)
-┌──────────────────────────────┐  ┌──────────────────────────────┐
-│ Inverted Index Dictionary    │  │ Context Transliteration API  │
-│ (Âm đọc Kun/On -> Kanji đơn) │  │ (Từ ghép, ngữ cảnh Kanji)    │
-│ + Âm Hán Việt + Nghĩa Việt   │  │                              │
-└──────────────────────────────┘  └──────────────────────────────┘
-       │                                 │
-       └────────────────┬────────────────┘
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ 4. Candidate Ranker & Deduplicator                     │
-│    Hợp nhất ứng viên, xếp hạng phổ biến JLPT/tần suất  │
-│    Thêm tùy chọn [1] Hiragana gốc, [2] Katakana gốc    │
-└────────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌────────────────────────────────────────────────────────┐
-│ 5. Floating IME Popover UI                             │
-│    Hiển thị menu con trỏ: 1. 食べる  2. 食  3. たべる ...│
-│    (Phím số 1-9, ↑/↓ để di chuyển, Enter để chọn)      │
-└────────────────────────────────────────────────────────┘
-                        │
-                        ▼ (Xác nhận chọn)
-┌────────────────────────────────────────────────────────┐
-│ 6. Text Replacement & Caret Restoration                │
-│    Thay thế chuỗi Hiragana bằng Kanji được chọn        │
-│    Cập nhật danh sách phân tích Kanji tự động          │
-└────────────────────────────────────────────────────────┘
+    [ 1. Furigana (Hiragana) trên đầu ]     -> (ví dụ: にほんご)
+    [ 2. Chữ Kanji chính giữa ]            -> (ví dụ: 日本語)
+    [ 3. Romaji Hepburn phân tách từ ]     -> (ví dụ: nihongo)
+    [ 4. Nghĩa tiếng Việt dưới chân ]       -> (ví dụ: Tiếng Nhật)
 ```
 
----
-
-## 3. Trải nghiệm Người dùng & Thiết kế Giao diện (UI/UX)
-
-### 3.1. Floating IME Candidate Popover (`ImeCandidatePopover.tsx`)
-- **Vị trí hiển thị**: Xuất hiện ngay sát dưới vị trí con trỏ đang soạn thảo (sử dụng tọa độ caret từ textarea/input hoặc neo thông minh tại dòng đang gõ).
-- **Thiết kế giao diện chuẩn Tailwind CSS**:
-  - Khung bo góc `rounded-xl`, đổ bóng tinh tế `shadow-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900`.
-  - Header nhỏ hiển thị âm đang gõ: `Chuyển đổi: "たべる"` kèm hướng dẫn phím tắt `[Space] Tiếp  [Enter] Chọn  [Esc] Đóng`.
-  - Danh sách ứng viên đánh số từ `1` đến `9`:
-    - **Cột 1**: Số thứ tự (`1`, `2`, `3`...) dạng badge phím tắt nhanh.
-    - **Cột 2**: Từ Kanji/Từ ghép lớn, nổi bật (`text-lg font-bold text-teal-700 dark:text-teal-400`).
-    - **Cột 3**: Furigana / Hiragana chuẩn.
-    - **Cột 4**: Âm Hán-Việt in hoa đậm (ví dụ: `THỰC`).
-    - **Cột 5**: Nghĩa tiếng Việt tóm tắt (ví dụ: `Ăn, dùng bữa`).
-    - Hàng cuối cùng luôn có tùy chọn giữ nguyên Hiragana (`たべる`) và Katakana (`タベル`).
-  - Active item được highlight nền `bg-teal-50 dark:bg-teal-950/40 border-l-4 border-teal-600`.
-
-### 3.2. Hệ thống Phím tắt Điều khiển
-| Phím | Hành vi khi mở bảng IME |
-| :--- | :--- |
-| `Space` hoặc `Tab` | Mở bảng IME (lần 1); chuyển xuống ứng viên kế tiếp (lần 2, 3...) |
-| `Mũi tên xuống (↓)` | Di chuyển xuống ứng viên phía dưới |
-| `Mũi tên lên (↑)` | Di chuyển lên ứng viên phía trên |
-| `Phím số 1 - 9` | Chọn ngay lập tức ứng viên tương ứng với số |
-| `Enter` | Xác nhận chèn ứng viên đang được chọn vào văn bản |
-| `Escape` | Đóng bảng gợi ý, giữ nguyên chuỗi Hiragana đang gõ |
-| `Backspace` | Xóa ký tự cuối của buffer, cập nhật lại gợi ý hoặc đóng nếu rỗng |
-
-### 3.3. Tùy chọn Bật/Tắt trực quan (Toolbar Toggle)
-- Trong `InputSection.tsx`, thanh công cụ chuyển đổi Romaji/Kana hiện tại sẽ được nâng cấp thêm tùy chọn:
-  - **Tắt bộ gõ (Off)**
-  - **Romaji → Hiragana/Katakana**
-  - **Romaji → Hiragana → Kanji (IME)** *(Tự động kích hoạt kèm hướng dẫn nhanh bằng tooltip)*
-- Người dùng có thể dễ dàng chuyển đổi qua lại chỉ với 1 click hoặc phím tắt `Ctrl + Space` / `Alt + K`.
+- **Romaji Badge**: Hiển thị dòng chữ Romaji Hepburn in thường/in hoa nhã nhặn (`text-[10px] sm:text-[11px] font-mono font-bold text-indigo-900 bg-indigo-50/80 border border-indigo-200/80 px-1.5 py-0.2 rounded-md`).
+- **Khoảng cách nhịp thở (Spacing)**: Giữa các thẻ từ ghép có khoảng trống `gap-2` và margin tự nhiên, giúp mắt người dùng dễ dàng lướt đọc theo từng cụm ngữ nghĩa.
 
 ---
 
-## 4. Chi tiết Kỹ thuật Triển khai
+## 3. Kiến trúc Kỹ thuật & Luồng Dữ liệu (Transliteration Pipeline)
 
-### 4.1. Tạo Module Quản lý Tra cứu IME: `src/utils/kanjiImeEngine.ts`
-- **Tạo Inverted Index**:
-  - Quét qua `KANJI_DICTIONARY` và `SINO_VIETNAMESE_MAP`.
-  - Tạo bảng tra cứu ánh xạ âm đọc:
-    - On-yomi (chuyển Katakana → Hiragana) → `[Kanji, Hán-Việt, Nghĩa]`.
-    - Kun-yomi (bỏ các dấu chấm `・` phân tách okurigana) → `[Kanji, Hán-Việt, Nghĩa]`.
-- **Cơ chế Contextual Lookup (Google Input Tools API)**:
-  - Endpoint: `https://inputtools.google.com/request?text={reading}&itc=ja-t-i0-und&num=8`
-  - Thư viện xử lý trả về danh sách từ ghép hoàn chỉnh tiếng Nhật kèm Kanji thực tế.
-  - Tích hợp bộ đệm (In-memory LRU Cache) để các từ đã tra không cần gọi lại mạng.
-  - Khi không có mạng hoặc mạng chậm (> 300ms), bảng offline lập tức trả kết quả ngay không gián đoạn người dùng.
+```
+[Đoạn văn bản tiếng Nhật] (ví dụ: "日本人は漢字を毎日勉強する。")
+       │
+       ▼
+┌────────────────────────────────────────────────────────┐
+│ 1. Japanese Word & Compound Segmenter                  │
+│    Tách đoạn văn thành các cụm từ ghép & từ đơn         │
+│    - Từ ghép Kanji: "日本人", "漢字", "毎日", "勉強"     │
+│    - Trợ từ & Hiragana: "は", "を", "する"            │
+└────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌────────────────────────────────────────────────────────┐
+│ 2. Contextual Reading Resolver                         │
+│    - Kiểm tra CSDL KANJI_DICTIONARY & Ví dụ            │
+│    - Từ đơn 1 Kanji -> Âm Kun (như "日" -> "hi")       │
+│    - Từ ghép >= 2 Kanji -> Ghép âm On ("日本" -> "nihon")│
+└────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌────────────────────────────────────────────────────────┐
+│ 3. Kana-to-Hepburn Romaji Converter                    │
+│    - Chuyển Kana Hiragana thành Romaji chuẩn Hepburn   │
+│    - Xử lý âm dài (ー, おう -> ō/ou), sokuon (っ -> kk/tt) │
+│    - Phân tách cụm từ bằng phím space                  │
+└────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌────────────────────────────────────────────────────────┐
+│ 4. Reader Card Rendering                               │
+│    Hiển thị lớp Romaji Hepburn bên dưới thẻ từ vựng   │
+└────────────────────────────────────────────────────────┘
+```
 
-### 4.2. Xử lý Con trỏ và Vùng đệm gõ (Composition Buffer)
-- Tạo custom hook `useImeInput`:
-  - Quản lý trạng thái `activeWord`, vị trí con trỏ `selectionStart`, `selectionEnd`.
-  - Tính toán tọa độ pixel của con trỏ (Caret Coordinates) trong `textarea` hoặc `input` để hiển thị Popover đúng vị trí đang gõ.
-  - Hàm `commitCandidate(candidateText)`: thay thế đoạn text composition bằng Kanji và di chuyển con trỏ về sau ký tự vừa chèn.
-
-### 4.3. Tích hợp vào Khung nhập chính (`src/components/InputSection.tsx`)
-- Lắng nghe sự kiện `onKeyDown` trên `textarea`:
-  - Khi người dùng đang ở chế độ Kanji IME và nhấn `Space`/`Tab`:
-    - Nếu Popover chưa mở: kiểm tra từ Hiragana cuối cùng tại vị trí con trỏ; nếu hợp lệ, chặn sự kiện gõ phím cách mặc định và mở Popover gợi ý.
-    - Nếu Popover đang mở: chuyển sang chọn ứng viên tiếp theo.
-- Lắp ráp component `<ImeCandidatePopover />`.
-
-### 4.4. Tích hợp vào Thanh tìm kiếm nhanh (`src/App.tsx` & `SearchBar.tsx`)
-- Áp dụng cùng logic IME cho thanh tìm kiếm nhanh để người học có thể gõ `gakkou` + `Space` → chọn `学校` để tra cứu cực kỳ tiện lợi mà không cần bộ gõ ngoài.
-
----
-
-## 5. Kế hoạch Các bước Thực hiện (Step-by-Step Implementation)
-
-1. **Bước 1: Xây dựng Core IME Engine (`src/utils/kanjiImeEngine.ts`)**
-   - Xây dựng chỉ mục ngược `Hiragana -> KanjiItem[]` từ từ điển offline sẵn có.
-   - Viết API fetcher kết nối Google Transliterate API với bộ đệm cache.
-   - Viết hàm chuẩn hóa âm đọc và xếp hạng ứng viên (ưu tiên từ ghép chính xác, Kanji thông dụng N5-N1).
-
-2. **Bước 2: Xây dựng UI Component Popover (`src/components/ImeCandidatePopover.tsx`)**
-   - Thiết kế giao diện danh sách gợi ý đẹp mắt, nhỏ gọn, chuẩn IME Nhật.
-   - Hỗ trợ số thứ tự `1`-`9`, âm Hán-Việt, Furigana và nghĩa tiếng Việt.
-   - Thêm hiệu ứng focus, bàn phím điều hướng `↑`, `↓`, `Enter`, `Esc`.
-
-3. **Bước 3: Tích hợp vào `InputSection.tsx`**
-   - Nâng cấp trạng thái `kanaMode` thành có thêm mode `'kanji'`.
-   - Kết nối sự kiện bàn phím `Space`, `Tab`, `ArrowUp`, `ArrowDown`, `Enter`, `Esc`.
-   - Tính toán vị trí hiển thị Popover theo caret position.
-
-4. **Bước 4: Tích hợp vào Search Bar (`App.tsx`)**
-   - Thêm chế độ gõ IME cho ô tìm kiếm nhanh Kanji.
-
-5. **Bước 5: Cập nhật Tài liệu & Hướng dẫn sử dụng**
-   - Cập nhật `src/components/UserGuideModal.tsx` để người dùng biết cách dùng phím `Space`/`Tab` gõ Kanji.
-   - Cập nhật tài liệu markdown hướng dẫn tính năng mới.
-
-6. **Bước 6: Kiểm thử & Tối ưu hóa**
-   - Kiểm tra gõ từ đơn: `hi` → `日`, `mizu` → `水`, `hito` → `人`.
-   - Kiểm tra từ ghép: `nihon` → `日本`, `sensei` → `先生`, `gakusei` → `学生`.
-   - Kiểm tra phím `Esc`, `Enter`, phím số `1`-`9`, phím mũi tên.
-   - Kiểm tra hoạt động mượt mà khi gõ văn bản dài và trên cả thiết bị di động (tap chọn ứng viên).
-   - Chạy `compile_applet` và `lint_applet` đảm bảo không phát sinh bất kỳ lỗi nào.
+### 3.1. Thuật toán phân tách từ & chuyển đổi Romaji (`src/utils/romajiConverter.ts`)
+- Tạo hàm `kanaToHepburnRomaji(kanaText: string): string`:
+  - Chuyển đổi các âm Kana (Hiragana/Katakana) sang Romaji Hepburn chính xác.
+  - Xử lý các trường hợp đặc biệt: `ん` trước nguyên âm hay phụ âm (`n'` vs `m`), biến âm `っ` (sokuon), trợ từ `は` (wa), `へ` (e), `を` (o).
+- Tạo hàm `getWordRomaji(charOrWord: string, detail?: KanjiDetail): string`:
+  - Trích xuất âm đọc chuẩn nhất cho từng từ ghép hoặc từ đơn dựa trên `KANJI_DICTIONARY`.
 
 ---
 
-Vui lòng xem xét kế hoạch chi tiết trên. Khi bạn đã sẵn sàng, hãy nhấn nút **Proceed** hoặc gửi phản hồi để tôi tiến hành triển khai mã nguồn!
+## 4. Các Bước Thực Hiện (Implementation Steps)
+
+1. **Bước 1: Nâng cấp `romajiConverter.ts` & `kanji.ts`**
+   - Viết hàm `kanaToHepburn(kana: string): string` chuyển đổi từ Kana sang Romaji Hepburn chuẩn xác.
+   - Viết hàm `getExactWordRomaji(word: string, detail?: KanjiDetail)` phân tích từ đơn (Kun) và từ ghép (On).
+
+2. **Bước 2: Cập nhật `InputSection.tsx`**
+   - Thêm trạng thái `showRomaji` (Mặc định `true` hoặc `false` linh hoạt).
+   - Thêm nút công tắc `Romaji [BẬT/TẮT]` trên thanh công cụ Khung đọc chi tiết.
+   - Cập nhật JSX thẻ từ vựng hiển thị thêm dòng Romaji Hepburn cách từ nhã nhặn.
+
+3. **Bước 3: Cập nhật Cẩm Nang Hướng Dẫn & Tài Liệu**
+   - Cập nhật `UserGuideModal.tsx` và `docs/08-bo-go-ime-nhat-ban.md` giới thiệu tính năng đọc Romaji phân tách từ.
+
+4. **Bước 4: Kiểm thử & Biên dịch**
+   - Kiểm tra đoạn văn mẫu: `日本語能力試験（JLPT）で思い出す漢字の練習：日本人は漢字を毎日勉強する。一期一会、温故知新。`
+   - Đảm bảo hiển thị Romaji đẹp mắt: `Nihongo` `nōryoku` `shiken`, `Nihonjin` `wa` `kanji` `wo` `mainichi` `benkyō` `suru`.
+   - Chạy `compile_applet` và `lint_applet` đạt 0 lỗi.
+
+---
+
+Vui lòng xem xét kế hoạch chi tiết trên. Khi bạn đã sẵn sàng, hãy bấm **Proceed** để tôi tiến hành triển khai mã nguồn!

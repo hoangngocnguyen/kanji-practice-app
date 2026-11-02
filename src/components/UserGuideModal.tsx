@@ -195,6 +195,16 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                   </p>
                 </div>
 
+                <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200 shadow-2xs space-y-2 md:col-span-2">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs sm:text-sm">
+                    <Languages className="w-4 h-4 text-emerald-600" />
+                    Phiên Âm Romaji Tách Từ Chuẩn Hepburn (Bật/Tắt Romaji)
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Nút <strong>Romaji [BẬT/TẮT]</strong> trên thanh công cụ hỗ trợ tự động chuyển toàn bộ văn bản tiếng Nhật sang phiên âm Romaji chuẩn Hepburn với khoảng trắng phân tách từ ghép và cụm từ rõ ràng. Dòng Romaji được trình bày trực quan ngay dưới từng chữ Kanji và từng từ Kana trong <em>Khung đọc chi tiết từng chữ</em>, giúp bạn học đọc câu văn một cách chính xác nhất!
+                  </p>
+                </div>
+
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 md:col-span-2">
                   <div className="flex items-center gap-2 text-teal-700 font-semibold text-xs sm:text-sm">
                     <Sparkles className="w-4 h-4 text-teal-600" />

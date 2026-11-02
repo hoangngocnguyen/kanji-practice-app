@@ -55,6 +55,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   });
 
+  // 5. Input & Romaji Font Size setting ('sm' | 'md' | 'lg' | 'xl')
+  const [fontSize, setFontSize] = useState<string>(() => {
+    try {
+      return localStorage.getItem('kanji_setting_input_font_size') || 'md';
+    } catch {
+      return 'md';
+    }
+  });
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,16 +102,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch {}
   };
 
+  const handleSelectFontSize = (size: string) => {
+    setFontSize(size);
+    try {
+      localStorage.setItem('kanji_setting_input_font_size', size);
+      window.dispatchEvent(new Event('storage'));
+      if (showToast) showToast(`Đã đổi cỡ chữ ô nhập liệu sang ${size === 'sm' ? '12px' : size === 'lg' ? '16px' : size === 'xl' ? '18px' : '14px'}`, 'info');
+    } catch {}
+  };
+
   const handleResetDefaults = () => {
     try {
       localStorage.setItem('kanji_stroke_color_mode', 'multi');
       localStorage.setItem('kanji_stroke_single_color', '#dc2626');
       localStorage.setItem('kanji_setting_grid', 'true');
       localStorage.setItem('kanji_setting_list_furigana', 'false');
+      localStorage.setItem('kanji_setting_input_font_size', 'md');
       setColorMode('multi');
       setSingleColor('#dc2626');
       setDefaultGrid(true);
       setShowListFurigana(false);
+      setFontSize('md');
       window.dispatchEvent(new Event('storage'));
       if (showToast) showToast('Đã khôi phục cài đặt mặc định ban đầu!', 'success');
     } catch {}
@@ -225,7 +245,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="space-y-3 pt-3 border-t border-slate-100">
             <div className="flex items-center gap-2 font-bold text-slate-800">
               <BookOpen className="w-4 h-4 text-teal-600" />
-              <span>2. Tùy chọn hiển thị danh sách Kanji</span>
+              <span>2. Tùy chọn hiển thị & Cỡ chữ ô nhập</span>
+            </div>
+
+            {/* Font size selector for input & romaji text */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-xs sm:text-sm text-slate-800 block">
+                    Kích cỡ chữ ô nhập liệu & phiên âm Romaji
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Tùy chỉnh cỡ chữ văn bản tiếng Nhật & dòng phiên âm Romaji
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {[
+                  { id: 'sm', label: '12px (Nhỏ)' },
+                  { id: 'md', label: '14px (Vừa)' },
+                  { id: 'lg', label: '16px (Lớn)' },
+                  { id: 'xl', label: '18px (Rất lớn)' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelectFontSize(opt.id)}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-center border ${
+                      fontSize === opt.id
+                        ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-3">

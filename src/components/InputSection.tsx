@@ -23,7 +23,7 @@ import { KanjiItem } from '../types/kanji';
 import { getPresetBadgeClass } from '../utils/colorUtils';
 import { translateJapaneseToVietnamese, translateWithDetails, TranslationEngine } from '../utils/translation';
 import { speakJapanese } from '../utils/speech';
-import { romajiToKana, hasRomaji, KanaMode } from '../utils/romajiConverter';
+import { romajiToKana, kanaToRomaji, japaneseToFullRomaji, japaneseToRomajiPairs, hasRomaji, KanaMode } from '../utils/romajiConverter';
 import {
   ImeCandidate,
   resolveImeCandidates,
@@ -53,9 +53,13 @@ export const InputSection: React.FC<InputSectionProps> = ({
   onOpenScanner,
   onSelectKanji,
 }) => {
-  // Toggle states: Default OFF as requested by user
+  // Toggle states: Default OFF for Furigana/Meaning, Default TRUE for Romaji
   const [showFurigana, setShowFurigana] = useState<boolean>(false);
   const [showMeaning, setShowMeaning] = useState<boolean>(false);
+  const [showRomaji, setShowRomaji] = useState<boolean>(false);
+  // Full Romaji Transliteration Card state
+  const [showFullRomajiCard, setShowFullRomajiCard] = useState<boolean>(true);
+  const [copiedFullRomaji, setCopiedFullRomaji] = useState<boolean>(false);
 
   // Column layout for Glossed Reader Box (Default 1 column, adjustable 1 to 3 columns on PC)
   const [readerColumns, setReaderColumns] = useState<number>(1);
@@ -68,6 +72,44 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const [showTranslationCard, setShowTranslationCard] = useState<boolean>(false);
   const [copiedTranslation, setCopiedTranslation] = useState<boolean>(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+
+  // Font Size state ('sm' | 'md' | 'lg' | 'xl')
+  const [inputFontSize, setInputFontSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(() => {
+    try {
+      return (localStorage.getItem('kanji_setting_input_font_size') as any) || 'md';
+    } catch {
+      return 'md';
+    }
+  });
+
+  useEffect(() => {
+    const syncSettings = () => {
+      try {
+        const saved = (localStorage.getItem('kanji_setting_input_font_size') as any) || 'md';
+        setInputFontSize(saved);
+      } catch {}
+    };
+    window.addEventListener('storage', syncSettings);
+    return () => window.removeEventListener('storage', syncSettings);
+  }, []);
+
+  const handleChangeFontSize = (newSize: 'sm' | 'md' | 'lg' | 'xl') => {
+    setInputFontSize(newSize);
+    try {
+      localStorage.setItem('kanji_setting_input_font_size', newSize);
+      window.dispatchEvent(new Event('storage'));
+    } catch {}
+  };
+
+  // Auto convert entire input text to standard Hepburn Romaji with spaces & macrons
+  const fullRomajiText = React.useMemo(() => {
+    return japaneseToFullRomaji(inputText);
+  }, [inputText]);
+
+  // Interleaved line-by-line sentence pairs (Japanese input line -> Romaji line)
+  const romajiPairs = React.useMemo(() => {
+    return japaneseToRomajiPairs(inputText);
+  }, [inputText]);
 
   // Romaji to Kana/Kanji live typing conversion mode & guide modal
   const [kanaMode, setKanaMode] = useState<KanaMode>('off');
@@ -429,6 +471,44 @@ export const InputSection: React.FC<InputSectionProps> = ({
             >
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
+
+            {/* Direct Font Size Adjustment inside Input Frame */}
+            <div className="flex items-center gap-0.5 bg-slate-200/80 p-0.5 rounded-lg border border-slate-300/80 ml-1 text-[10px] font-bold text-slate-700">
+              <span className="px-1 text-[10px] text-slate-500 font-semibold hidden sm:inline">
+                Cỡ chữ:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const sizes: Array<'sm' | 'md' | 'lg' | 'xl'> = ['sm', 'md', 'lg', 'xl'];
+                  const curIdx = sizes.indexOf(inputFontSize);
+                  const nextSize = sizes[Math.max(0, curIdx - 1)];
+                  handleChangeFontSize(nextSize);
+                }}
+                disabled={inputFontSize === 'sm'}
+                className="px-1.5 py-0.2 rounded hover:bg-white text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer font-extrabold"
+                title="Giảm cỡ chữ ô nhập liệu & phiên âm (A-)"
+              >
+                A-
+              </button>
+              <span className="px-1 text-[10px] text-teal-800 font-black">
+                {inputFontSize === 'sm' ? '12px' : inputFontSize === 'lg' ? '16px' : inputFontSize === 'xl' ? '18px' : '14px'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const sizes: Array<'sm' | 'md' | 'lg' | 'xl'> = ['sm', 'md', 'lg', 'xl'];
+                  const curIdx = sizes.indexOf(inputFontSize);
+                  const nextSize = sizes[Math.min(sizes.length - 1, curIdx + 1)];
+                  handleChangeFontSize(nextSize);
+                }}
+                disabled={inputFontSize === 'xl'}
+                className="px-1.5 py-0.2 rounded hover:bg-white text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer font-extrabold"
+                title="Tăng cỡ chữ ô nhập liệu & phiên âm (A+)"
+              >
+                A+
+              </button>
+            </div>
           </div>
         </div>
 
@@ -446,7 +526,15 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 : "Dán đoạn văn tiếng Nhật bất kỳ vào đây... (Ví dụ: 日本語能力試験、漢字の書き順、練習、温故知新)"
             }
             rows={3}
-            className="w-full px-3.5 sm:px-4 py-3 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-2xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans text-xs sm:text-sm resize-y leading-relaxed shadow-inner min-h-[90px] sm:min-h-[105px]"
+            className={`w-full px-3.5 sm:px-4 py-3 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-2xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans resize-y leading-relaxed shadow-inner min-h-[90px] sm:min-h-[105px] ${
+              inputFontSize === 'sm'
+                ? 'text-xs'
+                : inputFontSize === 'lg'
+                ? 'text-base'
+                : inputFontSize === 'xl'
+                ? 'text-lg'
+                : 'text-sm'
+            }`}
           />
 
           {/* Floating IME Candidate Popover */}
@@ -493,6 +581,33 @@ export const InputSection: React.FC<InputSectionProps> = ({
         {/* Translation Trigger Bar & Engine Selector */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Action Toggle Button: Romaji toàn văn BẬT/TẮT */}
+            <button
+              type="button"
+              onClick={() => setShowFullRomajiCard(!showFullRomajiCard)}
+              disabled={!inputText.trim()}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[34px] sm:min-h-[36px] ${
+                showFullRomajiCard && fullRomajiText
+                  ? 'bg-indigo-50 text-indigo-950 border-2 border-indigo-600 ring-1 ring-indigo-500/20 shadow-xs'
+                  : inputText.trim()
+                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+              }`}
+              title="Bật/Tắt hiển thị khung phiên âm Romaji toàn bộ đoạn văn"
+            >
+              <Languages className={`w-3.5 h-3.5 ${showFullRomajiCard && fullRomajiText ? 'text-indigo-700' : 'text-slate-500'}`} />
+              <span>Romaji toàn văn</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                  showFullRomajiCard && fullRomajiText
+                    ? 'bg-indigo-700 text-white shadow-2xs'
+                    : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {showFullRomajiCard && fullRomajiText ? 'BẬT' : 'TẮT'}
+              </span>
+            </button>
+
             {/* Action Toggle Button: Dịch câu BẬT/TẮT */}
             <button
               type="button"
@@ -594,6 +709,104 @@ export const InputSection: React.FC<InputSectionProps> = ({
         </div>
       </div>
 
+      {/* FULL ROMAJI TRANSLITERATION CARD (PHIÊN ÂM ROMAJI XEN KẼ TỪNG DÒNG) */}
+      {inputText.trim() && showFullRomajiCard && romajiPairs.length > 0 && (
+        <div className="p-3.5 sm:p-4 bg-gradient-to-br from-indigo-50/80 via-slate-50 to-teal-50/30 rounded-2xl border-2 border-indigo-200/90 shadow-2xs space-y-3 transition-all animate-in fade-in duration-200">
+          <div className="flex items-center justify-between text-xs border-b border-indigo-100 pb-2 gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse shrink-0" />
+              <span className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
+                <Languages className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">Phiên âm Romaji xen kẽ từng dòng (Chuẩn Hepburn):</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const fullJoined = romajiPairs.map((p) => p.romaji).join(' ');
+                    await navigator.clipboard.writeText(fullJoined);
+                    setCopiedFullRomaji(true);
+                    setTimeout(() => setCopiedFullRomaji(false), 1800);
+                  } catch {}
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
+                title="Sao chép toàn bộ phiên âm Romaji"
+              >
+                {copiedFullRomaji ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    <span className="text-emerald-700">Đã chép</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-indigo-600" />
+                    <span>Sao chép Romaji</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowFullRomajiCard(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                title="Tạm ẩn khung phiên âm Romaji"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Interleaved sentence-by-sentence / line-by-line pairs */}
+          <div className="space-y-2">
+            {romajiPairs.map((pair, idx) => (
+              <div
+                key={idx}
+                className="p-2.5 sm:p-3 bg-white/90 rounded-xl border border-indigo-200/80 shadow-2xs space-y-1 hover:border-indigo-400 transition-all"
+              >
+                {/* Line 1: Japanese input with Kanji */}
+                <div
+                  className={`font-bold text-slate-900 flex items-center gap-2 font-kanji ${
+                    inputFontSize === 'sm'
+                      ? 'text-xs'
+                      : inputFontSize === 'lg'
+                      ? 'text-base'
+                      : inputFontSize === 'xl'
+                      ? 'text-lg'
+                      : 'text-sm'
+                  }`}
+                >
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-teal-100 text-teal-900 border border-teal-200 font-sans shrink-0">
+                    JP
+                  </span>
+                  <span>{pair.japanese}</span>
+                </div>
+
+                {/* Line 2: Romaji transliteration - Moderate size, font-medium, crisp & clean */}
+                <div
+                  className={`font-mono font-medium text-indigo-900 flex items-center gap-2 pl-0.5 ${
+                    inputFontSize === 'sm'
+                      ? 'text-[11px]'
+                      : inputFontSize === 'lg'
+                      ? 'text-[15px]'
+                      : inputFontSize === 'xl'
+                      ? 'text-[17px]'
+                      : 'text-[13px]'
+                  }`}
+                >
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-100/90 text-indigo-900 border border-indigo-200 font-sans shrink-0">
+                    ROMAJI
+                  </span>
+                  <span className="tracking-normal select-text leading-snug">{pair.romaji}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* FULL SENTENCE TRANSLATION CARD (DỊCH CẢ CÂU) */}
       {sentenceTranslation && showTranslationCard && (
         <div className="p-3 sm:p-4 bg-gradient-to-br from-indigo-50/60 via-teal-50/40 to-slate-50 rounded-2xl border-2 border-teal-200/90 shadow-2xs space-y-2 transition-all animate-in fade-in duration-200">
@@ -668,8 +881,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
         </div>
       )}
 
-      {/* INTERACTIVE GLOSSED READER BOX (Hiragana trên đầu & Nghĩa tiếng Việt bên dưới) */}
-      {(showFurigana || showMeaning) && inputText.trim() && kanjiList.length > 0 && (
+      {/* INTERACTIVE GLOSSED READER BOX (Hiragana trên đầu & Nghĩa tiếng Việt / Romaji bên dưới) */}
+      {(showFurigana || showMeaning || showRomaji) && inputText.trim() && kanjiList.length > 0 && (
         <div className="p-3.5 sm:p-4 bg-teal-50/40 rounded-2xl border-2 border-teal-200/90 space-y-2.5 transition-all">
           <div className="flex items-center justify-between text-xs text-slate-500 border-b border-teal-100 pb-2 flex-wrap gap-2">
             <span className="font-bold text-teal-950 flex items-center gap-1.5">
@@ -777,13 +990,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
                         const hanViet = item?.detail?.hanViet;
                         const meaning = item?.detail?.meanings?.[0];
                         const meaningDisplay = meaning || hanViet || '';
+                        const romaji = hira ? kanaToRomaji(hira) : '';
 
                         return (
                           <div
                             key={tokenIdx}
                             onClick={() => onSelectKanji && onSelectKanji(char)}
                             className="inline-flex flex-col items-center mx-0.5 my-0.5 px-2 py-1 rounded-xl hover:bg-teal-100 cursor-pointer transition-all group align-bottom bg-white border border-teal-200/90 shadow-2xs hover:border-teal-500 hover:shadow-xs active:scale-95 shrink-0"
-                            title={`Kanji: ${char}${hira ? ` | Hiragana: ${hira}` : ''}${hanViet ? ` | Hán-Việt: ${hanViet}` : ''}${item?.detail?.meanings?.length ? ` | Nghĩa: ${item.detail.meanings.join(', ')}` : ''} (Nhấp để tra cứu)`}
+                            title={`Kanji: ${char}${hira ? ` | Hiragana: ${hira}` : ''}${romaji ? ` | Romaji: ${romaji}` : ''}${hanViet ? ` | Hán-Việt: ${hanViet}` : ''}${item?.detail?.meanings?.length ? ` | Nghĩa: ${item.detail.meanings.join(', ')}` : ''} (Nhấp để tra cứu)`}
                           >
                             {/* 1. Hiragana trên đầu chữ Kanji (khi showFurigana BẬT) */}
                             {showFurigana && (
@@ -797,7 +1011,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
                               {char}
                             </span>
 
-                            {/* 3. Dịch nghĩa tiếng Việt bên dưới chữ Kanji (khi showMeaning BẬT) */}
+                            {/* 3. Phiên âm Romaji Hepburn phân tách từ (khi showRomaji BẬT) */}
+                            {showRomaji && romaji && (
+                              <span className="text-[10px] font-mono font-bold text-indigo-900 bg-indigo-50/90 border border-indigo-200 px-1.5 py-0.2 rounded-md leading-tight mt-1 select-none text-center group-hover:bg-indigo-100 shrink-0">
+                                {romaji}
+                              </span>
+                            )}
+
+                            {/* 4. Dịch nghĩa tiếng Việt bên dưới chữ Kanji (khi showMeaning BẬT) */}
                             {showMeaning && meaningDisplay && (
                               <span className="text-[9px] sm:text-[10px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded-md leading-tight mt-1 max-w-[80px] sm:max-w-[100px] truncate select-none text-center font-sans group-hover:bg-emerald-100">
                                 {meaningDisplay}
@@ -808,6 +1029,25 @@ export const InputSection: React.FC<InputSectionProps> = ({
                       }
 
                       // Non-kanji text run (Hiragana, Katakana, Latin words, punctuation, spaces)
+                      if (showRomaji && /[\u3040-\u30ff]/.test(token.content)) {
+                        const tokenRomaji = kanaToRomaji(token.content);
+                        return (
+                          <div
+                            key={tokenIdx}
+                            className="inline-flex flex-col items-center mx-0.5 my-0.5 px-1.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 align-bottom shrink-0 select-text"
+                          >
+                            <span className="text-xs sm:text-sm font-medium text-slate-800 leading-none px-0.5 font-sans">
+                              {token.content}
+                            </span>
+                            {tokenRomaji && (
+                              <span className="text-[10px] font-mono font-bold text-indigo-800 leading-none mt-1 select-none">
+                                {tokenRomaji}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }
+
                       return (
                         <span
                           key={tokenIdx}
@@ -857,7 +1097,31 @@ export const InputSection: React.FC<InputSectionProps> = ({
             </span>
           </button>
 
-          {/* Toggle 2: Nghĩa tiếng Việt bên dưới */}
+          {/* Toggle 2: Phiên âm Romaji cách từ */}
+          <button
+            type="button"
+            onClick={() => setShowRomaji(!showRomaji)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[11px] sm:text-xs min-h-[32px] sm:min-h-[36px] ${
+              showRomaji
+                ? 'bg-indigo-50 text-indigo-950 border-2 border-indigo-600 ring-1 ring-indigo-500/20 shadow-xs'
+                : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200'
+            }`}
+            title="Nhấp để Bật/Tắt hiển thị phiên âm Romaji Hepburn phân tách từ bên dưới mỗi từ"
+          >
+            <Languages className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${showRomaji ? 'text-indigo-700' : 'text-slate-400'}`} />
+            <span>Romaji</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                showRomaji
+                  ? 'bg-indigo-700 text-white shadow-2xs'
+                  : 'bg-slate-200 text-slate-500'
+              }`}
+            >
+              {showRomaji ? 'BẬT' : 'TẮT'}
+            </span>
+          </button>
+
+          {/* Toggle 3: Nghĩa tiếng Việt bên dưới */}
           <button
             type="button"
             onClick={() => setShowMeaning(!showMeaning)}

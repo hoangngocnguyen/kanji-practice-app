@@ -1,6 +1,6 @@
 {
-  "summary":  "Kế hoạch triển khai bộ gõ chuyển đổi Romaji -> Hiragana -> Kanji (Japanese IME Engine) với menu gợi ý từ chuẩn IME Nhật Bản bằng phím Space/Tab, tra cứu kết hợp Từ điển Offline và API Ngữ cảnh, tích hợp toàn diện trên Khung nhập văn bản chính và Thanh tìm kiếm nhanh.",
-  "updatedAt":  "2026-11-02T09:06:02.866128522Z",
+  "summary":  "Kế hoạch triển khai tính năng phiên âm Romaji phân tách từ (Word-Spaced Romaji Reader) trong Khung đọc chi tiết, hỗ trợ đọc chữ Hán và đoạn văn tiếng Nhật một cách chính xác nhất theo chuẩn Hepburn.",
+  "updatedAt":  "2026-11-02T09:57:45.273420749Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

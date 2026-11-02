@@ -107,3 +107,17 @@ Tính năng IME được đóng gói thành custom hook `useJapaneseIme.ts` và 
 1. **Khung Nhập Văn Bản Chính (`InputSection.tsx`)**: Hỗ trợ gõ bài văn, đoạn hội thoại hoặc từ vựng dài với nút gạt `漢 Kanji IME`.
 2. **Thanh Lọc Tìm Kiếm Nhanh (`App.tsx`)**: Có nút toggle `IME` nhỏ gọn, cho phép gõ `sakura` + `Space` để lọc ngay các chữ `桜`.
 3. **Ô Thêm Kanji Nhanh (`App.tsx`)**: Thêm trực tiếp chữ Hán vào danh sách thực hành ngay từ thanh công cụ.
+
+---
+
+## 6. Chuyển Đổi Romaji Có Khoảng Trắng (Romaji Transliteration & Reader Layer)
+
+Hệ thống tích hợp công cụ chuyển đổi Kana sang Romaji chuẩn Hepburn (`kanaToRomaji` trong `src/utils/romajiConverter.ts`) cùng lớp hiển thị trong Khung đọc chi tiết:
+
+1. **Phân Tách Từ & Ngữ Cảnh**:
+   - Khi bật nút **Romaji [BẬT]**, hệ thống tự động trích xuất âm Hiragana ưu tiên từ dữ liệu Kanji (Kun-yomi cho từ đơn, On-yomi cho từ ghép).
+   - Với các đoạn văn Kana/trợ từ (`は` -> `wa`, `を` -> `o`, `へ` -> `e`, v.v.), công cụ chuyển sang dạng phiên âm Romaji chuẩn.
+2. **Khoảng Trắng Dễ Đọc**:
+   - Các từ ghép và cụm từ được ngăn cách bởi khoảng trắng rõ ràng, giúp người mới bắt đầu dễ nhận biết ranh giới từ vựng và ngữ pháp trong câu văn dài.
+3. **Hiển Thị Đồng Bộ**:
+   - Dòng Romaji được trình bày theo layout thẻ song song bên dưới từng Kanji và từng token Kana trong Khung đọc chi tiết.
