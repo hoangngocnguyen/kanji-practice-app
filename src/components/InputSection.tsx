@@ -712,28 +712,44 @@ export const InputSection: React.FC<InputSectionProps> = ({
           </div>
 
           <div
-            className={`p-1 overflow-x-auto select-text font-sans ${
+            className={`grid gap-3 select-text font-sans transition-all ${
               readerColumns === 2
-                ? 'md:columns-2 gap-6 space-y-0'
+                ? 'grid-cols-1 md:grid-cols-2'
                 : readerColumns === 3
-                ? 'md:columns-2 lg:columns-3 gap-6 space-y-0'
-                : 'columns-1 space-y-2'
+                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                : 'grid-cols-1'
             }`}
           >
             {(() => {
-              const lines = inputText.split('\n');
+              // Split text into readable sentence / line blocks for multi-column layout
+              const getReaderBlocks = (text: string): string[] => {
+                if (!text.trim()) return [];
+                const rawLines = text.split('\n').filter((l) => l.trim().length > 0);
+                const blocks: string[] = [];
 
-              return lines.map((lineText, lineIdx) => {
-                // Render empty line gap if line is blank
-                if (!lineText.trim()) {
-                  return <div key={lineIdx} className="w-full h-3 sm:h-4 break-inside-avoid block" />;
+                for (const line of rawLines) {
+                  if (/[。！？]/.test(line)) {
+                    const sentences = line.split(/(?<=[。！？])/g).filter((s) => s.trim().length > 0);
+                    blocks.push(...sentences);
+                  } else if (line.length > 30 && /[、,：:]/.test(line)) {
+                    const clauses = line.split(/(?<=[、,：:])\s*/g).filter((c) => c.trim().length > 0);
+                    blocks.push(...clauses);
+                  } else {
+                    blocks.push(line);
+                  }
                 }
 
-                // Group consecutive non-kanji characters into continuous text tokens per line
+                return blocks.length > 0 ? blocks : [text];
+              };
+
+              const blocks = getReaderBlocks(inputText);
+
+              return blocks.map((blockText, blockIdx) => {
+                // Group consecutive non-kanji characters into continuous text tokens per block
                 const tokens: Array<{ type: 'kanji' | 'text'; content: string }> = [];
                 let currentText = '';
 
-                for (const char of lineText) {
+                for (const char of blockText) {
                   if (isKanjiChar(char)) {
                     if (currentText) {
                       tokens.push({ type: 'text', content: currentText });
@@ -750,8 +766,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
                 return (
                   <div
-                    key={lineIdx}
-                    className="flex flex-wrap items-end gap-1 leading-loose w-full break-inside-avoid mb-2.5 inline-block"
+                    key={blockIdx}
+                    className="bg-white/80 rounded-xl border border-teal-200/80 p-3 shadow-2xs flex flex-wrap items-end gap-1 leading-loose w-full align-top"
                   >
                     {tokens.map((token, tokenIdx) => {
                       if (token.type === 'kanji') {
