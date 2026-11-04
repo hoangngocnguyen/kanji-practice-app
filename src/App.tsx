@@ -108,6 +108,17 @@ export default function App() {
     }
   });
 
+  // Floating back to search / scroll-to-top button visibility
+  const [showScrollTop, setShowScrollTop] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 200);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Storage listener to update settings immediately when changed in SettingsModal
   useEffect(() => {
     const handleStorageChange = () => {
@@ -899,6 +910,27 @@ export default function App() {
         onClose={() => setIsPrintModalOpen(false)}
         showToast={showToast}
       />
+
+      {/* Floating Round Back to Top & Search Input Button */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Smoothly scroll and focus search input if available
+            const inputEl = document.querySelector('textarea, input[type="text"]') as HTMLInputElement | HTMLTextAreaElement;
+            if (inputEl) {
+              setTimeout(() => inputEl.focus(), 350);
+            }
+          }}
+          className="fixed bottom-6 right-6 z-40 p-3.5 bg-teal-700 hover:bg-teal-800 text-white rounded-full shadow-xl hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center border border-teal-500/30 group"
+          title="Quay lại khung tìm kiếm & đầu trang"
+          aria-label="Quay lại khung tìm kiếm"
+        >
+          <ArrowUp className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />
+          <span className="sr-only">Lên đầu trang</span>
+        </button>
+      )}
 
       {/* Footer & License Attribution */}
       <Footer onOpenLicenseModal={() => setIsLicenseOpen(true)} />

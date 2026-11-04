@@ -450,20 +450,27 @@
       if (cropW >= 8 && cropH >= 8) {
         processSnippedArea(bgImg, cropX, cropY, cropW, cropH);
       } else {
+        // Point click: only inspect the primary leaf element directly under the cursor
         const elements = document.elementsFromPoint(cropX, cropY);
         let foundKanjis = [];
         for (const el of elements) {
           if (el.id === 'luyen-kanji-root') continue;
+          // Skip high-level structural containers
+          const tag = el.tagName ? el.tagName.toLowerCase() : '';
+          if (['body', 'html', 'main', 'section', 'article', 'div'].includes(tag) && el.children.length > 2) {
+            continue;
+          }
           const text = el.innerText || el.textContent || '';
           const kanjis = extractKanji(text);
           if (kanjis.length > 0) {
-            foundKanjis = [...foundKanjis, ...kanjis];
+            foundKanjis = kanjis;
+            break; // Stop at deepest element matching Kanji
           }
         }
         if (foundKanjis.length > 0) {
           openModal(foundKanjis.join(''));
         } else {
-          openModal('日本語');
+          openModal('');
         }
       }
     };
@@ -498,17 +505,19 @@
     hud.querySelector('#lk-hud-scan-all').onclick = (e) => {
       e.stopPropagation();
       cleanup();
-      const allText = document.body ? document.body.innerText : '';
+      // Scan main page elements cleanly
+      const mainEl = document.querySelector('main, article, #content, .content, body');
+      const allText = mainEl ? mainEl.innerText : '';
       const kanjis = extractKanji(allText);
       if (kanjis.length > 0) {
-        openModal(kanjis.slice(0, 20).join(''));
+        openModal(kanjis.slice(0, 30).join(''));
       } else {
-        openModal('日本語漢字');
+        openModal('');
       }
     };
   }
 
-  // Crop image and extract Kanji
+  // Crop image and extract Kanji from precise bounding rect
   function processSnippedArea(img, x, y, w, h) {
     let croppedDataUrl = null;
 
@@ -531,29 +540,34 @@
     }
 
     let detectedChars = [];
-    const samplePoints = [
-      { x: x + w * 0.2, y: y + h * 0.2 },
-      { x: x + w * 0.5, y: y + h * 0.5 },
-      { x: x + w * 0.8, y: y + h * 0.8 },
-      { x: x + w * 0.5, y: y + h * 0.2 },
-      { x: x + w * 0.5, y: y + h * 0.8 }
-    ];
 
-    for (const pt of samplePoints) {
-      const elements = document.elementsFromPoint(pt.x, pt.y);
-      for (const el of elements) {
-        if (el.id === 'luyen-kanji-root') continue;
-        const text = el.innerText || el.textContent || '';
-        const kanjis = extractKanji(text);
-        if (kanjis.length > 0) {
-          detectedChars = [...detectedChars, ...kanjis];
+    // Precise DOM element extraction: find leaf text elements strictly inside selection box
+    const allElements = document.querySelectorAll('body *:not(#luyen-kanji-root)');
+    allElements.forEach((el) => {
+      const tag = el.tagName ? el.tagName.toLowerCase() : '';
+      if (['script', 'style', 'svg', 'path', 'iframe'].includes(tag)) return;
+
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        // Calculate intersection overlap area
+        const overlapX = Math.max(0, Math.min(x + w, rect.right) - Math.max(x, rect.left));
+        const overlapY = Math.max(0, Math.min(y + h, rect.bottom) - Math.max(y, rect.top));
+
+        // Must overlap significantly and be a leaf node (no large child elements)
+        if (overlapX > 3 && overlapY > 3) {
+          const isLeafNode = Array.from(el.children).every(
+            (child) => ['span', 'a', 'b', 'i', 'ruby', 'rt', 'sub', 'sup'].includes(child.tagName.toLowerCase())
+          );
+          if (isLeafNode) {
+            const text = el.innerText || el.textContent || '';
+            const kanjis = extractKanji(text);
+            if (kanjis.length > 0) {
+              detectedChars.push(...kanjis);
+            }
+          }
         }
       }
-    }
-
-    if (detectedChars.length === 0) {
-      detectedChars = ['東', '京', '駅', '日', '本', '語'];
-    }
+    });
 
     detectedChars = [...new Set(detectedChars)];
     const detectedString = detectedChars.join('');

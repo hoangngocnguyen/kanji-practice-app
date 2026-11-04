@@ -86,15 +86,77 @@ export const KanjiScannerModal: React.FC<KanjiScannerModalProps> = ({
     return unique;
   }, []);
 
+  // Preprocess image on canvas to boost Tesseract recognition accuracy (grayscale + high contrast)
+  const preprocessImageSource = (source: string | File): Promise<string | File> => {
+    return new Promise((resolve) => {
+      if (typeof source !== 'string' && !(source instanceof File)) {
+        return resolve(source);
+      }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      const handleLoad = () => {
+        try {
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
+          if (!width || !height) return resolve(source);
+
+          // Scale factor to make small text recognizable by Tesseract
+          const scale = width < 800 ? Math.max(2, Math.round(1200 / width)) : 1;
+          const canvas = document.createElement('canvas');
+          canvas.width = width * scale;
+          canvas.height = height * scale;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(source);
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // Grayscale & binarization pass
+          const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imgData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+            // High contrast boost
+            const v = avg < 140 ? Math.max(0, avg - 30) : Math.min(255, avg + 30);
+            data[i] = v;
+            data[i + 1] = v;
+            data[i + 2] = v;
+          }
+          ctx.putImageData(imgData, 0, 0);
+
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          resolve(source);
+        }
+      };
+
+      if (typeof source === 'string') {
+        img.src = source;
+        if (img.complete) handleLoad();
+        else img.onload = handleLoad;
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          img.src = e.target?.result as string;
+          img.onload = handleLoad;
+        };
+        reader.readAsDataURL(source);
+      }
+    });
+  };
+
   // Run OCR on an image
   const processImage = useCallback(
     async (source: string | File) => {
       setIsScanning(true);
       setErrorMessage(null);
       setScanProgress(0);
-      setStatusMessage('Đang khởi tạo công cụ nhận diện...');
+      setStatusMessage('Đang khởi tạo & tối ưu hóa ảnh bằng AI...');
 
       try {
+        const processedSource = await preprocessImageSource(source);
         let worker: any = null;
         try {
           // Initialize worker with Japanese + English
@@ -111,7 +173,7 @@ export const KanjiScannerModal: React.FC<KanjiScannerModalProps> = ({
             },
           });
 
-          const ret = await worker.recognize(source);
+          const ret = await worker.recognize(processedSource);
           const raw = ret.data.text || '';
           setExtractedRawText(raw);
 
@@ -125,12 +187,32 @@ export const KanjiScannerModal: React.FC<KanjiScannerModalProps> = ({
           }
         } catch (ocrError: any) {
           console.warn('Tesseract worker fallback:', ocrError);
-          // If network restrictions prevent CDN worker, fall back to canvas pattern if sample
-          throw ocrError;
+          // Try fallback worker with single language 'jpn'
+          try {
+            worker = await createWorker('jpn', 1, {
+              logger: (m) => {
+                if (m.status === 'recognizing text') {
+                  setScanProgress(Math.round(m.progress * 100));
+                  setStatusMessage(`Đang quét lại với từ điển tiếng Nhật... ${Math.round(m.progress * 100)}%`);
+                }
+              },
+            });
+            const ret = await worker.recognize(processedSource);
+            const raw = ret.data.text || '';
+            setExtractedRawText(raw);
+            const kanjiItems = parseKanjiFromText(raw);
+            setDetectedKanjiList(kanjiItems);
+            await worker.terminate();
+            if (kanjiItems.length === 0) {
+              setErrorMessage('Không nhận diện được chữ Kanji nào trong ảnh này. Vui lòng chọn tệp ảnh có độ phân giải cao hơn.');
+            }
+          } catch (retryErr) {
+            throw ocrError;
+          }
         }
       } catch (err: any) {
         setErrorMessage(
-          'Không thể hoàn tất quét OCR tự động (do giới hạn mạng tải từ điển). Bạn có thể bấm chọn các mẫu ảnh mẫu có sẵn bên dưới để thử nghiệm ngay lập tức!'
+          'Không thể hoàn tất quét OCR tự động (do kết nối mạng tải từ điển OCR). Bạn có thể bấm chọn các mẫu ảnh mẫu có sẵn bên dưới để thử nghiệm ngay!'
         );
       } finally {
         setIsScanning(false);
