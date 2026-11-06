@@ -517,8 +517,36 @@
     };
   }
 
-  // Crop image and extract Kanji from precise bounding rect
-  function processSnippedArea(img, x, y, w, h) {
+  // Run Tesseract OCR on cropped screenshot image dataUrl
+  async function runOcrOnCroppedImage(dataUrl) {
+    if (!dataUrl) return [];
+    try {
+      if (typeof window.Tesseract === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          (document.head || document.documentElement).appendChild(script);
+        });
+      }
+      if (typeof window.Tesseract !== 'undefined') {
+        const worker = await window.Tesseract.createWorker(['jpn', 'eng'], 1, {
+          logger: () => {}
+        });
+        const ret = await worker.recognize(dataUrl);
+        await worker.terminate();
+        const raw = ret && ret.data ? ret.data.text : '';
+        return extractKanji(raw);
+      }
+    } catch (e) {
+      console.warn("Tesseract OCR content script fallback:", e);
+    }
+    return [];
+  }
+
+  // Crop image and extract Kanji from precise bounding rect & image screenshot pixels
+  async function processSnippedArea(img, x, y, w, h) {
     let croppedDataUrl = null;
 
     if (img && img.complete && img.naturalWidth > 0) {
@@ -539,7 +567,7 @@
       }
     }
 
-    let detectedChars = [];
+    let domDetectedChars = [];
 
     // Precise DOM element extraction: find leaf text elements strictly inside selection box
     const allElements = document.querySelectorAll('body *:not(#luyen-kanji-root)');
@@ -562,21 +590,36 @@
             const text = el.innerText || el.textContent || '';
             const kanjis = extractKanji(text);
             if (kanjis.length > 0) {
-              detectedChars.push(...kanjis);
+              domDetectedChars.push(...kanjis);
             }
           }
         }
       }
     });
 
-    detectedChars = [...new Set(detectedChars)];
-    const detectedString = detectedChars.join('');
+    domDetectedChars = [...new Set(domDetectedChars)];
+    const initialString = domDetectedChars.join('');
 
-    openModal(detectedString, croppedDataUrl);
+    // Open modal immediately showing initial DOM text and OCR loading state
+    openModal(initialString, croppedDataUrl, true);
+
+    // Perform REAL Tesseract OCR on the screenshot image pixels in background
+    if (croppedDataUrl) {
+      const ocrKanjis = await runOcrOnCroppedImage(croppedDataUrl);
+      const combined = [...new Set([...domDetectedChars, ...ocrKanjis])];
+      if (currentModal) {
+        const finalString = combined.join('');
+        const searchInput = currentModal.querySelector('#lk-modal-search-input');
+        if (searchInput) searchInput.value = finalString;
+        const countEl = currentModal.querySelector('#lk-kanji-count');
+        if (countEl) countEl.textContent = combined.length;
+        renderMainKanjiList(finalString, combined, croppedDataUrl, false);
+      }
+    }
   }
 
   // Render Draggable Kanji Modal with Search Bar & OCR preview
-  function openModal(initialText, croppedImgUrl = null) {
+  function openModal(initialText, croppedImgUrl = null, isOcrLoading = false) {
     updateHostStyle(true);
     if (currentModal) currentModal.remove();
 
@@ -588,20 +631,22 @@
 
     overlay.innerHTML = `
       <div class="lk-card" id="lk-card-element">
+        <input type="file" id="lk-modal-file-input" accept="image/*" style="display:none;" />
         <div class="lk-header" id="lk-header-drag" title="Kéo thả để di chuyển cửa sổ modal">
           <h3>
             <span style="opacity: 0.6; font-size: 14px;">⠿</span>
             <span>⛩️ Luyện Kanji - Tra Cứu & Quét Ảnh Chữ Hán</span>
           </h3>
           <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="lk-btn lk-btn-primary" id="lk-top-snip" title="Khoanh vùng quét ảnh mới">📸 Khoanh vùng quét</button>
+            <button class="lk-btn lk-btn-primary" id="lk-top-snip" title="Khoanh vùng quét ảnh mới (Ctrl+Shift+K)">📸 Khoanh vùng</button>
+            <button class="lk-btn lk-btn-primary" id="lk-top-upload-image" title="Chọn tệp ảnh từ máy tính hoặc dán ảnh chụp màn hình (Ctrl+V)">🖼️ Chọn/Dán ảnh</button>
             <button class="lk-btn" id="lk-close-modal">✕ Đóng</button>
           </div>
         </div>
 
         <!-- Top Search Bar -->
         <div class="lk-modal-search-row">
-          <input type="text" id="lk-modal-search-input" class="lk-modal-search-input" placeholder="Nhập chữ Hán, câu văn tiếng Nhật cần tra..." value="${currentText}">
+          <input type="text" id="lk-modal-search-input" class="lk-modal-search-input" placeholder="Nhập chữ Hán, câu văn tiếng Nhật hoặc DÁN ẢNH (Ctrl+V)..." value="${currentText}">
           <button class="lk-btn lk-btn-dark" id="lk-modal-search-btn">Tra cứu</button>
         </div>
 
@@ -629,7 +674,67 @@
     const searchInput = overlay.querySelector('#lk-modal-search-input');
     const searchBtn = overlay.querySelector('#lk-modal-search-btn');
     const topSnipBtn = overlay.querySelector('#lk-top-snip');
+    const uploadImageBtn = overlay.querySelector('#lk-top-upload-image');
+    const fileInput = overlay.querySelector('#lk-modal-file-input');
     const openWebAppBtn = overlay.querySelector('#lk-open-webapp-btn');
+
+    if (uploadImageBtn && fileInput) {
+      uploadImageBtn.onclick = () => fileInput.click();
+      fileInput.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const dataUrl = ev.target?.result;
+            openModal('', dataUrl, true);
+            runOcrOnCroppedImage(dataUrl).then((ocrKanjis) => {
+              if (currentModal) {
+                const finalString = ocrKanjis.join('');
+                const sInput = currentModal.querySelector('#lk-modal-search-input');
+                if (sInput) sInput.value = finalString;
+                const countEl = currentModal.querySelector('#lk-kanji-count');
+                if (countEl) countEl.textContent = ocrKanjis.length;
+                renderMainKanjiList(finalString, ocrKanjis, dataUrl, false);
+              }
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+    }
+
+    // Modal paste listener for Ctrl+V images
+    const handlePasteInModal = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            e.preventDefault();
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const dataUrl = ev.target?.result;
+              openModal('', dataUrl, true);
+              runOcrOnCroppedImage(dataUrl).then((ocrKanjis) => {
+                if (currentModal) {
+                  const finalString = ocrKanjis.join('');
+                  const sInput = currentModal.querySelector('#lk-modal-search-input');
+                  if (sInput) sInput.value = finalString;
+                  const countEl = currentModal.querySelector('#lk-kanji-count');
+                  if (countEl) countEl.textContent = ocrKanjis.length;
+                  renderMainKanjiList(finalString, ocrKanjis, dataUrl, false);
+                }
+              });
+            };
+            reader.readAsDataURL(blob);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePasteInModal);
 
     let isDragging = false;
     let startX = 0, startY = 0;
@@ -664,6 +769,7 @@
     const closeModal = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('paste', handlePasteInModal);
       overlay.remove();
       currentModal = null;
       updateHostStyle(false);
@@ -677,7 +783,7 @@
       kanjis = extractKanji(currentText);
       const countEl = overlay.querySelector('#lk-kanji-count');
       if (countEl) countEl.textContent = kanjis.length;
-      renderMainKanjiList(currentText, kanjis, null);
+      renderMainKanjiList(currentText, kanjis, null, false);
     };
 
     searchBtn.onclick = doSearch;
@@ -693,11 +799,11 @@
       window.open(url, '_blank');
     };
 
-    renderMainKanjiList(currentText, kanjis, croppedImgUrl);
+    renderMainKanjiList(currentText, kanjis, croppedImgUrl, isOcrLoading);
   }
 
-  function renderMainKanjiList(rawText, kanjis, croppedImgUrl) {
-    const container = currentModal.querySelector('#lk-modal-content');
+  function renderMainKanjiList(rawText, kanjis, croppedImgUrl, isOcrLoading = false) {
+    const container = currentModal ? currentModal.querySelector('#lk-modal-content') : null;
     if (!container) return;
 
     let bannerHtml = '';
@@ -706,7 +812,14 @@
         <div class="lk-ocr-banner">
           <img src="${croppedImgUrl}" class="lk-ocr-thumb" alt="Vùng ảnh vừa chụp" />
           <div style="flex: 1; font-size: 12px; color: #166534;">
-            <strong>Ảnh chụp màn hình:</strong> Đã quét và trích xuất thành công <strong>${kanjis.length}</strong> chữ Hán.
+            ${isOcrLoading ? `
+              <div style="display:flex; align-items:center; gap:6px; color:#0f766e; font-weight:700;">
+                <span style="font-size:14px;">⚡</span>
+                <span>Đang chạy AI OCR nhận diện chữ Hán trên hình ảnh chụp màn hình...</span>
+              </div>
+            ` : `
+              <strong>Ảnh chụp màn hình:</strong> Đã quét và trích xuất thành công <strong>${kanjis.length}</strong> chữ Hán từ hình ảnh.
+            `}
           </div>
         </div>
       `;
@@ -821,6 +934,20 @@
     chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
       if (req.action === "START_SCREEN_SNIP" || req.action === "ACTIVATE_SNIP_MODE") {
         startScreenSnipping(req.imageUri || null);
+        sendResponse({ success: true });
+        return true;
+      } else if (req.action === "START_SCREEN_SNIP_DATA_URL" && req.imageUri) {
+        openModal('', req.imageUri, true);
+        runOcrOnCroppedImage(req.imageUri).then((ocrKanjis) => {
+          if (currentModal) {
+            const finalString = ocrKanjis.join('');
+            const searchInput = currentModal.querySelector('#lk-modal-search-input');
+            if (searchInput) searchInput.value = finalString;
+            const countEl = currentModal.querySelector('#lk-kanji-count');
+            if (countEl) countEl.textContent = ocrKanjis.length;
+            renderMainKanjiList(finalString, ocrKanjis, req.imageUri, false);
+          }
+        });
         sendResponse({ success: true });
         return true;
       } else if (req.action === "OPEN_KANJI_MODAL" && req.text) {

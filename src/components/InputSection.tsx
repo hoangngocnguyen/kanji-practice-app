@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Trash2,
   Sparkles,
@@ -6,6 +6,7 @@ import {
   Download,
   FileText,
   Camera,
+  Upload,
   Languages,
   BookOpen,
   Volume2,
@@ -41,6 +42,7 @@ interface InputSectionProps {
   onExportCsv: () => void;
   onOpenScanner?: () => void;
   onSelectKanji?: (char: string) => void;
+  activeTab?: string;
 }
 
 export const InputSection: React.FC<InputSectionProps> = ({
@@ -52,13 +54,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
   onExportCsv,
   onOpenScanner,
   onSelectKanji,
+  activeTab = 'kanji-strokes',
 }) => {
   // Toggle states: Default OFF for Furigana/Meaning, Default TRUE for Romaji
   const [showFurigana, setShowFurigana] = useState<boolean>(false);
   const [showMeaning, setShowMeaning] = useState<boolean>(false);
   const [showRomaji, setShowRomaji] = useState<boolean>(false);
-  // Full Romaji Transliteration Card state
-  const [showFullRomajiCard, setShowFullRomajiCard] = useState<boolean>(true);
+  // Full Romaji Transliteration Card state - Default OFF on page load
+  const [showFullRomajiCard, setShowFullRomajiCard] = useState<boolean>(false);
   const [copiedFullRomaji, setCopiedFullRomaji] = useState<boolean>(false);
 
   // Column layout for Glossed Reader Box (Default 1 column, adjustable 1 to 3 columns on PC)
@@ -72,6 +75,18 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const [showTranslationCard, setShowTranslationCard] = useState<boolean>(false);
   const [copiedTranslation, setCopiedTranslation] = useState<boolean>(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+
+  // Only open card if user explicitly selects romaji-reader or translation tab
+  useEffect(() => {
+    if (activeTab === 'romaji-reader') {
+      setShowFullRomajiCard(true);
+    } else if (activeTab === 'translation') {
+      setShowTranslationCard(true);
+      if (!sentenceTranslation && inputText.trim() && !isTranslating) {
+        handleTranslateSentence(engine);
+      }
+    }
+  }, [activeTab]);
 
   // Font Size state ('sm' | 'md' | 'lg' | 'xl')
   const [inputFontSize, setInputFontSize] = useState<'sm' | 'md' | 'lg' | 'xl'>(() => {
@@ -99,6 +114,50 @@ export const InputSection: React.FC<InputSectionProps> = ({
       localStorage.setItem('kanji_setting_input_font_size', newSize);
       window.dispatchEvent(new Event('storage'));
     } catch {}
+  };
+
+  // Direct file input ref & processing state for instant image upload/paste
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
+
+  const processImageFileOrBlob = async (file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setIsProcessingImage(true);
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker(['jpn', 'eng'], 1);
+      const ret = await worker.recognize(file);
+      await worker.terminate();
+      const rawText = ret.data ? ret.data.text : '';
+      const kanjiMatches = rawText.match(/[\u4e00-\u9faf]/g) || [];
+      const uniqueKanji = Array.from(new Set(kanjiMatches)).join('');
+
+      if (uniqueKanji) {
+        setInputText(inputText ? `${inputText} ${uniqueKanji}` : uniqueKanji);
+      } else if (onOpenScanner) {
+        onOpenScanner();
+      }
+    } catch (err) {
+      console.warn("Direct image processing error:", err);
+      if (onOpenScanner) onOpenScanner();
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  const handlePasteImage = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          e.preventDefault();
+          processImageFileOrBlob(blob);
+          break;
+        }
+      }
+    }
   };
 
   // Auto convert entire input text to standard Hepburn Romaji with spaces & macrons
@@ -334,9 +393,9 @@ export const InputSection: React.FC<InputSectionProps> = ({
   }, [inputText]);
 
   return (
-    <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 space-y-4 transition-all">
+    <section id="input-section" className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 space-y-4 transition-all">
       {/* Title & Clear Action */}
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200/70 shrink-0">
             <FileText className="w-4 h-4" />
@@ -351,16 +410,50 @@ export const InputSection: React.FC<InputSectionProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {onOpenScanner && (
+        <div className="flex items-center gap-2 self-start lg:self-auto shrink-0">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                processImageFileOrBlob(file);
+                e.target.value = '';
+              }
+            }}
+          />
+
+          {onOpenScanner ? (
             <button
               type="button"
               onClick={onOpenScanner}
-              className="inline-flex items-center gap-1.5 px-3 h-9 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
-              title="Quét ảnh hoặc dán ảnh chụp màn hình để trích xuất chữ Kanji"
+              disabled={isProcessingImage}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
+              title="Chọn tệp ảnh, dán ảnh chụp màn hình (Ctrl+V) hoặc chụp ảnh quét chữ Hán (OCR)"
             >
-              <Camera className="w-3.5 h-3.5 text-teal-700" />
-              <span>Quét ảnh Kanji</span>
+              {isProcessingImage ? (
+                <RefreshCw className="w-3.5 h-3.5 text-teal-700 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5 text-teal-700" />
+              )}
+              <span>{isProcessingImage ? 'Đang đọc...' : 'Chọn ảnh / Dán ảnh'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessingImage}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
+              title="Chọn tệp hình ảnh hoặc bấm Ctrl+V để dán ảnh chụp màn hình ngay tại ô nhập liệu"
+            >
+              {isProcessingImage ? (
+                <RefreshCw className="w-3.5 h-3.5 text-teal-700 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5 text-teal-700" />
+              )}
+              <span>{isProcessingImage ? 'Đang đọc...' : 'Chọn ảnh / Dán ảnh'}</span>
             </button>
           )}
 
@@ -368,7 +461,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
             type="button"
             onClick={onClear}
             disabled={!inputText}
-            className={`inline-flex items-center gap-1.5 px-3 h-9 text-xs font-semibold rounded-xl transition-all shrink-0 ${
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-semibold rounded-xl transition-all shrink-0 ${
               inputText
                 ? 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 cursor-pointer shadow-2xs active:scale-95'
                 : 'text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-50'
@@ -383,7 +476,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
       {/* Preset Quick Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 touch-pan-x scroll-smooth">
-        <span className="text-slate-400 font-semibold whitespace-nowrap shrink-0">
+        <span className="text-slate-400 font-normal sm:font-semibold whitespace-nowrap shrink-0 text-[12px]">
           Mẫu có sẵn:
         </span>
         {SAMPLE_PRESETS.map((preset, idx) => {
@@ -393,10 +486,10 @@ export const InputSection: React.FC<InputSectionProps> = ({
               key={idx}
               type="button"
               onClick={() => setInputText(preset.text)}
-              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border font-semibold cursor-pointer shrink-0 shadow-2xs flex items-center gap-1.5 hover:shadow-xs ${style.btn}`}
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl whitespace-nowrap transition-all border font-normal sm:font-semibold cursor-pointer shrink-0 shadow-2xs flex items-center gap-1.5 text-[12px] sm:text-xs hover:shadow-xs ${style.btn}`}
               title={preset.desc}
             >
-              <span className={`w-2 h-2 rounded-full ${style.dot}`}></span>
+              <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${style.dot}`}></span>
               <span>{preset.title}</span>
             </button>
           );
@@ -406,21 +499,21 @@ export const InputSection: React.FC<InputSectionProps> = ({
       {/* Textarea Box & Quick Action Toolbar */}
       <div className="space-y-2">
         {/* Romaji typing switcher header */}
-        <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
-          <span className="text-slate-500 font-medium text-[11px] sm:text-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 text-xs">
+          <span className="text-slate-500 font-normal sm:font-medium text-[12px] sm:text-xs">
             Nhập tiếng Nhật hoặc gõ phiên âm Romaji:
           </span>
 
-          <div className="flex items-center gap-1 text-[11px] bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200">
-            <span className="text-slate-500 font-semibold px-1 text-[10px] sm:text-[11px]">
+          <div className="flex items-center gap-1 max-w-full overflow-x-auto no-scrollbar p-1 bg-slate-100/90 rounded-xl border border-slate-200 shrink-0">
+            <span className="text-slate-500 font-normal px-1 text-[11px] hidden sm:inline">
               ⌨️ Gõ Romaji:
             </span>
             <button
               type="button"
               onClick={() => setKanaMode('off')}
-              className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+              className={`px-2 py-0.5 rounded-lg transition-all text-[12px] font-normal sm:font-semibold cursor-pointer whitespace-nowrap ${
                 kanaMode === 'off'
-                  ? 'bg-white text-slate-800 shadow-2xs font-bold'
+                  ? 'bg-white text-slate-800 shadow-2xs font-medium sm:font-bold'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
               title="Tắt tự động chuyển Romaji"
@@ -430,68 +523,64 @@ export const InputSection: React.FC<InputSectionProps> = ({
             <button
               type="button"
               onClick={() => setKanaMode('kanji')}
-              className={`px-2.5 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+              className={`px-2 py-0.5 rounded-lg transition-all text-[12px] font-normal sm:font-semibold cursor-pointer whitespace-nowrap ${
                 kanaMode === 'kanji'
-                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  ? 'bg-teal-700 text-white shadow-2xs font-medium sm:font-bold'
                   : 'text-slate-600 hover:text-teal-900'
               }`}
-              title="Gõ Romaji -> Hiragana -> bấm Tab/Space để gợi ý và chọn Kanji chuẩn IME Nhật (ví dụ: gõ 'taberu' rồi bấm Tab chọn 食べる)"
+              title="Gõ Romaji -> Hiragana -> bấm Tab/Space để chọn Kanji (IME Nhật)"
             >
               <span>漢 Kanji IME</span>
             </button>
             <button
               type="button"
               onClick={() => setKanaMode('hiragana')}
-              className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+              className={`px-2 py-0.5 rounded-lg transition-all text-[12px] font-normal sm:font-semibold cursor-pointer whitespace-nowrap ${
                 kanaMode === 'hiragana'
-                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  ? 'bg-teal-700 text-white shadow-2xs font-medium sm:font-bold'
                   : 'text-slate-600 hover:text-teal-900'
               }`}
-              title="Tự động đổi Romaji thành Hiragana khi gõ (ví dụ: gõ 'nihon' ra 'にほん')"
+              title="Tự động đổi Romaji thành Hiragana"
             >
               あ Hiragana
             </button>
             <button
               type="button"
               onClick={() => setKanaMode('katakana')}
-              className={`px-2 py-0.5 rounded-lg transition-all font-semibold cursor-pointer ${
+              className={`px-2 py-0.5 rounded-lg transition-all text-[12px] font-normal sm:font-semibold cursor-pointer whitespace-nowrap ${
                 kanaMode === 'katakana'
-                  ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                  ? 'bg-teal-700 text-white shadow-2xs font-medium sm:font-bold'
                   : 'text-slate-600 hover:text-teal-900'
               }`}
-              title="Tự động đổi Romaji thành Katakana khi gõ (ví dụ: gõ 'kohi' ra 'コーヒ')"
+              title="Tự động đổi Romaji thành Katakana"
             >
               ア Katakana
             </button>
             <button
               type="button"
               onClick={() => setShowImeGuideModal(true)}
-              className="p-1 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-slate-200 transition-all cursor-pointer ml-0.5 shrink-0"
-              title="Hướng dẫn sử dụng các chế độ gõ Romaji & Kanji IME"
+              className="p-1 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer shrink-0"
+              title="Hướng dẫn bộ gõ"
             >
               <HelpCircle className="w-3.5 h-3.5" />
             </button>
 
-            {/* Direct Font Size Adjustment inside Input Frame */}
-            <div className="flex items-center gap-0.5 bg-slate-200/80 p-0.5 rounded-lg border border-slate-300/80 ml-1 text-[10px] font-bold text-slate-700">
-              <span className="px-1 text-[10px] text-slate-500 font-semibold hidden sm:inline">
-                Cỡ chữ:
-              </span>
+            {/* Direct Font Size Stepper */}
+            <div className="flex items-center gap-0.5 bg-slate-200/80 px-1 py-0.5 rounded-lg border border-slate-300/80 text-[10px] font-bold text-slate-700 ml-1 shrink-0">
               <button
                 type="button"
                 onClick={() => {
                   const sizes: Array<'sm' | 'md' | 'lg' | 'xl'> = ['sm', 'md', 'lg', 'xl'];
                   const curIdx = sizes.indexOf(inputFontSize);
-                  const nextSize = sizes[Math.max(0, curIdx - 1)];
-                  handleChangeFontSize(nextSize);
+                  handleChangeFontSize(sizes[Math.max(0, curIdx - 1)]);
                 }}
                 disabled={inputFontSize === 'sm'}
-                className="px-1.5 py-0.2 rounded hover:bg-white text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer font-extrabold"
-                title="Giảm cỡ chữ ô nhập liệu & phiên âm (A-)"
+                className="px-1 text-slate-700 disabled:opacity-30 cursor-pointer font-extrabold"
+                title="Giảm cỡ chữ (A-)"
               >
                 A-
               </button>
-              <span className="px-1 text-[10px] text-teal-800 font-black">
+              <span className="px-0.5 text-[10px] text-teal-800 font-black">
                 {inputFontSize === 'sm' ? '12px' : inputFontSize === 'lg' ? '16px' : inputFontSize === 'xl' ? '18px' : '14px'}
               </span>
               <button
@@ -499,12 +588,11 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 onClick={() => {
                   const sizes: Array<'sm' | 'md' | 'lg' | 'xl'> = ['sm', 'md', 'lg', 'xl'];
                   const curIdx = sizes.indexOf(inputFontSize);
-                  const nextSize = sizes[Math.min(sizes.length - 1, curIdx + 1)];
-                  handleChangeFontSize(nextSize);
+                  handleChangeFontSize(sizes[Math.min(sizes.length - 1, curIdx + 1)]);
                 }}
                 disabled={inputFontSize === 'xl'}
-                className="px-1.5 py-0.2 rounded hover:bg-white text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer font-extrabold"
-                title="Tăng cỡ chữ ô nhập liệu & phiên âm (A+)"
+                className="px-1 text-slate-700 disabled:opacity-30 cursor-pointer font-extrabold"
+                title="Tăng cỡ chữ (A+)"
               >
                 A+
               </button>
@@ -518,12 +606,13 @@ export const InputSection: React.FC<InputSectionProps> = ({
             value={inputText}
             onChange={handleInputChange}
             onKeyDown={handleTextareaKeyDown}
+            onPaste={handlePasteImage}
             placeholder={
               kanaMode === 'kanji'
-                ? "Đang bật bộ gõ Kanji IME... Hãy gõ Romaji (ví dụ: nihon, taberu, gakusei) rồi bấm phím [Space] hoặc [Tab] để chọn Kanji!"
+                ? "Đang bật bộ gõ Kanji IME... Gõ Romaji (nihon, taberu, gakusei) rồi bấm phím [Space] hoặc [Tab] để chọn Kanji!"
                 : kanaMode !== 'off'
-                ? `Đang bật chế độ gõ Romaji -> ${kanaMode === 'hiragana' ? 'Hiragana (あ)' : 'Katakana (ア)'}... Hãy gõ: konnichiwa, tokyo, nihon...`
-                : "Dán đoạn văn tiếng Nhật bất kỳ vào đây... (Ví dụ: 日本語能力試験、漢字の書き順、練習、温故知新)"
+                ? `Đang bật gõ Romaji -> ${kanaMode === 'hiragana' ? 'Hiragana (あ)' : 'Katakana (ア)'}... Gõ: konnichiwa, tokyo, nihon...`
+                : "Dán đoạn văn tiếng Nhật hoặc DÁN ẢNH CHÚP MÀN HÌNH (Ctrl+V) vào đây để trích xuất chữ Kanji tự động..."
             }
             rows={3}
             className={`w-full px-3.5 sm:px-4 py-3 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-2xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans resize-y leading-relaxed shadow-inner min-h-[90px] sm:min-h-[105px] ${
@@ -553,24 +642,24 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
         {/* Romaji detected quick-convert banner */}
         {hasRomaji(inputText) && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 animate-in fade-in duration-150">
-            <span className="font-medium text-[11px] sm:text-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 animate-in fade-in duration-150">
+            <span className="font-normal sm:font-medium text-[12px] sm:text-xs">
               Phát hiện chữ Latinh/Romaji trong đoạn văn:
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => handleConvertCurrentText('hiragana')}
-                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-bold rounded-lg border border-amber-300 shadow-2xs cursor-pointer active:scale-95 text-[11px] transition-all"
-                title="Chuyển toàn bộ các từ Romaji tiếng Nhật thành chữ mềm Hiragana"
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-normal sm:font-bold rounded-lg border border-amber-300 shadow-2xs cursor-pointer active:scale-95 text-[12px] transition-all whitespace-nowrap"
+                title="Chuyển Romaji thành chữ mềm Hiragana"
               >
                 Đổi sang Hiragana (あ)
               </button>
               <button
                 type="button"
                 onClick={() => handleConvertCurrentText('katakana')}
-                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-bold rounded-lg border border-amber-300 shadow-2xs cursor-pointer active:scale-95 text-[11px] transition-all"
-                title="Chuyển toàn bộ các từ Romaji tiếng Nhật thành chữ cứng Katakana"
+                className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-900 font-normal sm:font-bold rounded-lg border border-amber-300 shadow-2xs cursor-pointer active:scale-95 text-[12px] transition-all whitespace-nowrap"
+                title="Chuyển Romaji thành chữ cứng Katakana"
               >
                 Đổi sang Katakana (ア)
               </button>
@@ -578,29 +667,29 @@ export const InputSection: React.FC<InputSectionProps> = ({
           </div>
         )}
 
-        {/* Translation Trigger Bar & Engine Selector */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Action Toggle Button: Romaji toàn văn BẬT/TẮT */}
+        {/* Action Controls & Statistics Bar */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Action Toggle Button: Romaji BẬT/TẮT */}
             <button
               type="button"
               onClick={() => setShowFullRomajiCard(!showFullRomajiCard)}
               disabled={!inputText.trim()}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[34px] sm:min-h-[36px] ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3 rounded-xl text-[12px] sm:text-xs font-normal sm:font-bold transition-all cursor-pointer shadow-2xs active:scale-95 h-8 sm:h-9 ${
                 showFullRomajiCard && fullRomajiText
-                  ? 'bg-indigo-50 text-indigo-950 border-2 border-indigo-600 ring-1 ring-indigo-500/20 shadow-xs'
+                  ? 'bg-indigo-50 text-indigo-950 border border-indigo-600 ring-1 ring-indigo-500/20 shadow-xs'
                   : inputText.trim()
                   ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
               }`}
-              title="Bật/Tắt hiển thị khung phiên âm Romaji toàn bộ đoạn văn"
+              title="Bật/Tắt hiển thị phiên âm Romaji"
             >
               <Languages className={`w-3.5 h-3.5 ${showFullRomajiCard && fullRomajiText ? 'text-indigo-700' : 'text-slate-500'}`} />
-              <span>Romaji toàn văn</span>
+              <span>Romaji</span>
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                className={`px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight ${
                   showFullRomajiCard && fullRomajiText
-                    ? 'bg-indigo-700 text-white shadow-2xs'
+                    ? 'bg-indigo-700 text-white'
                     : 'bg-slate-200 text-slate-500'
                 }`}
               >
@@ -620,18 +709,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 }
               }}
               disabled={!inputText.trim() || isTranslating}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 min-h-[34px] sm:min-h-[36px] ${
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3 rounded-xl text-[12px] sm:text-xs font-normal sm:font-bold transition-all cursor-pointer shadow-2xs active:scale-95 h-8 sm:h-9 ${
                 showTranslationCard && sentenceTranslation
-                  ? 'bg-teal-50 text-teal-950 border-2 border-teal-600 ring-1 ring-teal-500/20 shadow-xs'
+                  ? 'bg-teal-50 text-teal-950 border border-teal-600 ring-1 ring-teal-500/20 shadow-xs'
                   : inputText.trim()
                   ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
                   : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
               }`}
-              title={
-                inputText.trim()
-                  ? `Bật/Tắt hiển thị bản dịch toàn câu tiếng Việt (${engine === 'google' ? 'Google Dịch' : 'Gemini AI'})`
-                  : 'Nhập văn bản trước khi dịch'
-              }
+              title="Bật/Tắt hiển thị bản dịch toàn câu"
             >
               <Languages className={`w-3.5 h-3.5 ${showTranslationCard && sentenceTranslation ? 'text-teal-700' : 'text-slate-500'}`} />
               <span>Dịch câu</span>
@@ -639,9 +724,9 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 <span className="w-3 h-3 border-2 border-teal-700 border-t-transparent rounded-full animate-spin ml-0.5" />
               ) : (
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+                  className={`px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight ${
                     showTranslationCard && sentenceTranslation
-                      ? 'bg-teal-700 text-white shadow-2xs'
+                      ? 'bg-teal-700 text-white'
                       : 'bg-slate-200 text-slate-500'
                   }`}
                 >
@@ -650,8 +735,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
               )}
             </button>
 
-            {/* Translation Engine Quick Toggle (Google Translate vs Gemini AI) */}
-            <div className="inline-flex p-0.5 bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-semibold items-center">
+            {/* Translation Engine Selector */}
+            <div className="inline-flex p-0.5 bg-slate-100 border border-slate-200 rounded-xl text-[12px] sm:text-[11px] font-normal sm:font-semibold items-center h-8 sm:h-9">
               <button
                 type="button"
                 onClick={() => {
@@ -660,10 +745,10 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 }}
                 className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
                   engine === 'google'
-                    ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                    ? 'bg-teal-700 text-white shadow-2xs font-normal sm:font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="Dịch siêu tốc 150ms bằng Google Dịch, dịch tự nhiên câu giao tiếp chuẩn nghĩa"
+                title="Google Dịch"
               >
                 Google Dịch
               </button>
@@ -675,10 +760,10 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 }}
                 className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
                   engine === 'gemini'
-                    ? 'bg-indigo-700 text-white shadow-2xs font-bold'
+                    ? 'bg-indigo-700 text-white shadow-2xs font-normal sm:font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="Dịch bằng Gemini AI hiểu sâu sắc ngữ cảnh văn hóa"
+                title="Gemini AI Dịch"
               >
                 Gemini AI
               </button>
@@ -688,8 +773,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
               <button
                 type="button"
                 onClick={() => speakJapanese(inputText)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer min-h-[34px] sm:min-h-[36px]"
-                title="Nghe đọc toàn bộ đoạn văn bằng giọng chuẩn Nhật Bản"
+                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-[12px] sm:text-xs font-normal sm:font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer h-8 sm:h-9"
+                title="Nghe đọc toàn bộ đoạn văn"
               >
                 <Volume2 className="w-3.5 h-3.5 text-teal-600" />
                 <span className="hidden sm:inline">Phát âm</span>
@@ -697,27 +782,24 @@ export const InputSection: React.FC<InputSectionProps> = ({
             )}
           </div>
 
-          {/* Character and Kanji statistics pill */}
-          <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 font-medium self-end sm:self-auto">
-            <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700">
-              {inputText.length} ký tự
-            </span>
-            <span className="px-2 py-0.5 rounded-lg bg-teal-50 text-teal-900 border border-teal-200 font-bold">
-              {kanjiList.length} Kanji
-            </span>
+          {/* Clean Unboxed Text Metadata per Frontend Design Constitution */}
+          <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-500 font-medium self-end sm:self-center shrink-0">
+            <span>{inputText.length} ký tự</span>
+            <span aria-hidden="true">·</span>
+            <span className="font-bold text-teal-800">{kanjiList.length} Kanji</span>
           </div>
         </div>
       </div>
 
-      {/* FULL ROMAJI TRANSLITERATION CARD (PHIÊN ÂM ROMAJI XEN KẼ TỪNG DÒNG) */}
+      {/* FULL ROMAJI TRANSLITERATION CARD */}
       {inputText.trim() && showFullRomajiCard && romajiPairs.length > 0 && (
-        <div className="p-3.5 sm:p-4 bg-gradient-to-br from-indigo-50/80 via-slate-50 to-teal-50/30 rounded-2xl border-2 border-indigo-200/90 shadow-2xs space-y-3 transition-all animate-in fade-in duration-200">
+        <div id="romaji-card-section" className="p-3.5 sm:p-4 bg-gradient-to-br from-indigo-50/80 via-slate-50 to-teal-50/30 rounded-2xl border-2 border-indigo-200/90 shadow-2xs space-y-3 transition-all animate-in fade-in duration-200">
           <div className="flex items-center justify-between text-xs border-b border-indigo-100 pb-2 gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse shrink-0" />
               <span className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
                 <Languages className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <span className="truncate">Phiên âm Romaji xen kẽ từng dòng (Chuẩn Hepburn):</span>
+                <span className="truncate">Phiên âm Romaji (Chuẩn Hepburn):</span>
               </span>
             </div>
 
@@ -808,8 +890,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
       )}
 
       {/* FULL SENTENCE TRANSLATION CARD (DỊCH CẢ CÂU) */}
-      {sentenceTranslation && showTranslationCard && (
-        <div className="p-3 sm:p-4 bg-gradient-to-br from-indigo-50/60 via-teal-50/40 to-slate-50 rounded-2xl border-2 border-teal-200/90 shadow-2xs space-y-2 transition-all animate-in fade-in duration-200">
+      {showTranslationCard && (sentenceTranslation || isTranslating) && (
+        <div id="translation-card-section" className="p-3 sm:p-4 bg-gradient-to-br from-indigo-50/60 via-teal-50/40 to-slate-50 rounded-2xl border-2 border-teal-200/90 shadow-2xs space-y-2 transition-all animate-in fade-in duration-200">
           <div className="flex items-center justify-between text-xs border-b border-teal-100 pb-2 gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse shrink-0" />
@@ -827,24 +909,26 @@ export const InputSection: React.FC<InputSectionProps> = ({
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={handleCopyTranslation}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-teal-900 bg-white hover:bg-teal-50 border border-teal-200 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
-                title="Sao chép bản dịch tiếng Việt"
-              >
-                {copiedTranslation ? (
-                  <>
-                    <Check className="w-3 h-3 text-emerald-600" />
-                    <span className="text-emerald-700">Đã chép</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3 text-teal-600" />
-                    <span>Sao chép</span>
-                  </>
-                )}
-              </button>
+              {sentenceTranslation && (
+                <button
+                  type="button"
+                  onClick={handleCopyTranslation}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-teal-900 bg-white hover:bg-teal-50 border border-teal-200 rounded-lg transition-all cursor-pointer shadow-2xs active:scale-95"
+                  title="Sao chép bản dịch tiếng Việt"
+                >
+                  {copiedTranslation ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span className="text-emerald-700">Đã chép</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3 text-teal-600" />
+                      <span>Sao chép</span>
+                    </>
+                  )}
+                </button>
+              )}
 
               <button
                 type="button"
@@ -867,9 +951,16 @@ export const InputSection: React.FC<InputSectionProps> = ({
             </div>
           </div>
 
-          <div className="text-xs sm:text-sm md:text-base font-semibold text-slate-800 leading-relaxed pl-1 font-sans">
-            "{sentenceTranslation}"
-          </div>
+          {isTranslating ? (
+            <div className="flex items-center gap-2 py-3 px-2 text-xs text-teal-800 font-medium">
+              <RefreshCw className="w-4 h-4 animate-spin text-teal-600 shrink-0" />
+              <span>Đang dịch câu song ngữ bằng {engine === 'google' ? 'Google Dịch' : 'Gemini AI'}...</span>
+            </div>
+          ) : (
+            <div className="text-xs sm:text-sm md:text-base font-semibold text-slate-800 leading-relaxed pl-1 font-sans">
+              "{sentenceTranslation}"
+            </div>
+          )}
         </div>
       )}
 
@@ -1066,7 +1157,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
       )}
 
       {/* TOOLBAR CONTROLS: Phân định rõ ràng nút BẬT/TẮT (Toggle) và Nút Hành Động (Action) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs pt-1 border-t border-slate-100">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs pt-2 border-t border-slate-100">
         {/* NHÓM 1: CÁC NÚT BẬT / TẮT (TOGGLES) */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
@@ -1077,19 +1168,19 @@ export const InputSection: React.FC<InputSectionProps> = ({
           <button
             type="button"
             onClick={() => setShowFurigana(!showFurigana)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[11px] sm:text-xs min-h-[32px] sm:min-h-[36px] ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-normal sm:font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[12px] sm:text-xs h-8 sm:h-9 ${
               showFurigana
-                ? 'bg-teal-50 text-teal-900 border-2 border-teal-600 ring-1 ring-teal-500/20 shadow-xs'
+                ? 'bg-teal-50 text-teal-900 border border-teal-600 ring-1 ring-teal-500/20 shadow-xs font-medium sm:font-bold'
                 : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200'
             }`}
             title="Nhấp để Bật/Tắt hiển thị Hiragana trên đầu chữ Kanji"
           >
-            <Languages className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${showFurigana ? 'text-teal-700' : 'text-slate-400'}`} />
+            <Languages className={`w-3.5 h-3.5 ${showFurigana ? 'text-teal-700' : 'text-slate-400'}`} />
             <span>Hiragana</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+              className={`px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight ${
                 showFurigana
-                  ? 'bg-teal-700 text-white shadow-2xs'
+                  ? 'bg-teal-700 text-white'
                   : 'bg-slate-200 text-slate-500'
               }`}
             >
@@ -1101,19 +1192,19 @@ export const InputSection: React.FC<InputSectionProps> = ({
           <button
             type="button"
             onClick={() => setShowRomaji(!showRomaji)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[11px] sm:text-xs min-h-[32px] sm:min-h-[36px] ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-normal sm:font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[12px] sm:text-xs h-8 sm:h-9 ${
               showRomaji
-                ? 'bg-indigo-50 text-indigo-950 border-2 border-indigo-600 ring-1 ring-indigo-500/20 shadow-xs'
+                ? 'bg-indigo-50 text-indigo-950 border border-indigo-600 ring-1 ring-indigo-500/20 shadow-xs font-medium sm:font-bold'
                 : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200'
             }`}
             title="Nhấp để Bật/Tắt hiển thị phiên âm Romaji Hepburn phân tách từ bên dưới mỗi từ"
           >
-            <Languages className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${showRomaji ? 'text-indigo-700' : 'text-slate-400'}`} />
+            <Languages className={`w-3.5 h-3.5 ${showRomaji ? 'text-indigo-700' : 'text-slate-400'}`} />
             <span>Romaji</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+              className={`px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight ${
                 showRomaji
-                  ? 'bg-indigo-700 text-white shadow-2xs'
+                  ? 'bg-indigo-700 text-white'
                   : 'bg-slate-200 text-slate-500'
               }`}
             >
@@ -1125,19 +1216,19 @@ export const InputSection: React.FC<InputSectionProps> = ({
           <button
             type="button"
             onClick={() => setShowMeaning(!showMeaning)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[11px] sm:text-xs min-h-[32px] sm:min-h-[36px] ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-normal sm:font-bold transition-all cursor-pointer shadow-2xs active:scale-95 text-[12px] sm:text-xs h-8 sm:h-9 ${
               showMeaning
-                ? 'bg-emerald-50 text-emerald-950 border-2 border-emerald-600 ring-1 ring-emerald-500/20 shadow-xs'
+                ? 'bg-emerald-50 text-emerald-950 border border-emerald-600 ring-1 ring-emerald-500/20 shadow-xs font-medium sm:font-bold'
                 : 'bg-slate-100 text-slate-500 border border-slate-300 hover:bg-slate-200'
             }`}
             title="Nhấp để Bật/Tắt hiển thị nghĩa tiếng Việt bên dưới chân mỗi chữ Kanji"
           >
-            <BookOpen className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${showMeaning ? 'text-emerald-700' : 'text-slate-400'}`} />
+            <BookOpen className={`w-3.5 h-3.5 ${showMeaning ? 'text-emerald-700' : 'text-slate-400'}`} />
             <span>Nghĩa chữ</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-black tracking-tight ${
+              className={`px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight ${
                 showMeaning
-                  ? 'bg-emerald-700 text-white shadow-2xs'
+                  ? 'bg-emerald-700 text-white'
                   : 'bg-slate-200 text-slate-500'
               }`}
             >
@@ -1148,11 +1239,11 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
         {/* NHÓM 2: CÁC NÚT HÀNH ĐỘNG XUẤT DỮ LIỆU (ACTION BUTTONS) */}
         {kanjiList.length > 0 && (
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 w-full lg:w-auto shrink-0">
             <button
               type="button"
               onClick={onCopyAllText}
-              className="flex-1 md:flex-none h-9 inline-flex items-center justify-center gap-1.5 px-3 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 rounded-xl transition-all font-semibold cursor-pointer border border-teal-200 shadow-2xs text-xs active:scale-95"
+              className="flex-1 lg:flex-none h-8 sm:h-9 inline-flex items-center justify-center gap-1.5 px-3 text-teal-800 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 rounded-xl transition-all font-normal sm:font-semibold cursor-pointer border border-teal-200 shadow-2xs text-[12px] sm:text-xs active:scale-95 whitespace-nowrap"
               title="Sao chép toàn bộ các chữ Kanji lọc được dưới dạng văn bản"
             >
               <Copy className="w-3.5 h-3.5 text-teal-700 shrink-0" />
@@ -1161,7 +1252,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
             <button
               type="button"
               onClick={onExportCsv}
-              className="flex-1 md:flex-none h-9 inline-flex items-center justify-center gap-1.5 px-3 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:border-slate-300 rounded-xl transition-all font-semibold cursor-pointer border border-slate-200 shadow-2xs text-xs active:scale-95"
+              className="flex-1 lg:flex-none h-8 sm:h-9 inline-flex items-center justify-center gap-1.5 px-3 text-slate-700 bg-slate-100 hover:bg-slate-200 hover:border-slate-300 rounded-xl transition-all font-normal sm:font-semibold cursor-pointer border border-slate-200 shadow-2xs text-[12px] sm:text-xs active:scale-95 whitespace-nowrap"
               title="Xuất danh sách gồm URL ảnh, Hán-Việt & nghĩa sang định dạng CSV để nhập vào Anki"
             >
               <Download className="w-3.5 h-3.5 text-slate-600 shrink-0" />

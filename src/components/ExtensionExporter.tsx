@@ -1170,8 +1170,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     .header h2 { margin: 0; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
     .badge { font-size: 10px; background: #0d9488; color: #ffffff; padding: 2px 7px; border-radius: 9999px; font-weight: 700; }
     .content { padding: 16px; }
-    .btn-snip { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; background: #0d9488; color: #ffffff; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; margin-bottom: 14px; transition: background 0.15s; }
+    .btn-snip { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; background: #0d9488; color: #ffffff; border: none; border-radius: 10px; font-size: 12.5px; font-weight: 700; cursor: pointer; margin-bottom: 8px; transition: background 0.15s; }
     .btn-snip:hover { background: #0f766e; }
+    .btn-upload { background: #0f172a; margin-bottom: 14px; }
+    .btn-upload:hover { background: #1e293b; }
     .search-box { display: flex; gap: 6px; margin-bottom: 14px; }
     input[type="text"] { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; outline: none; }
     input[type="text"]:focus { border-color: #0d9488; }
@@ -1187,6 +1189,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   <div class="content">
     <button class="btn-snip" id="btn-snip-capture">
       <span>📸 Khoanh vùng quét Kanji (Ctrl+Shift+K)</span>
+    </button>
+    <input type="file" id="popup-file-input" accept="image/*" style="display:none;" />
+    <button class="btn-snip btn-upload" id="btn-upload-image">
+      <span>🖼️ Chọn tệp ảnh / Dán ảnh (Ctrl+V)</span>
     </button>
     <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px;">TRA CỨU NHANH KANJI</div>
     <div class="search-box">
@@ -1206,6 +1212,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const searchInput = document.getElementById('quick-search-input');
   const searchBtn = document.getElementById('quick-search-btn');
   const snipBtn = document.getElementById('btn-snip-capture');
+  const uploadBtn = document.getElementById('btn-upload-image');
+  const fileInput = document.getElementById('popup-file-input');
   const openWebLink = document.getElementById('open-web-app');
 
   if (snipBtn) {
@@ -1228,6 +1236,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
       });
     });
+  }
+
+  if (uploadBtn && fileInput) {
+    uploadBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) processImageFileInPopup(file);
+    });
+  }
+
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          processImageFileInPopup(blob);
+          break;
+        }
+      }
+    }
+  });
+
+  function processImageFileInPopup(fileOrBlob) {
+    if (!fileOrBlob) return;
+    if (uploadBtn) uploadBtn.innerText = '⌛ Đang đọc ảnh...';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result;
+      if (!dataUrl) return;
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id;
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, { action: "START_SCREEN_SNIP_DATA_URL", imageUri: dataUrl }, () => {
+            if (chrome.runtime.lastError) {
+              chrome.scripting.executeScript({ target: { tabId: tabId }, files: ["content.js"] }, () => {
+                chrome.tabs.sendMessage(tabId, { action: "START_SCREEN_SNIP_DATA_URL", imageUri: dataUrl });
+                window.close();
+              });
+            } else {
+              window.close();
+            }
+          });
+        }
+      });
+    };
+    reader.readAsDataURL(fileOrBlob);
   }
 
   function triggerSearch() {

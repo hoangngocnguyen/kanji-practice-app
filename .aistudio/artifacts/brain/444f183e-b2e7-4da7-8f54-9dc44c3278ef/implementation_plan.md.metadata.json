@@ -1,6 +1,6 @@
 {
-  "summary":  "Kế hoạch triển khai tính năng phiên âm Romaji phân tách từ (Word-Spaced Romaji Reader) trong Khung đọc chi tiết, hỗ trợ đọc chữ Hán và đoạn văn tiếng Nhật một cách chính xác nhất theo chuẩn Hepburn.",
-  "updatedAt":  "2026-11-02T09:57:45.273420749Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Implementation plan for multi-view architecture, dedicated search tab, independent page views, and streamlined input controls for Luyen Kanji app.",
+  "updatedAt": "2026-11-06T16:01:54.981317779Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

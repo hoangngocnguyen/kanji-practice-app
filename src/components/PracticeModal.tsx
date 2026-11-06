@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   X,
   Copy,
@@ -191,6 +191,22 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       : -1;
   const hasPrev = currentIndex > 0;
   const hasNext = kanjiList && currentIndex >= 0 && currentIndex < kanjiList.length - 1;
+
+  // Compute ~5 Kanji items centered around current item for quick navigation carousel
+  const surroundingKanjiWindow = useMemo(() => {
+    if (!kanjiList || kanjiList.length === 0 || currentIndex < 0) return [];
+
+    const maxItems = 5;
+    let start = Math.max(0, currentIndex - Math.floor(maxItems / 2));
+    let end = start + maxItems - 1;
+
+    if (end >= kanjiList.length) {
+      end = kanjiList.length - 1;
+      start = Math.max(0, end - maxItems + 1);
+    }
+
+    return kanjiList.slice(start, end + 1);
+  }, [kanjiList, currentIndex]);
 
   const goToPrev = useCallback(() => {
     if (kanjiList && item) {
@@ -428,31 +444,61 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
               </div>
             </div>
 
-            {/* Header Right Actions: Quick Kanji Switcher + Close */}
+            {/* Header Right Actions: 5-Kanji Carousel Strip & Close */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {kanjiList && kanjiList.length > 1 && currentIndex >= 0 && (
-                <div className="flex items-center bg-white border border-slate-200/90 rounded-xl p-0.5 shadow-2xs">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 border border-slate-200/90 rounded-2xl p-1 shadow-inner">
+                  {/* Prev Button */}
                   <button
                     type="button"
                     onClick={goToPrev}
                     disabled={!hasPrev}
-                    className="p-1 sm:p-1.5 text-slate-600 hover:text-teal-800 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    className="p-1 text-slate-500 hover:text-teal-800 hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
                     title="Chữ Kanji trước (Phím mũi tên Trái ←)"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
-                  <span className="px-1.5 sm:px-2 text-[10px] sm:text-xs font-mono font-bold text-slate-700 select-none">
-                    {currentIndex + 1}/{kanjiList.length}
-                  </span>
+
+                  {/* 5-Kanji Chips Window with Middle Highlight */}
+                  <div className="flex items-center gap-1">
+                    {surroundingKanjiWindow.map((kItem) => {
+                      const isSelected = kItem.kanji === item.kanji;
+                      const hanViet = kItem.detail?.hanViet;
+
+                      return (
+                        <button
+                          key={kItem.kanji}
+                          type="button"
+                          onClick={() => onNavigateKanji && onNavigateKanji(kItem)}
+                          className={`flex items-center justify-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl transition-all cursor-pointer font-bold ${
+                            isSelected
+                              ? 'bg-teal-700 text-white shadow-md border border-teal-800 scale-105 ring-2 ring-teal-500/30 font-black min-w-[34px] sm:min-w-[38px]'
+                              : 'bg-white hover:bg-teal-50 text-slate-700 border border-slate-200/90 hover:border-teal-300 min-w-[28px] sm:min-w-[34px]'
+                          }`}
+                          title={`Chuyển tới chữ ${kItem.kanji}${hanViet ? ` (${hanViet})` : ''}`}
+                        >
+                          <span className="font-kanji text-sm sm:text-base leading-none">
+                            {kItem.kanji}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Button */}
                   <button
                     type="button"
                     onClick={goToNext}
                     disabled={!hasNext}
-                    className="p-1 sm:p-1.5 text-slate-600 hover:text-teal-800 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-600 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    className="p-1 text-slate-500 hover:text-teal-800 hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
                     title="Chữ Kanji tiếp theo (Phím mũi tên Phải →)"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
+
+                  <span className="hidden sm:inline-block pl-1 pr-1.5 text-[10px] sm:text-xs font-mono font-bold text-slate-500 border-l border-slate-200 select-none">
+                    {currentIndex + 1}/{kanjiList.length}
+                  </span>
                 </div>
               )}
 

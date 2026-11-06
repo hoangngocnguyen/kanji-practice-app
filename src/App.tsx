@@ -37,8 +37,36 @@ import { ExtensionExporter } from './components/ExtensionExporter';
 import { GoogleDocsTableExporter } from './components/GoogleDocsTableExporter';
 import { useJapaneseIme } from './utils/useJapaneseIme';
 import { ImeCandidatePopover } from './components/ImeCandidatePopover';
+import { AppSidebar, WorkspaceTab } from './components/AppSidebar';
+import { KanjiSearchView } from './components/KanjiSearchView';
 
 export default function App() {
+  // Navigation active tab: 'input-text' | 'kanji-strokes' | 'romaji-reader' | 'translation' | 'radicals' | 'history'
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('input-text');
+
+  // Sidebar collapse state (persisted in localStorage)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kanji_sidebar_collapsed');
+      return saved === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('kanji_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Mobile drawer state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
   // Input text state
   const [inputText, setInputText] = useState<string>(
     '日本語能力試験（JLPT）で思い出す漢字の練習：日本人は漢字を毎日勉強する。一期一会、温故知新。'
@@ -463,378 +491,447 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Centralized Page Navigation Handler
+  const handleNavigateTab = useCallback((tab: WorkspaceTab) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   return (
-    <div className="min-h-screen bg-slate-50/60 text-slate-800 antialiased selection:bg-teal-700 selection:text-white pb-20">
-      {/* Toast */}
+    <div className="min-h-screen flex w-full bg-slate-50/70 text-slate-800 antialiased selection:bg-teal-700 selection:text-white relative">
+      {/* Toast Notification */}
       <Toast toast={toast} />
 
-      {/* Header */}
-      <Header
-        onPrint={() => setIsPrintModalOpen(true)}
+      {/* Modern Collapsible Sidebar (Sticky) */}
+      <AppSidebar
+        activeTab={activeTab}
+        onSelectTab={handleNavigateTab}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
         kanjiCount={extractedKanjiList.length}
         historyCount={recentlyViewed.length}
-        onOpenGuide={() => setIsGuideOpen(true)}
-        onOpenRadicals={() => setIsRadicalsOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenHistory={() => {
-          const el = document.getElementById('recently-viewed-section');
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('ring-2', 'ring-teal-400');
-            setTimeout(() => {
-              el.classList.remove('ring-2', 'ring-teal-400');
-            }, 1800);
-          }
-        }}
+        onOpenGuide={() => setIsGuideOpen(true)}
+        onPrint={() => setIsPrintModalOpen(true)}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-6 sm:space-y-7">
-        {/* Input Section */}
-        <InputSection
-          inputText={inputText}
-          setInputText={setInputText}
-          kanjiList={mergedKanjiList}
-          onClear={handleClear}
-          onCopyAllText={handleCopyAllText}
-          onExportCsv={handleExportCsv}
-          onOpenScanner={() => setIsScannerOpen(true)}
-          onSelectKanji={handleSelectRecentKanji}
+      {/* Main Full-width Content Viewport */}
+      <div className="flex-1 flex flex-col min-w-0 w-full min-h-screen">
+        {/* Full-width Header */}
+        <Header
+          onPrint={() => setIsPrintModalOpen(true)}
+          kanjiCount={extractedKanjiList.length}
+          historyCount={recentlyViewed.length}
+          onOpenGuide={() => setIsGuideOpen(true)}
+          onOpenRadicals={() => handleNavigateTab('radicals')}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          onOpenHistory={() => handleNavigateTab('history')}
         />
 
-        {/* Recently Viewed Kanji History */}
-        <RecentlyViewedKanji
-          recentList={recentlyViewed}
-          onSelectKanji={handleSelectRecentKanji}
-          onClearHistory={handleClearRecentHistory}
-        />
-
-        {/* Kanji Stroke Order Section */}
-        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5">
-          {/* STICKY TOOLBAR (Ghim ở đầu màn hình khi cuộn xem danh sách Kanji, không cần kéo lên xuống) */}
-          <div className="sticky top-2 z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
-            {/* Top row: Status info + Quick Scan + Scroll to top */}
-            <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
-              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                <span className="font-bold text-slate-800 truncate">
-                  <span className="sm:hidden">2. Tra cứu ({filteredKanjiList.length})</span>
-                  <span className="hidden sm:inline">2. Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})</span>
-                </span>
-                {extractedKanjiList.length > 0 && (
-                  <span className="text-[10px] bg-teal-50 text-teal-800 font-semibold px-2 py-0.5 rounded-full border border-teal-200 shrink-0">
-                    {extractedKanjiList.length} chữ
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* Button Scan Image */}
-                <button
-                  type="button"
-                  onClick={() => setIsScannerOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[30px] sm:min-h-[32px]"
-                  title="Quét chữ Kanji từ ảnh hoặc dán ảnh chụp màn hình (Ctrl+V)"
-                >
-                  <Camera className="w-3.5 h-3.5 text-teal-700" />
-                  <span className="hidden sm:inline">Quét ảnh (OCR)</span>
-                  <span className="sm:hidden">Quét ảnh</span>
-                </button>
-
-                {/* Button Scroll to top */}
-                <button
-                  type="button"
-                  onClick={handleScrollToTop}
-                  className="p-1 sm:p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
-                  title="Cuộn lên đầu trang"
-                >
-                  <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Live Ruby Furigana preview for Kanji typed in search or quick add */}
-            {activeSearchKanji.length > 0 && (
-              <div className="flex items-center gap-2 overflow-x-auto py-1 px-2.5 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs transition-all">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-teal-900 shrink-0 flex items-center gap-1">
-                  <Languages className="w-3 h-3 text-teal-700" />
-                  Phiên âm:
-                </span>
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                  {activeSearchKanji.map((item) => (
-                    <div
-                      key={item.kanji}
-                      onClick={() => handleSelectRecentKanji(item.kanji)}
-                      className="inline-flex flex-col items-center gap-0.5 bg-white px-2 py-0.5 rounded-xl border border-teal-200 shadow-2xs cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
-                      title="Nhấp để xem hoạt ảnh nét vẽ"
-                    >
-                      <ruby className="font-kanji font-bold text-sm sm:text-base text-slate-900 leading-none inline-flex flex-col items-center">
-                        {item.hiragana && (
-                          <rt className="text-[9px] font-semibold text-teal-700 font-sans pb-0.5 select-none">
-                            {item.hiragana}
-                          </rt>
-                        )}
-                        <span>{item.kanji}</span>
-                      </ruby>
-                      <span className="text-[8px] sm:text-[9px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight max-w-[85px] truncate">
-                        {item.meaning ? `${item.hanViet ? `${item.hanViet}: ` : ''}${item.meaning}` : item.hanViet}
+        {/* Main Content: Full-width responsive with edge padding */}
+        <main className="w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6">
+          {/* 1. Trang Nét viết Kanji (Primary Stroke Order View) */}
+          {activeTab === 'kanji-strokes' && (
+            <section id="kanji-stroke-section" className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200">
+              {/* STICKY TOOLBAR (Ghim ở đầu màn hình khi cuộn xem danh sách Kanji) */}
+              <div className="sticky top-2 z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
+                {/* Top row: Status info + Quick Scan + Scroll to top */}
+                <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                    <span className="font-bold text-slate-800 truncate">
+                      <span className="sm:hidden">Tra cứu nét vẽ ({filteredKanjiList.length})</span>
+                      <span className="hidden sm:inline">Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})</span>
+                    </span>
+                    {extractedKanjiList.length > 0 && (
+                      <span className="text-[10px] bg-teal-50 text-teal-800 font-semibold px-2 py-0.5 rounded-full border border-teal-200 shrink-0">
+                        {extractedKanjiList.length} chữ
                       </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Bottom controls: Equal length Search Filter and Quick Add boxes, with unified buttons */}
-            <div className="space-y-2.5">
-              {/* Row 1: Search Filter & Quick Add with EQUAL LENGTH */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {/* Column 1: Lọc chữ Hán */}
-                <div className="relative w-full">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    ref={searchIme.inputRef}
-                    type="text"
-                    value={searchFilter}
-                    onChange={searchIme.handleChange}
-                    onKeyDown={searchIme.handleKeyDown}
-                    placeholder="Lọc chữ Hán (gõ romaji + Space chọn Kanji), Hán-Việt, On, Kun..."
-                    className="w-full pl-9 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
-                  />
-                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setSearchImeMode(!searchImeMode)}
-                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                        searchImeMode
-                          ? 'bg-teal-700 text-white shadow-2xs'
-                          : 'bg-slate-200 text-slate-500 hover:text-slate-700'
-                      }`}
-                      title={searchImeMode ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)' : 'IME đang Tắt (tìm kiếm thường)'}
-                    >
-                      IME
-                    </button>
-                    {searchFilter && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchFilter('')}
-                        className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-                        title="Xóa bộ lọc"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
                     )}
                   </div>
 
-                  {searchIme.imeState.isOpen && (
-                    <ImeCandidatePopover
-                      candidates={searchIme.imeState.candidates}
-                      selectedIndex={searchIme.imeState.selectedIndex}
-                      onSelectCandidate={searchIme.commitCandidate}
-                      onClose={searchIme.closeIme}
-                      reading={searchIme.imeState.reading}
-                      position={searchIme.imeState.position}
-                      isLoading={searchIme.imeState.isLoading}
-                    />
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Button Scan Image */}
+                    <button
+                      type="button"
+                      onClick={() => setIsScannerOpen(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[30px] sm:min-h-[32px]"
+                      title="Quét chữ Kanji từ ảnh hoặc dán ảnh chụp màn hình (Ctrl+V)"
+                    >
+                      <Camera className="w-3.5 h-3.5 text-teal-700" />
+                      <span className="hidden sm:inline">Quét ảnh (OCR)</span>
+                      <span className="sm:hidden">Quét ảnh</span>
+                    </button>
+
+                    {/* Button Scroll to top */}
+                    <button
+                      type="button"
+                      onClick={handleScrollToTop}
+                      className="p-1 sm:p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
+                      title="Cuộn lên đầu trang"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Column 2: Thêm Kanji nhanh (DÀI BẰNG PHẦN LỌC CHỮ) */}
-                <div className="flex items-center gap-1.5 w-full">
-                  <div className="relative flex-1">
-                    <input
-                      ref={quickIme.inputRef}
-                      type="text"
-                      value={quickInput}
-                      onChange={quickIme.handleChange}
-                      onKeyDown={(e) => {
-                        if (!quickIme.imeState.isOpen && e.key === 'Enter') {
-                          handleQuickAdd();
-                        } else {
-                          quickIme.handleKeyDown(e);
-                        }
-                      }}
-                      placeholder="+ Thêm chữ Kanji (gõ romaji + Space)..."
-                      className="w-full px-3.5 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
-                    />
-                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setQuickImeMode(!quickImeMode)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                          quickImeMode
-                            ? 'bg-teal-700 text-white shadow-2xs'
-                            : 'bg-slate-200 text-slate-500 hover:text-slate-700'
-                        }`}
-                        title={quickImeMode ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)' : 'IME đang Tắt'}
-                      >
-                        IME
-                      </button>
-                      {quickInput && (
+                {/* Live Ruby Furigana preview for Kanji typed in search or quick add */}
+                {activeSearchKanji.length > 0 && (
+                  <div className="flex items-center gap-2 overflow-x-auto py-1 px-2.5 bg-teal-50/70 border border-teal-200/80 rounded-xl text-xs transition-all">
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-teal-900 shrink-0 flex items-center gap-1">
+                      <Languages className="w-3 h-3 text-teal-700" />
+                      Phiên âm:
+                    </span>
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                      {activeSearchKanji.map((item) => (
+                        <div
+                          key={item.kanji}
+                          onClick={() => handleSelectRecentKanji(item.kanji)}
+                          className="inline-flex flex-col items-center gap-0.5 bg-white px-2 py-0.5 rounded-xl border border-teal-200 shadow-2xs cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
+                          title="Nhấp để xem hoạt ảnh nét vẽ"
+                        >
+                          <ruby className="font-kanji font-bold text-sm sm:text-base text-slate-900 leading-none inline-flex flex-col items-center">
+                            {item.hiragana && (
+                              <rt className="text-[9px] font-semibold text-teal-700 font-sans pb-0.5 select-none">
+                                {item.hiragana}
+                              </rt>
+                            )}
+                            <span>{item.kanji}</span>
+                          </ruby>
+                          <span className="text-[8px] sm:text-[9px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight max-w-[85px] truncate">
+                            {item.meaning ? `${item.hanViet ? `${item.hanViet}: ` : ''}${item.meaning}` : item.hanViet}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bottom controls: Equal length Search Filter and Quick Add boxes */}
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {/* Column 1: Lọc chữ Hán */}
+                    <div className="relative w-full">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        ref={searchIme.inputRef}
+                        type="text"
+                        value={searchFilter}
+                        onChange={searchIme.handleChange}
+                        onKeyDown={searchIme.handleKeyDown}
+                        placeholder="Lọc chữ Hán (gõ romaji + Space chọn Kanji), Hán-Việt, On, Kun..."
+                        className="w-full pl-9 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
+                      />
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => setQuickInput('')}
-                          className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
-                          title="Xóa ô nhập"
+                          onClick={() => setSearchImeMode(!searchImeMode)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                            searchImeMode
+                              ? 'bg-teal-700 text-white shadow-2xs'
+                              : 'bg-slate-200 text-slate-500 hover:text-slate-700'
+                          }`}
+                          title={searchImeMode ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)' : 'IME đang Tắt (tìm kiếm thường)'}
                         >
-                          <X className="w-3.5 h-3.5" />
+                          IME
                         </button>
+                        {searchFilter && (
+                          <button
+                            type="button"
+                            onClick={() => setSearchFilter('')}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                            title="Xóa bộ lọc"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {searchIme.imeState.isOpen && (
+                        <ImeCandidatePopover
+                          candidates={searchIme.imeState.candidates}
+                          selectedIndex={searchIme.imeState.selectedIndex}
+                          onSelectCandidate={searchIme.commitCandidate}
+                          onClose={searchIme.closeIme}
+                          reading={searchIme.imeState.reading}
+                          position={searchIme.imeState.position}
+                          isLoading={searchIme.imeState.isLoading}
+                        />
                       )}
                     </div>
 
-                    {quickIme.imeState.isOpen && (
-                      <ImeCandidatePopover
-                        candidates={quickIme.imeState.candidates}
-                        selectedIndex={quickIme.imeState.selectedIndex}
-                        onSelectCandidate={quickIme.commitCandidate}
-                        onClose={quickIme.closeIme}
-                        reading={quickIme.imeState.reading}
-                        position={quickIme.imeState.position}
-                        isLoading={quickIme.imeState.isLoading}
-                      />
-                    )}
+                    {/* Column 2: Thêm Kanji nhanh */}
+                    <div className="flex items-center gap-1.5 w-full">
+                      <div className="relative flex-1">
+                        <input
+                          ref={quickIme.inputRef}
+                          type="text"
+                          value={quickInput}
+                          onChange={quickIme.handleChange}
+                          onKeyDown={(e) => {
+                            if (!quickIme.imeState.isOpen && e.key === 'Enter') {
+                              handleQuickAdd();
+                            } else {
+                              quickIme.handleKeyDown(e);
+                            }
+                          }}
+                          placeholder="+ Thêm chữ Kanji (gõ romaji + Space)..."
+                          className="w-full px-3.5 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
+                        />
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setQuickImeMode(!quickImeMode)}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                              quickImeMode
+                                ? 'bg-teal-700 text-white shadow-2xs'
+                                : 'bg-slate-200 text-slate-500 hover:text-slate-700'
+                            }`}
+                            title={quickImeMode ? 'IME đang Bật' : 'IME Tắt'}
+                          >
+                            IME
+                          </button>
+                          {quickInput && (
+                            <button
+                              type="button"
+                              onClick={() => setQuickInput('')}
+                              className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                              title="Xóa ô nhập"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {quickIme.imeState.isOpen && (
+                          <ImeCandidatePopover
+                            candidates={quickIme.imeState.candidates}
+                            selectedIndex={quickIme.imeState.selectedIndex}
+                            onSelectCandidate={quickIme.commitCandidate}
+                            onClose={quickIme.closeIme}
+                            reading={quickIme.imeState.reading}
+                            position={quickIme.imeState.position}
+                            isLoading={quickIme.imeState.isLoading}
+                          />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleQuickAdd}
+                        disabled={!quickInput.trim()}
+                        className="h-10 px-4 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-teal-800 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
+                        title="Thêm ngay chữ này vào danh sách tra cứu"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Thêm</span>
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleQuickAdd}
-                    disabled={!quickInput.trim()}
-                    className="h-10 px-4 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-teal-800 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
-                    title="Thêm ngay chữ này vào danh sách tra cứu"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Thêm</span>
-                  </button>
-                </div>
-              </div>
 
-              {/* Row 2: Status & Controls row (Grid toggle, View switcher) */}
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 flex-wrap sm:flex-nowrap">
-                <div className="text-xs text-slate-500 font-medium">
-                  {searchFilter ? (
-                    <span>
-                      Kết quả lọc: <strong className="text-teal-800 font-bold">{filteredKanjiList.length}</strong> / {extractedKanjiList.length} chữ
-                    </span>
-                  ) : (
-                    <span>
-                      Tổng cộng: <strong className="text-slate-800 font-bold">{extractedKanjiList.length}</strong> chữ Kanji
-                    </span>
-                  )}
-                </div>
+                  {/* Row 2: Status & Controls row */}
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 flex-wrap sm:flex-nowrap">
+                    <div className="text-xs text-slate-500 font-medium">
+                      {searchFilter ? (
+                        <span>
+                          Kết quả lọc: <strong className="text-teal-800 font-bold">{filteredKanjiList.length}</strong> / {extractedKanjiList.length} chữ
+                        </span>
+                      ) : (
+                        <span>
+                          Tổng cộng: <strong className="text-slate-800 font-bold">{extractedKanjiList.length}</strong> chữ Kanji
+                        </span>
+                      )}
+                    </div>
 
-                <div className="flex items-center gap-2 shrink-0 ml-auto">
-                  {/* Grid toggle with delicate lines */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextVal = !includeGrid;
-                      setIncludeGrid(nextVal);
-                      showToast(
-                        nextVal ? 'Đã BẬT lưới nét đứt thư pháp' : 'Đã TẮT lưới nét đứt',
-                        'info'
-                      );
-                    }}
-                    className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 ${
-                      includeGrid
-                        ? 'bg-teal-50 border-teal-600 text-teal-950 ring-1 ring-teal-500/20 shadow-xs'
-                        : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
-                    }`}
-                    title="Bật/Tắt đường lưới ô nét đứt mảnh"
-                  >
-                    <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
-                    <span>Kèm lưới</span>
-                    <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tracking-tight ${
-                        includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
-                      }`}
-                    >
-                      {includeGrid ? 'BẬT' : 'TẮT'}
-                    </span>
-                  </button>
+                    <div className="flex items-center gap-2 shrink-0 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !includeGrid;
+                          setIncludeGrid(nextVal);
+                          showToast(
+                            nextVal ? 'Đã BẬT lưới nét đứt thư pháp' : 'Đã TẮT lưới nét đứt',
+                            'info'
+                          );
+                        }}
+                        className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 ${
+                          includeGrid
+                            ? 'bg-teal-50 border-teal-600 text-teal-950 ring-1 ring-teal-500/20 shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
+                        }`}
+                        title="Bật/Tắt đường lưới ô nét đứt mảnh"
+                      >
+                        <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
+                        <span>Kèm lưới</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tracking-tight ${
+                            includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
+                          }`}
+                        >
+                          {includeGrid ? 'BẬT' : 'TẮT'}
+                        </span>
+                      </button>
 
-                  {/* Google Docs Table Exporter Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsGoogleDocsExporterOpen(true)}
-                    className="h-9 inline-flex items-center gap-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
-                    title="Xuất bảng 1 cột chứa ảnh nét vẽ để dán sang Google Docs"
-                  >
-                    <TableIcon className="w-3.5 h-3.5 text-emerald-700" />
-                    <span className="hidden sm:inline">Dán Google Docs</span>
-                    <span className="sm:hidden">Docs</span>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsGoogleDocsExporterOpen(true)}
+                        className="h-9 inline-flex items-center gap-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
+                        title="Xuất bảng 1 cột chứa ảnh nét vẽ để dán sang Google Docs"
+                      >
+                        <TableIcon className="w-3.5 h-3.5 text-emerald-700" />
+                        <span className="hidden sm:inline">Dán Google Docs</span>
+                        <span className="sm:hidden">Docs</span>
+                      </button>
 
-                  {/* View Switcher: Table vs Cards */}
-                  <div className="h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('table')}
-                      className={`h-full inline-flex items-center gap-1.5 px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
-                        viewMode === 'table'
-                          ? 'bg-teal-800 text-white shadow-xs font-bold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <TableIcon className="w-3.5 h-3.5" />
-                      <span>Bảng</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('grid')}
-                      className={`h-full inline-flex items-center gap-1.5 px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
-                        viewMode === 'grid'
-                          ? 'bg-teal-800 text-white shadow-xs font-bold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                      <span>Thẻ</span>
-                    </button>
+                      <div className="h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('table')}
+                          className={`h-full inline-flex items-center gap-1.5 px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
+                            viewMode === 'table'
+                              ? 'bg-teal-800 text-white shadow-xs font-bold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <TableIcon className="w-3.5 h-3.5" />
+                          <span>Bảng</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setViewMode('grid')}
+                          className={`h-full inline-flex items-center gap-1.5 px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
+                            viewMode === 'grid'
+                              ? 'bg-teal-800 text-white shadow-xs font-bold'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <LayoutGrid className="w-3.5 h-3.5" />
+                          <span>Thẻ</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Empty / Filtered Empty States */}
-          {extractedKanjiList.length === 0 ? (
-            <div className="py-20 text-center space-y-3">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-teal-50/60 border border-teal-100 flex items-center justify-center text-teal-500">
-                <span className="font-kanji text-4xl">空</span>
-              </div>
-              <h4 className="text-base font-bold text-slate-700">Chưa tìm thấy ký tự Kanji nào</h4>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-                Hãy dán một đoạn văn bản tiếng Nhật hoặc bấm <strong>Quét ảnh (OCR)</strong> để trích xuất chữ Hán tự động.
-              </p>
-            </div>
-          ) : filteredKanjiList.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              Không tìm thấy chữ Kanji nào khớp với từ khóa "{searchFilter}".
-            </div>
-          ) : viewMode === 'table' ? (
-            <KanjiTable
-              kanjiList={filteredKanjiList}
-              copyStatus={copyStatus}
-              showGrid={includeGrid}
-              showFurigana={showListFurigana}
-              onCopyImage={handleCopyImage}
-              onDownloadPng={handleDownloadPng}
-              onInspect={handleInspectKanji}
-            />
-          ) : (
-            <KanjiGrid
-              kanjiList={filteredKanjiList}
-              copyStatus={copyStatus}
-              showGrid={includeGrid}
-              showFurigana={showListFurigana}
-              onCopyImage={handleCopyImage}
-              onDownloadPng={handleDownloadPng}
-              onInspect={handleInspectKanji}
-            />
+              {/* Empty / Filtered Empty States */}
+              {extractedKanjiList.length === 0 ? (
+                <div className="py-20 text-center space-y-3">
+                  <div className="w-20 h-20 mx-auto rounded-3xl bg-teal-50/60 border border-teal-100 flex items-center justify-center text-teal-500">
+                    <span className="font-kanji text-4xl">空</span>
+                  </div>
+                  <h4 className="text-base font-bold text-slate-700">Chưa tìm thấy ký tự Kanji nào</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    Hãy bấm <strong>Nhập văn bản</strong> trên thanh bên để dán đoạn văn hoặc bấm <strong>Quét ảnh (OCR)</strong> để trích xuất tự động.
+                  </p>
+                </div>
+              ) : filteredKanjiList.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-sm">
+                  Không tìm thấy chữ Kanji nào khớp với từ khóa "{searchFilter}".
+                </div>
+              ) : viewMode === 'table' ? (
+                <KanjiTable
+                  kanjiList={filteredKanjiList}
+                  copyStatus={copyStatus}
+                  showGrid={includeGrid}
+                  showFurigana={showListFurigana}
+                  onCopyImage={handleCopyImage}
+                  onDownloadPng={handleDownloadPng}
+                  onInspect={handleInspectKanji}
+                />
+              ) : (
+                <KanjiGrid
+                  kanjiList={filteredKanjiList}
+                  copyStatus={copyStatus}
+                  showGrid={includeGrid}
+                  showFurigana={showListFurigana}
+                  onCopyImage={handleCopyImage}
+                  onDownloadPng={handleDownloadPng}
+                  onInspect={handleInspectKanji}
+                />
+              )}
+            </section>
           )}
-        </section>
 
-        {/* Chrome Extension Download Section */}
-        <ExtensionExporter />
-      </main>
+          {/* 2. Trang Nhập văn bản */}
+          {activeTab === 'input-text' && (
+            <div className="animate-in fade-in duration-200">
+              <InputSection
+                inputText={inputText}
+                setInputText={setInputText}
+                kanjiList={mergedKanjiList}
+                onClear={handleClear}
+                onCopyAllText={handleCopyAllText}
+                onExportCsv={handleExportCsv}
+                onOpenScanner={() => setIsScannerOpen(true)}
+                onSelectKanji={handleSelectRecentKanji}
+                activeTab={activeTab}
+              />
+            </div>
+          )}
+
+          {/* 3. Trang Phiên âm Romaji */}
+          {activeTab === 'romaji-reader' && (
+            <div className="animate-in fade-in duration-200">
+              <InputSection
+                inputText={inputText}
+                setInputText={setInputText}
+                kanjiList={mergedKanjiList}
+                onClear={handleClear}
+                onCopyAllText={handleCopyAllText}
+                onExportCsv={handleExportCsv}
+                onOpenScanner={() => setIsScannerOpen(true)}
+                onSelectKanji={handleSelectRecentKanji}
+                activeTab="romaji-reader"
+              />
+            </div>
+          )}
+
+          {/* 4. Trang Dịch câu song ngữ */}
+          {activeTab === 'translation' && (
+            <div className="animate-in fade-in duration-200">
+              <InputSection
+                inputText={inputText}
+                setInputText={setInputText}
+                kanjiList={mergedKanjiList}
+                onClear={handleClear}
+                onCopyAllText={handleCopyAllText}
+                onExportCsv={handleExportCsv}
+                onOpenScanner={() => setIsScannerOpen(true)}
+                onSelectKanji={handleSelectRecentKanji}
+                activeTab="translation"
+              />
+            </div>
+          )}
+
+          {/* 5. Trang 214 Bộ thủ Khang Hy (Full Page View) */}
+          {activeTab === 'radicals' && (
+            <div className="animate-in fade-in duration-200">
+              <RadicalExplorer
+                onSelectKanji={(char) => handleSelectRecentKanji(char)}
+              />
+            </div>
+          )}
+
+          {/* 6. Trang Lịch sử tra cứu (Full Page View) */}
+          {activeTab === 'history' && (
+            <div className="animate-in fade-in duration-200">
+              <RecentlyViewedKanji
+                recentList={recentlyViewed}
+                onSelectKanji={handleSelectRecentKanji}
+                onClearHistory={handleClearRecentHistory}
+              />
+            </div>
+          )}
+
+          {/* Chrome Extension Download Section */}
+          <ExtensionExporter />
+
+          {/* Footer & License Attribution (Integrated smoothly into page flow) */}
+          <Footer onOpenLicenseModal={() => setIsLicenseOpen(true)} />
+        </main>
+      </div>
 
       {/* Practice / Inspection Modal */}
       <PracticeModal
@@ -931,9 +1028,6 @@ export default function App() {
           <span className="sr-only">Lên đầu trang</span>
         </button>
       )}
-
-      {/* Footer & License Attribution */}
-      <Footer onOpenLicenseModal={() => setIsLicenseOpen(true)} />
     </div>
   );
 }

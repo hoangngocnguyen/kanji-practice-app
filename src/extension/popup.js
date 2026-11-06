@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('quick-search-input');
   const searchBtn = document.getElementById('quick-search-btn');
   const snipBtn = document.getElementById('btn-snip-capture');
+  const uploadBtn = document.getElementById('btn-upload-image');
+  const fileInput = document.getElementById('popup-file-input');
   const tooltipToggle = document.getElementById('toggle-tooltip');
   const autoSpeechToggle = document.getElementById('toggle-autospeech');
   const openWebLink = document.getElementById('open-web-app');
@@ -40,6 +42,63 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.runtime.sendMessage({ action: "TRIGGER_CAPTURE_SCREEN" });
       window.close();
     });
+  }
+
+  // File Upload Action in Popup
+  if (uploadBtn && fileInput) {
+    uploadBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        processImageFileInPopup(file);
+      }
+    });
+  }
+
+  // Paste Image (Ctrl+V) anywhere in Popup
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          processImageFileInPopup(blob);
+          break;
+        }
+      }
+    }
+  });
+
+  function processImageFileInPopup(fileOrBlob) {
+    if (!fileOrBlob) return;
+    if (uploadBtn) uploadBtn.innerText = '⌛ Đang đọc ảnh...';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result;
+      if (!dataUrl) return;
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id;
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, { action: "START_SCREEN_SNIP_DATA_URL", imageUri: dataUrl }, () => {
+            if (chrome.runtime.lastError) {
+              chrome.scripting.executeScript({ target: { tabId: tabId }, files: ["content.js"] }, () => {
+                chrome.tabs.sendMessage(tabId, { action: "START_SCREEN_SNIP_DATA_URL", imageUri: dataUrl });
+                window.close();
+              });
+            } else {
+              window.close();
+            }
+          });
+        }
+      });
+    };
+    reader.readAsDataURL(fileOrBlob);
   }
 
   // Search Action: Send fire-and-forget message to Background Service Worker

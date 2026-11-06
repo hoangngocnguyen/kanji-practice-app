@@ -1,111 +1,119 @@
-# Kế hoạch Triển khai: Phiên Âm Romaji Phân Tách Từ (Word-Spaced Romaji Transliteration)
+# Kiết cấu Đa trang (Multi-View Architecture) & Tối ưu hóa Trải nghiệm Luyện Kanji Pro
 
-## User Review & Critical Decisions (Xác nhận từ người dùng)
+Tái cấu trúc ứng dụng Luyện Kanji từ mô hình "1 trang cuộn dài (single scroll page)" thành **hệ thống đa trang (Multi-View Routing/Tab Architecture)** chuẩn React. Mỗi tab sidebar hoạt động như 1 trang view độc lập chuyên biệt, bổ sung **Trang Tra cứu & Tìm kiếm Kanji nâng cao**, loại bỏ tình trạng cuộn trang cồng kềnh và tối ưu hóa vị trí khung nhập liệu.
 
-Dựa trên phản hồi từ bạn qua các câu hỏi làm rõ, tính năng chuyển đổi đoạn văn sang Romaji sẽ được thiết kế và xây dựng tuân thủ 3 quyết định cốt lõi:
-
-1. **Vị trí hiển thị**: Hiển thị dòng Romaji phân tách từ ngay bên dưới từng chữ/từ trong **Khung đọc chi tiết từng chữ (Glossed Reader Box)**, kết hợp song song cùng Furigana (Hiragana trên đầu) và Nghĩa tiếng Việt (chân chữ).
-2. **Định dạng & Cách từ (Word Spacing)**: Tuân theo **Chuẩn Romaji Hepburn** có khoảng trắng (`space`) phân tách rõ ràng giữa các từ ghép, cụm từ và từ đơn (ví dụ: `Nihongo nōryoku shiken`, `Nihonjin wa kanji wo mainichi benkyō suru`), giúp người đọc nhịp điệu chính xác mà không bị dính liền ký tự.
-3. **Độ chính xác âm đọc (Kanji Reading Accuracy)**: Tự động phân tích ngữ cảnh từ ghép và từ đơn:
-   - **Từ đơn đứng độc lập**: Ưu tiên âm Kun-yomi (ví dụ: `歌` → `uta`, `日` → `hi`).
-   - **Từ ghép nhiều Kanji (Kanji Compound Words)**: Ưu tiên âm On-yomi ghép liên tục (ví dụ: `日本` → `nihon`, `歌手` → `kashu`, `勉強` → `benkyō`).
+> [!IMPORTANT]
+> **Tóm tắt các quyết định đã được xác nhận bởi người dùng (Phase 1):**
+> 1. **Kiến trúc Đa trang View**: Mỗi tab sidebar là một trang view riêng biệt (`Nét viết Kanji`, `Phiên âm Romaji`, `Dịch câu song ngữ`, `Tra cứu & Tìm kiếm`, `214 Bộ thủ`, `Lịch sử tra cứu`).
+> 2. **Trang Tra cứu & Tìm kiếm mới**: Hỗ trợ bộ lọc đa năng theo Từ khóa, Romaji, Hán-Việt, Bộ thủ, Số nét và Cấp độ JLPT (N5 - N1).
+> 3. **Bố trí Khung nhập liệu Tối ưu**: Đưa khung nhập liệu chi tiết cùng các công cụ đọc/chuyển đổi vào trang chuyên dụng, các trang khác sử dụng Toolbar hoặc Thanh gõ nhanh/Quét ảnh thu gọn trên Header.
 
 ---
 
-## 1. Tổng quan & Mục tiêu
+## 1. Overview & Core Concept
 
-Mục đích chính của người học khi xem đoạn văn tiếng Nhật là **đọc chính xác từng từ theo đúng ngữ điệu và ngắt nghỉ tự nhiên**.
-
-Tính năng mới **Word-Spaced Romaji Reader** sẽ bổ sung một lớp phiên âm Romaji chuẩn Hepburn ngay trong Khung đọc chi tiết với công tắc bật/tắt **`Romaji [BẬT/TẮT]`**:
-- Giúp người mới học hoặc người chưa thuộc hết Kana/Kanji có thể cất tiếng đọc nguyên đoạn văn tiếng Nhật một cách trôi chảy, đúng từ, đúng ngắt nghỉ.
-- Mọi từ ghép (như `日本語`, `能力試験`, `勉強`, `一期一会`) đều được phân tách bằng khoảng trắng rộng `space` rõ ràng.
+- **Mục tiêu**: Nâng cấp toàn diện ứng dụng Luyện Kanji Pro lên trải nghiệm SaaS học tập hiện đại. Người dùng có thể chuyển đổi mượt mà giữa các trang view chuyên biệt mà không bị vướng bởi một ô nhập liệu dài cố định luôn chiếm không gian ở mọi trang.
+- **Đối tượng**: Học viên tiếng Nhật ở mọi cấp độ (JLPT N5 – N1), giáo viên, dịch thuật viên cần tra cứu nét vẽ vector KanjiVG, đọc phiên âm Romaji Hepburn, dịch câu song ngữ hoặc tra bộ thủ Khang Hy.
+- **Giá trị cốt lõi**: Phân tách vai trò rõ ràng giữa các trang view, mở rộng không gian hiển thị danh sách nét vẽ & thẻ học, cung cấp công cụ tìm kiếm chuẩn từ điển chuyên sâu.
 
 ---
 
-## 2. Trải nghiệm Người dùng & Thiết kế Giao diện (UI/UX)
+## 2. User Experience & Visual Design
 
-### 2.1. Công tắc điều khiển `Romaji [BẬT/TẮT]`
-- Trong **Khung đọc chi tiết từng chữ (`InputSection.tsx`)**, bên cạnh 2 công tắc hiện tại là `Furigana [BẬT/TẮT]` và `Nghĩa chữ [BẬT/TẮT]`, thêm công tắc thứ 3:
-  - **`Romaji [BẬT/TẮT]`**: Kiểu dáng nút bấm nhã nhặn, chuẩn theme (`bg-teal-50 text-teal-950 border-2 border-teal-600` khi BẬT kèm badge `BẬT`; `bg-slate-100 text-slate-500` khi TẮT).
-
-### 2.2. Hiển thị Romaji theo từng từ ghép / từ đơn trong Khung đọc
-Mỗi ô từ vựng trong Khung đọc chi tiết sẽ có cấu trúc 4 tầng hoàn chỉnh (tùy theo công tắc người dùng bật):
-```
-    [ 1. Furigana (Hiragana) trên đầu ]     -> (ví dụ: にほんご)
-    [ 2. Chữ Kanji chính giữa ]            -> (ví dụ: 日本語)
-    [ 3. Romaji Hepburn phân tách từ ]     -> (ví dụ: nihongo)
-    [ 4. Nghĩa tiếng Việt dưới chân ]       -> (ví dụ: Tiếng Nhật)
-```
-
-- **Romaji Badge**: Hiển thị dòng chữ Romaji Hepburn in thường/in hoa nhã nhặn (`text-[10px] sm:text-[11px] font-mono font-bold text-indigo-900 bg-indigo-50/80 border border-indigo-200/80 px-1.5 py-0.2 rounded-md`).
-- **Khoảng cách nhịp thở (Spacing)**: Giữa các thẻ từ ghép có khoảng trống `gap-2` và margin tự nhiên, giúp mắt người dùng dễ dàng lướt đọc theo từng cụm ngữ nghĩa.
-
----
-
-## 3. Kiến trúc Kỹ thuật & Luồng Dữ liệu (Transliteration Pipeline)
+### Key User Flows by Page View
 
 ```
-[Đoạn văn bản tiếng Nhật] (ví dụ: "日本人は漢字を毎日勉強する。")
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 1. Japanese Word & Compound Segmenter                  │
-│    Tách đoạn văn thành các cụm từ ghép & từ đơn         │
-│    - Từ ghép Kanji: "日本人", "漢字", "毎日", "勉強"     │
-│    - Trợ từ & Hiragana: "は", "を", "する"            │
-└────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 2. Contextual Reading Resolver                         │
-│    - Kiểm tra CSDL KANJI_DICTIONARY & Ví dụ            │
-│    - Từ đơn 1 Kanji -> Âm Kun (như "日" -> "hi")       │
-│    - Từ ghép >= 2 Kanji -> Ghép âm On ("日本" -> "nihon")│
-└────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 3. Kana-to-Hepburn Romaji Converter                    │
-│    - Chuyển Kana Hiragana thành Romaji chuẩn Hepburn   │
-│    - Xử lý âm dài (ー, おう -> ō/ou), sokuon (っ -> kk/tt) │
-│    - Phân tách cụm từ bằng phím space                  │
-└────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ 4. Reader Card Rendering                               │
-│    Hiển thị lớp Romaji Hepburn bên dưới thẻ từ vựng   │
-└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 HEADER (Thanh điều hướng top)                          │
+├──────────────┬─────────────────────────────────────────────────────────────────────────┤
+│ SIDEBAR      │ MAIN VIEWPORT (Đổi linh hoạt theo tab được chọn)                       │
+│ (Co giãn     │                                                                         │
+│  260px/68px) │ 1. View Nét viết Kanji: Bảng nét SVG, hoạt ảnh stroke order, thẻ học    │
+│              │ 2. View Phiên âm Romaji: Đoạn văn song ngữ, chuyển đổi Kana/Romaji       │
+│              │ 3. View Dịch câu song ngữ: Khung dịch AI (Google / Gemini), chép kết quả│
+│              │ 4. View Tra cứu & Tìm kiếm: Tìm theo Kanji, Hán-Việt, JLPT, Bộ thủ, Số nét│
+│              │ 5. View 214 Bộ thủ Khang Hy: Khám phá cây cấu trúc chữ Hán               │
+│              │ 6. View Lịch sử tra cứu: Các chữ Kanji đã xem gần đây                   │
+└──────────────┴─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.1. Thuật toán phân tách từ & chuyển đổi Romaji (`src/utils/romajiConverter.ts`)
-- Tạo hàm `kanaToHepburnRomaji(kanaText: string): string`:
-  - Chuyển đổi các âm Kana (Hiragana/Katakana) sang Romaji Hepburn chính xác.
-  - Xử lý các trường hợp đặc biệt: `ん` trước nguyên âm hay phụ âm (`n'` vs `m`), biến âm `っ` (sokuon), trợ từ `は` (wa), `へ` (e), `を` (o).
-- Tạo hàm `getWordRomaji(charOrWord: string, detail?: KanjiDetail): string`:
-  - Trích xuất âm đọc chuẩn nhất cho từng từ ghép hoặc từ đơn dựa trên `KANJI_DICTIONARY`.
+1. **Trang 1: Nét viết Kanji (Kanji Stroke Order View)**
+   - Hiển thị danh sách chữ Kanji được lọc từ đoạn văn hoặc thêm trực tiếp.
+   - Tập trung không gian hiển thị bảng nét SVG vector, nút hoạt ảnh viết từng nét, tùy chọn Grid/Furigana/Anki CSV export mà không bị che bởi khung nhập liệu khổng lồ.
+   - Có công cụ gõ/dán chữ nhanh (Quick Add Bar) nhỏ gọn ở trên đầu.
+
+2. **Trang 2: Phiên âm Romaji (Romaji Transliteration View)**
+   - Chuyên biệt cho việc đọc hiểu đoạn văn tiếng Nhật.
+   - Hiển thị bản dịch phiên âm Romaji chuẩn Hepburn từng dòng/từng câu, công cụ chuyển đổi Hiragana/Katakana linh hoạt, chỉnh cỡ chữ đọc (sm, md, lg, xl).
+
+3. **Trang 3: Dịch câu song ngữ (Bilingual Sentence Translation View)**
+   - Chuyên biệt cho dịch thuật với 2 Engine (Google Dịch siêu tốc 150ms & Gemini AI phân tích ngữ cảnh).
+   - So sánh câu gốc tiếng Nhật và bản dịch tiếng Việt, nút copy kết quả 1-click.
+
+4. **Trang 4: Tra cứu & Tìm kiếm Kanji (Kanji Search & Lookup View - MỚI)**
+   - Ô tìm kiếm thông minh hỗ trợ gõ Romaji (IME), Hán-Việt, âm On/Kun.
+   - Bộ lọc đa tiêu chí: Cấp độ JLPT (N5, N4, N3, N2, N1), Số nét (1 - 30+ nét), Bộ thủ liên quan.
+   - Hiển thị dạng Bảng chi tiết (Table) hoặc Thẻ chữ (Grid).
+
+5. **Trang 5: 214 Bộ thủ Khang Hy (Kangxi Radicals Explorer View)**
+   - Giao diện tra cứu 214 bộ thủ theo số nét, xem ý nghĩa tiếng Việt và các Kanji chứa bộ thủ đó.
 
 ---
 
-## 4. Các Bước Thực Hiện (Implementation Steps)
+## 3. Key Product Decisions & Trade-Offs
 
-1. **Bước 1: Nâng cấp `romajiConverter.ts` & `kanji.ts`**
-   - Viết hàm `kanaToHepburn(kana: string): string` chuyển đổi từ Kana sang Romaji Hepburn chuẩn xác.
-   - Viết hàm `getExactWordRomaji(word: string, detail?: KanjiDetail)` phân tích từ đơn (Kun) và từ ghép (On).
+- **Quyết định 1: Phân tách View theo State thay vì Router URL phức tạp**
+  - *Lựa chọn*: Sử dụng React state `activeTab` để render các component view chuyên biệt (`KanjiStrokesView`, `RomajiReaderView`, `TranslationView`, `SearchView`, `RadicalsView`, `HistoryView`).
+  - *Lý do*: Đảm bảo trạng thái dữ liệu (đoạn văn đang nhập, kết quả dịch, lịch sử tra cứu) được giữ đồng bộ liên tục khi người dùng chuyển đổi qua lại giữa các trang mà không bị re-render mất dữ liệu.
 
-2. **Bước 2: Cập nhật `InputSection.tsx`**
-   - Thêm trạng thái `showRomaji` (Mặc định `true` hoặc `false` linh hoạt).
-   - Thêm nút công tắc `Romaji [BẬT/TẮT]` trên thanh công cụ Khung đọc chi tiết.
-   - Cập nhật JSX thẻ từ vựng hiển thị thêm dòng Romaji Hepburn cách từ nhã nhặn.
-
-3. **Bước 3: Cập nhật Cẩm Nang Hướng Dẫn & Tài Liệu**
-   - Cập nhật `UserGuideModal.tsx` và `docs/08-bo-go-ime-nhat-ban.md` giới thiệu tính năng đọc Romaji phân tách từ.
-
-4. **Bước 4: Kiểm thử & Biên dịch**
-   - Kiểm tra đoạn văn mẫu: `日本語能力試験（JLPT）で思い出す漢字の練習：日本人は漢字を毎日勉強する。一期一会、温故知新。`
-   - Đảm bảo hiển thị Romaji đẹp mắt: `Nihongo` `nōryoku` `shiken`, `Nihonjin` `wa` `kanji` `wo` `mainichi` `benkyō` `suru`.
-   - Chạy `compile_applet` và `lint_applet` đạt 0 lỗi.
+- **Quyết định 2: Đưa Khung nhập liệu cồng kềnh vào Trang chuyên dụng & Quick Bar trên Header**
+  - *Lựa chọn*: Tạo component `InputWorkspaceView` cho thao tác soạn thảo/dán văn bản dài/quét OCR từ ảnh. Các trang xem nét vẽ hoặc tìm kiếm sẽ có Quick Input Bar thu gọn ở top toolbar.
+  - *Lý do*: Giúp người dùng tập trung vào tác vụ hiện tại (ví dụ: đang tập viết nét Kanji thì không cần ô dán văn bản chiếm nửa màn hình).
 
 ---
 
-Vui lòng xem xét kế hoạch chi tiết trên. Khi bạn đã sẵn sàng, hãy bấm **Proceed** để tôi tiến hành triển khai mã nguồn!
+## 4. Technical Architecture & Data Strategy
+
+```
+                          ┌───────────────────────────┐
+                          │         App.tsx           │
+                          │ (Global State & ActiveView)│
+                          └─────────────┬─────────────┘
+                                        │
+           ┌────────────────────────────┼────────────────────────────┐
+           ▼                            ▼                            ▼
+┌─────────────────────┐      ┌────────────────────┐       ┌────────────────────┐
+│     AppSidebar      │      │       Header       │       │  View Controller   │
+│ (Nav items & Badges)│      │ (Quick Search Bar) │       │ (Conditional View) │
+└─────────────────────┘      └────────────────────┘       └──────────┬─────────┘
+                                                                     │
+     ┌──────────────────┬─────────────────┬──────────────────┬───────┴──────────┬─────────────────┐
+     ▼                  ▼                 ▼                  ▼                  ▼                 ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌──────────────┐ ┌──────────────┐
+│  KanjiStrokes│ │ RomajiReader │ │ Translation  │ │   KanjiSearch    │ │ RadicalsView │ │ HistoryView  │
+│     View     │ │     View     │ │     View     │ │      View        │ │              │ │              │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────────┘ └──────────────┘ └──────────────┘
+```
+
+### Component & State Mapping
+
+1. **`App.tsx`**: Quản lý global state (`activeTab`, `inputText`, `recentlyViewed`, `kanjiList`, `isSidebarCollapsed`).
+2. **`KanjiSearchView.tsx` (Component Mới)**: Trang tìm kiếm Kanji chuyên dụng với bộ lọc JLPT / Số nét / Từ khóa.
+3. **`KanjiStrokesView.tsx`**: Giao diện bảng nét Kanji gọn gàng, tập trung xem hoạt ảnh SVG vector & tập viết.
+4. **`RomajiReaderView.tsx`**: Giao diện chuyên đọc phiên âm Romaji Hepburn & chuyển đổi chữ mềm/chữ cứng.
+5. **`TranslationView.tsx`**: Giao diện chuyên dịch thuật với Google Dịch & Gemini AI.
+6. **`Footer.tsx`**: Giữ ở đáy layout chính, thiết kế tone-on-tone đồng nhất với giao diện.
+
+---
+
+## 5. Implementation Steps & Verification Plan
+
+1. **Bước 1**: Tạo component `KanjiSearchView.tsx` hỗ trợ lọc theo Từ khóa, Hán-Việt, JLPT N1-N5, số nét và bộ thủ.
+2. **Bước 2**: Tách biệt và tái cấu trúc các View component trong `src/components/views/`:
+   - `KanjiStrokesView.tsx`
+   - `RomajiReaderView.tsx`
+   - `TranslationView.tsx`
+   - `KanjiSearchView.tsx`
+3. **Bước 3**: Cập nhật `AppSidebar.tsx` bổ sung tab "Tra cứu & Tìm kiếm" (`search`) vào danh sách điều hướng.
+4. **Bước 4**: Cập nhật `App.tsx` render chính xác trang View tương ứng theo `activeTab`, tối ưu hóa giao diện tràn lề 2 bên (full-width container).
+5. **Bước 5**: Kiểm tra build với `compile_applet` và `lint_applet` để đảm bảo 0 lỗi TypeScript/Syntax.
