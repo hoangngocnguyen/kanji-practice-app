@@ -430,30 +430,30 @@ export const InputSection: React.FC<InputSectionProps> = ({
               type="button"
               onClick={onOpenScanner}
               disabled={isProcessingImage}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-bold text-white bg-teal-700 hover:bg-teal-800 border border-teal-800 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
               title="Chọn tệp ảnh, dán ảnh chụp màn hình (Ctrl+V) hoặc chụp ảnh quét chữ Hán (OCR)"
             >
               {isProcessingImage ? (
-                <RefreshCw className="w-3.5 h-3.5 text-teal-700 animate-spin" />
+                <RefreshCw className="w-3.5 h-3.5 text-white animate-spin" />
               ) : (
-                <Upload className="w-3.5 h-3.5 text-teal-700" />
+                <Upload className="w-3.5 h-3.5 text-white" />
               )}
-              <span>{isProcessingImage ? 'Đang đọc...' : 'Chọn ảnh / Dán ảnh'}</span>
+              <span className="text-white">{isProcessingImage ? 'Đang đọc...' : 'Chọn ảnh / Dán ảnh'}</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessingImage}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 text-[12px] sm:text-xs font-normal sm:font-bold text-white bg-teal-700 hover:bg-teal-800 border border-teal-800 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 shrink-0"
               title="Chọn tệp hình ảnh hoặc bấm Ctrl+V để dán ảnh chụp màn hình ngay tại ô nhập liệu"
             >
               {isProcessingImage ? (
-                <RefreshCw className="w-3.5 h-3.5 text-teal-700 animate-spin" />
+                <RefreshCw className="w-3.5 h-3.5 text-white animate-spin" />
               ) : (
-                <Upload className="w-3.5 h-3.5 text-teal-700" />
+                <Upload className="w-3.5 h-3.5 text-white" />
               )}
-              <span>{isProcessingImage ? 'Đang đọc...' : 'Chọn ảnh / Dán ảnh'}</span>
+              <span className="text-white">{isProcessingImage ? 'Đang đọc...' : 'Chọn ảnh / Dán ảnh'}</span>
             </button>
           )}
 

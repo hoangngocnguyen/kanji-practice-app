@@ -39,6 +39,7 @@ import { useJapaneseIme } from './utils/useJapaneseIme';
 import { ImeCandidatePopover } from './components/ImeCandidatePopover';
 import { AppSidebar, WorkspaceTab } from './components/AppSidebar';
 import { KanjiSearchView } from './components/KanjiSearchView';
+import { KanjiQuickBar } from './components/KanjiQuickBar';
 
 export default function App() {
   // Navigation active tab: 'input-text' | 'kanji-strokes' | 'romaji-reader' | 'translation' | 'radicals' | 'history'
@@ -814,6 +815,13 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Horizontal Quick-Selection Bar (Hàng từ Kanji chọn nhanh 1-click) */}
+              <KanjiQuickBar
+                kanjiList={filteredKanjiList}
+                onSelectKanji={handleInspectKanji}
+                selectedKanjiChar={inspectedKanji?.kanji}
+              />
 
               {/* Empty / Filtered Empty States */}
               {extractedKanjiList.length === 0 ? (

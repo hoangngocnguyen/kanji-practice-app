@@ -17,6 +17,7 @@ import { KanjiTable } from './KanjiTable';
 import { KanjiGrid } from './KanjiGrid';
 import { useJapaneseIme } from '../utils/useJapaneseIme';
 import { ImeCandidatePopover } from './ImeCandidatePopover';
+import { KanjiQuickBar } from './KanjiQuickBar';
 
 interface KanjiSearchViewProps {
   onInspectKanji: (item: KanjiItem) => void;
@@ -255,6 +256,15 @@ export const KanjiSearchView: React.FC<KanjiSearchViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Quick selection bar for search results */}
+      {searchResults.length > 0 && (
+        <KanjiQuickBar
+          kanjiList={searchResults.slice(0, 50)}
+          onSelectKanji={onInspectKanji}
+          title="⚡ Chọn nhanh Kanji từ kết quả tìm kiếm (Click mở nét vẽ):"
+        />
+      )}
 
       {/* Results Container */}
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 min-h-[400px]">
