@@ -1,0 +1,6 @@
+# robots.txt cho Luyện Kanji (https://luyenkanji.vercel.app)
+User-agent: *
+Allow: /
+
+# XML Sitemap Official Location
+Sitemap: https://luyenkanji.vercel.app/sitemap.xml

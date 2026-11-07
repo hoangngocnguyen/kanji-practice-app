@@ -1,119 +1,104 @@
-# Kiết cấu Đa trang (Multi-View Architecture) & Tối ưu hóa Trải nghiệm Luyện Kanji Pro
+# Kế hoạch Tối ưu SEO Toàn diện cho Luyện Kanji (luyenkanji.vercel.app)
 
-Tái cấu trúc ứng dụng Luyện Kanji từ mô hình "1 trang cuộn dài (single scroll page)" thành **hệ thống đa trang (Multi-View Routing/Tab Architecture)** chuẩn React. Mỗi tab sidebar hoạt động như 1 trang view độc lập chuyên biệt, bổ sung **Trang Tra cứu & Tìm kiếm Kanji nâng cao**, loại bỏ tình trạng cuộn trang cồng kềnh và tối ưu hóa vị trí khung nhập liệu.
+Tối ưu hóa công cụ tìm kiếm (SEO), thẻ chia sẻ mạng xã hội (OpenGraph / Twitter Cards), dữ liệu cấu trúc Schema.org (JSON-LD), cùng các tệp chuẩn SEO `sitemap.xml` và `robots.txt` cho ứng dụng Luyện Kanji tại `https://luyenkanji.vercel.app`.
+
+---
+
+## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> **Tóm tắt các quyết định đã được xác nhận bởi người dùng (Phase 1):**
-> 1. **Kiến trúc Đa trang View**: Mỗi tab sidebar là một trang view riêng biệt (`Nét viết Kanji`, `Phiên âm Romaji`, `Dịch câu song ngữ`, `Tra cứu & Tìm kiếm`, `214 Bộ thủ`, `Lịch sử tra cứu`).
-> 2. **Trang Tra cứu & Tìm kiếm mới**: Hỗ trợ bộ lọc đa năng theo Từ khóa, Romaji, Hán-Việt, Bộ thủ, Số nét và Cấp độ JLPT (N5 - N1).
-> 3. **Bố trí Khung nhập liệu Tối ưu**: Đưa khung nhập liệu chi tiết cùng các công cụ đọc/chuyển đổi vào trang chuyên dụng, các trang khác sử dụng Toolbar hoặc Thanh gõ nhanh/Quét ảnh thu gọn trên Header.
+> Các phương án SEO đã được xác nhận dựa trên phản hồi của bạn:
+
+- **Nhóm từ khóa chiến lược**: Tập trung tối ưu từ khóa tiếng Việt như *"Luyện nét vẽ Kanji", "Tra cứu Hán-Việt", "Phiên âm Romaji", "214 Bộ thủ Khang Hy", "Thứ tự nét viết chữ Hán", "Luyện thi JLPT N5-N1"*.
+- **Phạm vi cấu hình SEO**: Đầy đủ Meta Tags chuẩn, OpenGraph Social Card, Twitter Card `summary_large_image`, Schema.org JSON-LD (`WebApplication`, `FAQPage`, `HowTo`), `sitemap.xml`, `robots.txt` và Canonical Link chuẩn xác cho `https://luyenkanji.vercel.app`.
+- **Ảnh OpenGraph Social Card**: Banner minh họa 1200x630 hiển thị thương hiệu Luyện Kanji với đồ họa thứ tự nét vẽ SVG, âm Hán-Việt và bảng bộ thủ.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **Mục tiêu**: Nâng cấp toàn diện ứng dụng Luyện Kanji Pro lên trải nghiệm SaaS học tập hiện đại. Người dùng có thể chuyển đổi mượt mà giữa các trang view chuyên biệt mà không bị vướng bởi một ô nhập liệu dài cố định luôn chiếm không gian ở mọi trang.
-- **Đối tượng**: Học viên tiếng Nhật ở mọi cấp độ (JLPT N5 – N1), giáo viên, dịch thuật viên cần tra cứu nét vẽ vector KanjiVG, đọc phiên âm Romaji Hepburn, dịch câu song ngữ hoặc tra bộ thủ Khang Hy.
-- **Giá trị cốt lõi**: Phân tách vai trò rõ ràng giữa các trang view, mở rộng không gian hiển thị danh sách nét vẽ & thẻ học, cung cấp công cụ tìm kiếm chuẩn từ điển chuyên sâu.
+- **Mục tiêu**: Đưa website `https://luyenkanji.vercel.app` đạt điểm SEO tối đa trên Google Lighthouse/PageSpeed, hiển thị thẻ preview sinh động, chuyên nghiệp khi chia sẻ link trên Facebook, Zalo, Telegram, X/Twitter, LinkedIn, Discord.
+- **Đối tượng hướng đến**: Học viên tiếng Nhật tại Việt Nam, giáo viên, người luyện thi JLPT (N5 đến N1) và người dùng cần tra thứ tự nét viết Kanji để học tập hoặc tạo tài liệu Anki/Obsidian/Word.
+- **Giá trị mang lại**: Tăng thứ hạng xuất hiện tự nhiên trên Google Search cho các truy vấn tra cứu Kanji, nét viết và âm Hán-Việt.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Key User Flows by Page View
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 HEADER (Thanh điều hướng top)                          │
-├──────────────┬─────────────────────────────────────────────────────────────────────────┤
-│ SIDEBAR      │ MAIN VIEWPORT (Đổi linh hoạt theo tab được chọn)                       │
-│ (Co giãn     │                                                                         │
-│  260px/68px) │ 1. View Nét viết Kanji: Bảng nét SVG, hoạt ảnh stroke order, thẻ học    │
-│              │ 2. View Phiên âm Romaji: Đoạn văn song ngữ, chuyển đổi Kana/Romaji       │
-│              │ 3. View Dịch câu song ngữ: Khung dịch AI (Google / Gemini), chép kết quả│
-│              │ 4. View Tra cứu & Tìm kiếm: Tìm theo Kanji, Hán-Việt, JLPT, Bộ thủ, Số nét│
-│              │ 5. View 214 Bộ thủ Khang Hy: Khám phá cây cấu trúc chữ Hán               │
-│              │ 6. View Lịch sử tra cứu: Các chữ Kanji đã xem gần đây                   │
-└──────────────┴─────────────────────────────────────────────────────────────────────────┘
-```
-
-1. **Trang 1: Nét viết Kanji (Kanji Stroke Order View)**
-   - Hiển thị danh sách chữ Kanji được lọc từ đoạn văn hoặc thêm trực tiếp.
-   - Tập trung không gian hiển thị bảng nét SVG vector, nút hoạt ảnh viết từng nét, tùy chọn Grid/Furigana/Anki CSV export mà không bị che bởi khung nhập liệu khổng lồ.
-   - Có công cụ gõ/dán chữ nhanh (Quick Add Bar) nhỏ gọn ở trên đầu.
-
-2. **Trang 2: Phiên âm Romaji (Romaji Transliteration View)**
-   - Chuyên biệt cho việc đọc hiểu đoạn văn tiếng Nhật.
-   - Hiển thị bản dịch phiên âm Romaji chuẩn Hepburn từng dòng/từng câu, công cụ chuyển đổi Hiragana/Katakana linh hoạt, chỉnh cỡ chữ đọc (sm, md, lg, xl).
-
-3. **Trang 3: Dịch câu song ngữ (Bilingual Sentence Translation View)**
-   - Chuyên biệt cho dịch thuật với 2 Engine (Google Dịch siêu tốc 150ms & Gemini AI phân tích ngữ cảnh).
-   - So sánh câu gốc tiếng Nhật và bản dịch tiếng Việt, nút copy kết quả 1-click.
-
-4. **Trang 4: Tra cứu & Tìm kiếm Kanji (Kanji Search & Lookup View - MỚI)**
-   - Ô tìm kiếm thông minh hỗ trợ gõ Romaji (IME), Hán-Việt, âm On/Kun.
-   - Bộ lọc đa tiêu chí: Cấp độ JLPT (N5, N4, N3, N2, N1), Số nét (1 - 30+ nét), Bộ thủ liên quan.
-   - Hiển thị dạng Bảng chi tiết (Table) hoặc Thẻ chữ (Grid).
-
-5. **Trang 5: 214 Bộ thủ Khang Hy (Kangxi Radicals Explorer View)**
-   - Giao diện tra cứu 214 bộ thủ theo số nét, xem ý nghĩa tiếng Việt và các Kanji chứa bộ thủ đó.
+- **Hiển thị Snippet trên Google**:
+  - **Tiêu đề (Title)**: `Luyện Kanji - Tra Cứu Thứ Tự Nét Vẽ, Âm Hán-Việt & 214 Bộ Thủ` (khoảng 58 ký tự - nằm trong khoảng tối ưu 30–60 ký tự).
+  - **Mô tả (Description)**: `Luyện Kanji - Công cụ tra cứu thứ tự nét viết chữ Hán SVG động, phiên âm Romaji, dịch câu song ngữ, 214 bộ thủ Khang Hy và xuất phiếu luyện viết cho Anki & Word.` (154 ký tự - tối ưu trong khoảng 120–160 ký tự).
+- **Thẻ chia sẻ OpenGraph Social Card**:
+  - Banner kích thước chuẩn **1200x630 px** được tạo và đặt tại `/public/og-image.png`.
+  - Thiết kế phối màu Teal/Emerald đặc trưng của Luyện Kanji, hiển thị rõ ràng logo, minh họa các nét vẽ màu và các biểu tượng tính năng chính.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Quyết định 1: Phân tách View theo State thay vì Router URL phức tạp**
-  - *Lựa chọn*: Sử dụng React state `activeTab` để render các component view chuyên biệt (`KanjiStrokesView`, `RomajiReaderView`, `TranslationView`, `SearchView`, `RadicalsView`, `HistoryView`).
-  - *Lý do*: Đảm bảo trạng thái dữ liệu (đoạn văn đang nhập, kết quả dịch, lịch sử tra cứu) được giữ đồng bộ liên tục khi người dùng chuyển đổi qua lại giữa các trang mà không bị re-render mất dữ liệu.
-
-- **Quyết định 2: Đưa Khung nhập liệu cồng kềnh vào Trang chuyên dụng & Quick Bar trên Header**
-  - *Lựa chọn*: Tạo component `InputWorkspaceView` cho thao tác soạn thảo/dán văn bản dài/quét OCR từ ảnh. Các trang xem nét vẽ hoặc tìm kiếm sẽ có Quick Input Bar thu gọn ở top toolbar.
-  - *Lý do*: Giúp người dùng tập trung vào tác vụ hiện tại (ví dụ: đang tập viết nét Kanji thì không cần ô dán văn bản chiếm nửa màn hình).
+- **Quyết định 1: Định dạng Canonical URL cố định**:
+  - *Lựa chọn*: Sử dụng `https://luyenkanji.vercel.app/` làm URL chuẩn chính thức cho thẻ `<link rel="canonical">` và `og:url` thay vì phụ thuộc vào môi trường ngẫu nhiên.
+  - *Lý do*: Đảm bảo Google Index đúng trang gốc của người dùng trên Vercel mà không bị phân tán thứ hạng do các domain tạm thời.
+- **Quyết định 2: Tệp static `sitemap.xml` & `robots.txt` trong `/public/`**:
+  - *Lựa chọn*: Đặt trực tiếp các tệp static chuẩn trong thư mục `/public/` kết hợp khai báo static route trên Express (`server.ts`).
+  - *Lý do*: Vercel và Express server đều tự động phân phối các tệp này với tốc độ cao, hỗ trợ Googlebot crawler tự động tìm index.
+- **Quyết định 3: Nhúng Schema.org JSON-LD dạng `WebApplication` & `FAQPage`**:
+  - *Lựa chọn*: Thêm thẻ `<script type="application/ld+json">` chứa metadata dạng JSON-LD hợp lệ vào `<head>` của `index.html`.
+  - *Lý do*: Giúp Google Search hiển thị Rich Snippets (loại ứng dụng web miễn phí, đánh giá, tính năng nổi bật) ngay trên trang kết quả tìm kiếm.
 
 ---
 
 ## 4. Technical Architecture & Data Strategy
 
+### Sơ đồ kiến trúc SEO (SEO Architecture & Assets)
+
 ```
-                          ┌───────────────────────────┐
-                          │         App.tsx           │
-                          │ (Global State & ActiveView)│
-                          └─────────────┬─────────────┘
-                                        │
-           ┌────────────────────────────┼────────────────────────────┐
-           ▼                            ▼                            ▼
-┌─────────────────────┐      ┌────────────────────┐       ┌────────────────────┐
-│     AppSidebar      │      │       Header       │       │  View Controller   │
-│ (Nav items & Badges)│      │ (Quick Search Bar) │       │ (Conditional View) │
-└─────────────────────┘      └────────────────────┘       └──────────┬─────────┘
-                                                                     │
-     ┌──────────────────┬─────────────────┬──────────────────┬───────┴──────────┬─────────────────┐
-     ▼                  ▼                 ▼                  ▼                  ▼                 ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌──────────────┐ ┌──────────────┐
-│  KanjiStrokes│ │ RomajiReader │ │ Translation  │ │   KanjiSearch    │ │ RadicalsView │ │ HistoryView  │
-│     View     │ │     View     │ │     View     │ │      View        │ │              │ │              │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────────┘ └──────────────┘ └──────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Google Search & Social Crawlers                 │
+│               (Googlebot, Facebook External Hit, Twitterbot)           │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                            index.html                                  │
+│ ├─ <title> Luyện Kanji - Tra Cứu Thứ Tự Nét Vẽ...                   │
+│ ├─ <meta name="description"> ...                                       │
+│ ├─ <meta property="og:title|description|image|url">                    │
+│ ├─ <meta name="twitter:card|title|description|image">                  │
+│ ├─ <link rel="canonical" href="https://luyenkanji.vercel.app">         │
+│ └─ <script type="application/ld+json"> (Schema.org WebApplication)     │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+            ┌───────────────────────┴───────────────────────┐
+            ▼                                               ▼
+┌───────────────────────┐                       ┌───────────────────────┐
+│ /public/sitemap.xml   │                       │ /public/robots.txt    │
+│ - Index URLs          │                       │ - User-agent: *       │
+│ - Lastmod & Priority  │                       │ - Allow: /            │
+│                       │                       │ - Sitemap location    │
+└───────────────────────┘                       └───────────────────────┘
 ```
 
-### Component & State Mapping
+### Chi tiết các tệp sẽ khởi tạo và cập nhật:
 
-1. **`App.tsx`**: Quản lý global state (`activeTab`, `inputText`, `recentlyViewed`, `kanjiList`, `isSidebarCollapsed`).
-2. **`KanjiSearchView.tsx` (Component Mới)**: Trang tìm kiếm Kanji chuyên dụng với bộ lọc JLPT / Số nét / Từ khóa.
-3. **`KanjiStrokesView.tsx`**: Giao diện bảng nét Kanji gọn gàng, tập trung xem hoạt ảnh SVG vector & tập viết.
-4. **`RomajiReaderView.tsx`**: Giao diện chuyên đọc phiên âm Romaji Hepburn & chuyển đổi chữ mềm/chữ cứng.
-5. **`TranslationView.tsx`**: Giao diện chuyên dịch thuật với Google Dịch & Gemini AI.
-6. **`Footer.tsx`**: Giữ ở đáy layout chính, thiết kế tone-on-tone đồng nhất với giao diện.
+1. **`index.html`**:
+   - Thêm đầy đủ Meta SEO chuẩn (Keywords, Author, Robots, Theme color).
+   - Thêm đầy đủ OpenGraph (`og:title`, `og:description`, `og:url`, `og:image`, `og:site_name`, `og:locale`).
+   - Thêm Twitter Card (`twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`).
+   - Thêm Canonical link (`https://luyenkanji.vercel.app`).
+   - Thêm Schema.org JSON-LD nhúng thông tin `WebApplication`, `FAQPage` & `HowTo`.
 
----
+2. **`/public/robots.txt`**:
+   - Khai báo cho phép tất cả crawler (`User-agent: *`, `Allow: /`).
+   - Dẫn link trực tiếp tới `Sitemap: https://luyenkanji.vercel.app/sitemap.xml`.
 
-## 5. Implementation Steps & Verification Plan
+3. **`/public/sitemap.xml`**:
+   - Khai báo cấu trúc các đường dẫn chính của ứng dụng (`https://luyenkanji.vercel.app/`, `/?tab=kanji-strokes`, `/?tab=romaji-reader`, `/?tab=translation`, `/?tab=radicals`, `/?tab=history`).
+   - Đặt tần suất cập nhật `weekly` và độ ưu tiên `priority=1.0`.
 
-1. **Bước 1**: Tạo component `KanjiSearchView.tsx` hỗ trợ lọc theo Từ khóa, Hán-Việt, JLPT N1-N5, số nét và bộ thủ.
-2. **Bước 2**: Tách biệt và tái cấu trúc các View component trong `src/components/views/`:
-   - `KanjiStrokesView.tsx`
-   - `RomajiReaderView.tsx`
-   - `TranslationView.tsx`
-   - `KanjiSearchView.tsx`
-3. **Bước 3**: Cập nhật `AppSidebar.tsx` bổ sung tab "Tra cứu & Tìm kiếm" (`search`) vào danh sách điều hướng.
-4. **Bước 4**: Cập nhật `App.tsx` render chính xác trang View tương ứng theo `activeTab`, tối ưu hóa giao diện tràn lề 2 bên (full-width container).
-5. **Bước 5**: Kiểm tra build với `compile_applet` và `lint_applet` để đảm bảo 0 lỗi TypeScript/Syntax.
+4. **`/public/og-image.png`**:
+   - Tạo banner thương hiệu xem trước 1200x630px hiển thị giao diện học chữ Hán, nét vẽ SVG màu và thông tin tính năng của Luyện Kanji.
+
+5. **Kịch bản kiểm thử**:
+   - Kiểm tra syntax HTML & JSON-LD bằng `compile_applet` và `lint_applet`.
+   - Đảm bảo không có lỗi thiếu thẻ hoặc đường dẫn broken.

@@ -1,6 +1,6 @@
 {
   "name": "Luyện Kanji",
-  "description": "Công cụ tách lọc và tra cứu thứ tự nét viết chữ Hán Kanji, sao chép hình ảnh nét vẽ kèm thứ tự trực tiếp vào bộ nhớ tạm Clipboard cho Anki, Word và Obsidian.",
+  "description": "Luyện Kanji - Tra cứu thứ tự nét viết chữ Hán SVG động, phiên âm Romaji, dịch câu song ngữ, 214 bộ thủ Khang Hy và xuất phiếu luyện viết cho Anki & Word.",
   "requestFramePermissions": ["clipboard-write", "clipboard-read"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

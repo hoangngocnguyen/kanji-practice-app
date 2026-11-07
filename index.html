@@ -3,30 +3,114 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Luyện Kanji - Tra cứu nét viết, bộ thủ & thứ tự Kanji</title>
+    <title>Luyện Kanji - Tra Cứu Thứ Tự Nét Vẽ, Âm Hán-Việt &amp; 214 Bộ Thủ</title>
+
+    <!-- Meta SEO Core -->
     <meta
       name="description"
-      content="Luyện Kanji - Công cụ tra cứu thứ tự nét viết chữ Hán, bộ thủ Khang Hy, âm Hán-Việt, hoạt ảnh nét vẽ động và phiếu luyện viết tay cho Anki, Word và Obsidian."
+      content="Luyện Kanji - Công cụ tra cứu thứ tự nét viết chữ Hán SVG động, phiên âm Romaji, dịch câu song ngữ, 214 bộ thủ Khang Hy và xuất phiếu luyện viết cho Anki &amp; Word."
     />
     <meta
+      name="keywords"
+      content="luyện kanji, nét vẽ kanji, thứ tự nét viết, hán việt, romaji, 214 bộ thủ, jlpt n5 n1, học tiếng nhật, kanji stroke order, tra cứu chữ hán"
+    />
+    <meta name="author" content="Luyện Kanji" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0f766e" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://luyenkanji.vercel.app" />
+
+    <!-- OpenGraph / Facebook / Zalo / Telegram -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://luyenkanji.vercel.app" />
+    <meta
       property="og:title"
-      content="Luyện Kanji - Tra cứu nét viết, bộ thủ & thứ tự Kanji"
+      content="Luyện Kanji - Tra Cứu Thứ Tự Nét Vẽ, Âm Hán-Việt &amp; 214 Bộ Thủ"
     />
     <meta
       property="og:description"
-      content="Luyện Kanji - Công cụ tra cứu thứ tự nét viết chữ Hán, bộ thủ Khang Hy, âm Hán-Việt, hoạt ảnh nét vẽ động và phiếu luyện viết tay cho Anki, Word và Obsidian."
+      content="Luyện Kanji - Công cụ tra cứu thứ tự nét viết chữ Hán SVG động, phiên âm Romaji, dịch câu song ngữ, 214 bộ thủ Khang Hy và xuất phiếu luyện viết cho Anki &amp; Word."
     />
-    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Luyện Kanji" />
+    <meta property="og:locale" content="vi_VN" />
+    <meta property="og:image" content="https://luyenkanji.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="Luyện Kanji - Ứng dụng tra cứu và học chữ Hán tiếng Nhật" />
+
+    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://luyenkanji.vercel.app" />
+    <meta
+      name="twitter:title"
+      content="Luyện Kanji - Tra Cứu Thứ Tự Nét Vẽ, Âm Hán-Việt &amp; 214 Bộ Thủ"
+    />
+    <meta
+      name="twitter:description"
+      content="Tra cứu thứ tự nét viết Kanji SVG, âm Hán-Việt, phiên âm Romaji, 214 bộ thủ Khang Hy và xuất file CSV Anki miễn phí."
+    />
+    <meta name="twitter:image" content="https://luyenkanji.vercel.app/og-image.png" />
+
+    <!-- Fonts &amp; Favicon -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Noto+Sans+JP:wght@400;500;700;900&amp;family=Zen+Kaku+Gothic+New:wght@500;700;900&amp;display=swap"
       rel="stylesheet"
     />
 
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="alternate icon" type="image/png" href="/logo.png" />
+
+    <!-- Schema.org Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Luyện Kanji",
+        "url": "https://luyenkanji.vercel.app",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "All",
+        "inLanguage": "vi",
+        "description": "Công cụ tra cứu thứ tự nét viết chữ Hán SVG động, phiên âm Romaji, dịch câu song ngữ, 214 bộ thủ Khang Hy và xuất phiếu luyện viết cho Anki & Word.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "VND"
+        },
+        "author": {
+          "@type": "Organization",
+          "name": "Luyện Kanji Studio",
+          "url": "https://luyenkanji.vercel.app"
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Luyện Kanji giúp ích gì cho người học tiếng Nhật?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Luyện Kanji giúp bạn tra cứu thứ tự nét viết chữ Hán qua hình ảnh vector SVG động, tra âm Hán-Việt, âm On/Kun, phiên âm Romaji, học 214 bộ thủ Khang Hy và xuất bảng chữ Kanji sang Anki, Word hoặc Obsidian."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Ứng dụng Luyện Kanji có miễn phí không?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Hoàn toàn miễn phí 100%, không yêu cầu đăng ký tài khoản và hỗ trợ đầy đủ trên máy tính, máy tính bảng và điện thoại di động."
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-800 antialiased font-sans min-h-screen">
     <div id="root"></div>
