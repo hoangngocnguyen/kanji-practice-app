@@ -31,6 +31,7 @@ import { LicenseModal } from './components/LicenseModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
 import { KanjiPrintModal } from './components/KanjiPrintModal';
 import { UserGuideModal } from './components/UserGuideModal';
+import { UserGuideView } from './components/UserGuideView';
 import { RadicalExplorer } from './components/RadicalExplorer';
 import { SettingsModal } from './components/SettingsModal';
 import { ExtensionExporter } from './components/ExtensionExporter';
@@ -525,7 +526,7 @@ export default function App() {
           onPrint={() => setIsPrintModalOpen(true)}
           kanjiCount={extractedKanjiList.length}
           historyCount={recentlyViewed.length}
-          onOpenGuide={() => setIsGuideOpen(true)}
+          onOpenGuide={() => handleNavigateTab('guide')}
           onOpenRadicals={() => handleNavigateTab('radicals')}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
@@ -929,6 +930,16 @@ export default function App() {
                 recentList={recentlyViewed}
                 onSelectKanji={handleSelectRecentKanji}
                 onClearHistory={handleClearRecentHistory}
+              />
+            </div>
+          )}
+
+          {/* 7. Trang Hướng dẫn sử dụng (Full Page View) */}
+          {activeTab === 'guide' && (
+            <div className="animate-in fade-in duration-200">
+              <UserGuideView
+                onOpenScanner={() => setIsScannerOpen(true)}
+                onNavigateTab={handleNavigateTab}
               />
             </div>
           )}

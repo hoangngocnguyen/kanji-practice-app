@@ -16,7 +16,7 @@ import {
   X
 } from 'lucide-react';
 
-export type WorkspaceTab = 'kanji-strokes' | 'input-text' | 'romaji-reader' | 'translation' | 'radicals' | 'history';
+export type WorkspaceTab = 'kanji-strokes' | 'input-text' | 'romaji-reader' | 'translation' | 'radicals' | 'history' | 'guide';
 
 interface AppSidebarProps {
   activeTab: WorkspaceTab;
@@ -220,13 +220,17 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         <button
           type="button"
           onClick={() => {
-            onOpenGuide();
+            onSelectTab('guide');
             if (isMobileOpen) onCloseMobile();
           }}
-          className="w-full group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+          className={`w-full group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            activeTab === 'guide'
+              ? 'bg-teal-700 text-white font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title={isCollapsed ? 'Hướng dẫn & Mẹo học' : undefined}
         >
-          <HelpCircle className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-teal-700" />
+          <HelpCircle className={`w-4 h-4 shrink-0 ${activeTab === 'guide' ? 'text-white' : 'text-slate-500 group-hover:text-teal-700'}`} />
           {!isCollapsed && <span className="truncate">Hướng dẫn sử dụng</span>}
         </button>
 
