@@ -467,6 +467,13 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
                     In phiếu tập viết A4 tùy chọn &amp; Xuất Google Docs
                   </h2>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/print')}
+                  className="px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  Tới trang In A4 <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

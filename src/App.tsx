@@ -19,7 +19,7 @@ import { RecentlyViewedKanji } from './components/RecentlyViewedKanji';
 import { UserGuideView } from './components/UserGuideView';
 import { PracticeModal } from './components/PracticeModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
-import { KanjiPrintModal } from './components/KanjiPrintModal';
+import { KanjiPrintView } from './components/KanjiPrintView';
 import { SettingsModal } from './components/SettingsModal';
 import { GoogleDocsTableExporter } from './components/GoogleDocsTableExporter';
 import { LicenseModal } from './components/LicenseModal';
@@ -112,6 +112,7 @@ function AppLayout() {
               path="/radicals"
               element={<RadicalExplorer onSelectKanji={handleSelectRecentKanji} />}
             />
+            <Route path="/print" element={<KanjiPrintView />} />
             <Route path="/history" element={<RecentlyViewedKanji />} />
             <Route
               path="/guide"
@@ -157,13 +158,6 @@ function AppLayout() {
         onClose={() => setIsSettingsOpen(false)}
         historyCount={recentlyViewed.length}
         onClearHistory={clearRecentHistory}
-      />
-
-      {/* Print Modal */}
-      <KanjiPrintModal
-        kanjiList={mergedKanjiList}
-        isOpen={isPrintModalOpen}
-        onClose={() => setIsPrintModalOpen(false)}
       />
 
       {/* Google Docs Table Exporter Modal */}

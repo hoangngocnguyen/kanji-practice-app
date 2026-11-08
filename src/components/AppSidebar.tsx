@@ -202,20 +202,32 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Bottom Utility Actions */}
       <div className="p-2 border-t border-slate-200/90 bg-slate-50/60 space-y-1">
-        {/* Print Action */}
-        <button
-          type="button"
+        {/* Print Page NavLink */}
+        <NavLink
+          to="/print"
           onClick={() => {
-            setIsPrintModalOpen(true);
             if (isMobileOpen) onCloseMobile();
           }}
-          disabled={extractedKanjiList.length === 0}
-          className="w-full group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          title={isCollapsed ? 'In trang luyện viết' : undefined}
+          className={({ isActive }) =>
+            `w-full group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+              isActive
+                ? 'bg-teal-700 text-white font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
+            }`
+          }
+          title={isCollapsed ? 'In trang tập viết A4' : undefined}
         >
-          <Printer className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-teal-700" />
-          {!isCollapsed && <span className="truncate">In trang tập viết</span>}
-        </button>
+          {({ isActive }) => (
+            <>
+              <Printer
+                className={`w-4 h-4 shrink-0 ${
+                  isActive ? 'text-white' : 'text-slate-500 group-hover:text-teal-700'
+                }`}
+              />
+              {!isCollapsed && <span className="truncate">In trang tập viết</span>}
+            </>
+          )}
+        </NavLink>
 
         {/* User Guide Page Link */}
         <NavLink

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Printer, Settings, Menu } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, NavLink } from 'react-router-dom';
 import { useKanji } from '../context/KanjiContext';
 
 interface HeaderProps {
@@ -49,6 +49,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           title: 'Lịch sử tra cứu',
           subtitle: 'Các từ Kanji đã xem gần đây lưu trữ ngoại tuyến',
         };
+      case '/print':
+        return {
+          title: 'In phiếu tập viết A4',
+          subtitle: 'Tùy chọn chữ Kanji, cột hiển thị và xuất bản in hoặc PDF chuẩn A4',
+        };
       case '/guide':
         return {
           title: 'Hướng dẫn sử dụng',
@@ -65,7 +70,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const { title, subtitle } = getPageTitle(location.pathname);
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs print:hidden">
       <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         {/* Left: Mobile Menu Toggle & Current Page Title */}
         <div className="flex items-center gap-3 min-w-0">
@@ -93,16 +98,20 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
         {/* Right: Clean Utility Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsPrintModalOpen(true)}
-            disabled={extractedKanjiList.length === 0}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/90 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-2xs active:scale-95 shrink-0"
+          <NavLink
+            to="/print"
+            className={({ isActive }) =>
+              `hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 border ${
+                isActive
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 border-slate-200/90'
+              }`
+            }
             title="In bảng tập viết ra giấy hoặc PDF"
           >
-            <Printer className="w-4 h-4 text-slate-600 shrink-0" />
+            <Printer className="w-4 h-4 shrink-0" />
             <span>In tập viết</span>
-          </button>
+          </NavLink>
 
           <button
             type="button"

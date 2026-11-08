@@ -24,11 +24,13 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
   - `/translate`: **Dịch câu song ngữ** - Trang dịch thuật chuyên biệt Nhật - Việt với công nghệ Google Dịch & Gemini AI.
   - `/converter`: **Chuyển đổi Romaji ⇄ Kana có Hoàn tác (Undo/Redo)** - Trang chuyển đổi độc lập 2 ngăn Input - Output với tính năng Hoàn tác / Làm lại nhiều bước, tránh nhầm lẫn khi chỉnh sửa văn bản.
   - `/radicals`: **214 Bộ thủ Khang Hy** - Khám phá cấu trúc và ý nghĩa gốc các bộ thủ chữ Hán.
+  - `/print`: **In phiếu tập viết A4** - Trang chuyên biệt cấu hình in ấn: tùy chọn từng chữ Kanji cần in, chọn các cột hiển thị (STT, Chữ Hán & Hán-Việt, Âm đọc, Nét vẽ, Ô kẻ mễ luyện tay) và xuất bản in / PDF chuẩn A4 đa trang.
   - `/history`: **Lịch sử tra cứu Nâng cấp** - Không giới hạn số lượng từ, lưu trữ đầy đủ toàn bộ dữ liệu chi tiết và nét vẽ ngoại tuyến (localStorage) không cần gọi lại API, hỗ trợ xem cả Bảng nét và Thẻ tương tự trang chính.
   - `/guide`: **Hướng dẫn sử dụng** - Cẩm nang học tập toàn diện dạng trang riêng.
 
-- **🖨️ In Phiếu Tập Viết A4 Tùy Chọn Kanji & Giao diện Tinh Tế**:
-  - Modal in ấn được nâng cấp với giao diện trắng thanh lịch, sạch đẹp thay cho nền xanh cũ.
+- **🖨️ Trang In Phiếu Tập Viết A4 Chuyên Biệt (Tách Khỏi Modal)**:
+  - Chuyển hoàn toàn tính năng in ấn từ Modal thành trang Route chuyên biệt (`/print`) có thể truy cập trực tiếp, lưu bookmark hoặc F5 không mất trạng thái.
+  - Giao diện trắng thanh lịch, sạch đẹp thay cho nền xanh cũ.
   - Cho phép tích chọn hoặc bỏ chọn từng chữ Kanji cần in (kèm nút "Chọn tất cả" / "Bỏ chọn tất cả") thay vì bắt buộc in toàn bộ.
 - **✨ Tinh gọn Giao diện, Xóa bỏ Trùng lặp & Cập nhật Hướng Dẫn**:
   - **Header thông minh**: Loại bỏ việc lặp lại tên web cạnh Sidebar; Header hiển thị chính xác tên trang và mô tả của tính năng đang truy cập.

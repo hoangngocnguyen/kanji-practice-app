@@ -176,11 +176,10 @@
     margin: 10mm 8mm 10mm 8mm;
   }
 
-  /* 1. Ẩn toàn bộ giao diện web thông thường và các nút điều khiển */
+  /* 1. Ẩn toàn bộ thanh điều hướng, header, footer, thanh bên và nút bấm */
   header,
   footer,
-  main,
-  #recently-viewed-section,
+  aside,
   nav,
   button,
   input,
@@ -205,51 +204,13 @@
     overflow: visible !important;
   }
 
-  /* 3. Mở cuộn Modal in ấn thành tài liệu in tự nhiên nhiều trang (Fix lỗi chỉ in 1 trang & duplicate) */
-  .kanji-print-modal-backdrop {
-    position: static !important;
-    inset: auto !important;
-    background: transparent !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+  main {
+    display: block !important;
     padding: 0 !important;
     margin: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    display: block !important;
-    z-index: auto !important;
-    box-shadow: none !important;
-  }
-
-  .kanji-print-modal-dialog {
-    position: static !important;
-    background: #ffffff !important;
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
     overflow: visible !important;
-    display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  .kanji-print-modal-scrollable {
-    position: static !important;
-    background: #ffffff !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    display: block !important;
   }
 
   .kanji-print-paper-sheet {
@@ -265,14 +226,6 @@
     max-height: none !important;
     overflow: visible !important;
     display: block !important;
-  }
-
-  /* 4. Ẩn thanh công cụ, nút bấm & tùy chọn cột của modal khi in */
-  .kanji-print-modal-header,
-  .kanji-print-modal-controls,
-  .kanji-print-modal-toolbar,
-  .kanji-print-modal-footer {
-    display: none !important;
   }
 
   /* 5. Cấu hình bảng & phân trang chuẩn A4 */
