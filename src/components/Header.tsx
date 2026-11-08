@@ -54,6 +54,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           title: 'In phiếu tập viết A4',
           subtitle: 'Tùy chọn chữ Kanji, cột hiển thị và xuất bản in hoặc PDF chuẩn A4',
         };
+      case '/extension':
+        return {
+          title: 'Chrome Extension v3.0',
+          subtitle: 'Tiện ích tra cứu Kanji, khoanh vùng chụp màn hình OCR & vẽ nét SVG trực tiếp',
+        };
       case '/guide':
         return {
           title: 'Hướng dẫn sử dụng',

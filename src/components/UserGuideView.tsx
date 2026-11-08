@@ -15,7 +15,9 @@ import {
   Sparkles,
   Camera,
   Play,
-  Grid
+  Grid,
+  Chrome,
+  Scissors
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,6 +32,7 @@ type GuideTabKey =
   | 'translate'
   | 'converter'
   | 'radicals'
+  | 'extension'
   | 'history'
   | 'export';
 
@@ -67,6 +70,11 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
       id: 'radicals',
       label: '214 Bộ thủ',
       icon: <Bookmark className="w-3.5 h-3.5" />,
+    },
+    {
+      id: 'extension',
+      label: 'Chrome Extension',
+      icon: <Chrome className="w-3.5 h-3.5" />,
     },
     {
       id: 'history',
@@ -412,7 +420,52 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
             </div>
           )}
 
-          {/* TAB 7: LỊCH SỬ NGOẠI TUYẾN */}
+          {/* TAB: CHROME EXTENSION */}
+          {activeTab === 'extension' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs">
+                    7
+                  </div>
+                  <h2 className="text-sm sm:text-base font-bold text-slate-800">
+                    Tiện ích Chrome Extension v3.0 (Khoanh vùng Snipping OCR &amp; Tra cứu)
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/extension')}
+                  className="px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  Tới trang Tải Extension <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
+                    <Scissors className="w-4 h-4 text-teal-600" />
+                    Khoanh vùng chụp màn hình (Ctrl + Shift + K)
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Sử dụng phím tắt để kéo chuột khoanh vùng bất kỳ đoạn văn bản, hình ảnh bìa truyện Manga hoặc video YouTube để quét trích xuất chữ Kanji tức thì mà không cần chuyển tab.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
+                    <Layers className="w-4 h-4 text-teal-600" />
+                    Cửa sổ nổi &amp; Đồng bộ sang Web
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Cửa sổ tra cứu có thể di chuyển tự do trên màn hình, xem nét vẽ SVG hoạt ảnh động và nút <strong>🌐 Mở trên Web</strong> chuyển toàn bộ câu tới Web App để học sâu.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: LỊCH SỬ NGOẠI TUYẾN */}
           {activeTab === 'history' && (
             <div className="space-y-4 animate-in fade-in duration-100">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">

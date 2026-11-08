@@ -13,7 +13,8 @@ import {
   Printer,
   HelpCircle,
   X,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Chrome
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 
@@ -79,6 +80,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       icon: Layers3,
       badge: 214,
       desc: 'Phân tích cấu trúc chữ Hán',
+    },
+    {
+      to: '/extension',
+      label: 'Chrome Extension',
+      icon: Chrome,
+      badge: 'v3.0',
+      desc: 'Tải tiện ích tra cứu Kanji & Snipping OCR',
     },
     {
       to: '/history',
