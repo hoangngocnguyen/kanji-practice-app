@@ -28,27 +28,7 @@ interface DetectedKanji {
   hanViet: string;
 }
 
-// Sample presets with embedded SVG data URIs for instant zero-network testing
-const SAMPLE_OCR_IMAGES = [
-  {
-    title: 'Biển chỉ dẫn Tokyo',
-    desc: 'Biển báo giao thông & địa danh',
-    text: '東京都新宿区 止まれ 進入禁止',
-    previewKanji: '東京新宿区止進入禁止',
-  },
-  {
-    title: 'Sách ôn thi JLPT',
-    desc: 'Đoạn văn đọc hiểu N3-N2',
-    text: '日本語能力試験 読解問題 合格 練習',
-    previewKanji: '日本語能力試験読解問題合格練習',
-  },
-  {
-    title: 'Thành ngữ Yojijukugo',
-    desc: 'Thư pháp 4 chữ Hán',
-    text: '一期一会 温故知新 七転八起',
-    previewKanji: '一期一会温故知新七転八起',
-  },
-];
+
 
 export const KanjiScannerModal: React.FC<KanjiScannerModalProps> = ({
   isOpen,
@@ -286,34 +266,6 @@ export const KanjiScannerModal: React.FC<KanjiScannerModalProps> = ({
     };
   }, [isOpen, processImage]);
 
-  // Test with preset sample
-  const handleSelectSample = (sample: typeof SAMPLE_OCR_IMAGES[0]) => {
-    // Generate synthetic graphic for sample
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 200;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, 0, 600, 200);
-      ctx.strokeStyle = '#0f766e';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(10, 10, 580, 180);
-      ctx.font = 'bold 36px "Noto Sans JP", sans-serif';
-      ctx.fillStyle = '#0f172a';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(sample.text, 300, 100);
-      const url = canvas.toDataURL('image/png');
-      setImageSrc(url);
-    }
-
-    setExtractedRawText(sample.text);
-    const kanjiItems = parseKanjiFromText(sample.previewKanji);
-    setDetectedKanjiList(kanjiItems);
-    setErrorMessage(null);
-  };
-
   if (!isOpen) return null;
 
   const kanjiString = detectedKanjiList.map((k) => k.char).join('');
@@ -402,31 +354,7 @@ export const KanjiScannerModal: React.FC<KanjiScannerModalProps> = ({
             )}
           </div>
 
-          {/* Quick Preset Samples */}
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-              Hoặc thử nhanh với ảnh mẫu chữ Hán:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {SAMPLE_OCR_IMAGES.map((sample, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSelectSample(sample)}
-                  className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-teal-400 bg-slate-50/60 hover:bg-teal-50/50 transition-all cursor-pointer group"
-                >
-                  <div className="text-xs font-bold text-slate-800 group-hover:text-teal-800">
-                    {sample.title}
-                  </div>
-                  <div className="text-[11px] text-slate-500 truncate">{sample.desc}</div>
-                  <div className="mt-1 font-kanji text-xs text-teal-700 font-semibold truncate bg-white px-1.5 py-0.5 rounded border border-slate-200/80">
-                    {sample.previewKanji}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {/* Progress / Status Bar */}
           {isScanning && (

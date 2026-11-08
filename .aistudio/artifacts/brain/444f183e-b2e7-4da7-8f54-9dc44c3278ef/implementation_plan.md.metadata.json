@@ -1,6 +1,6 @@
 {
-  "summary": "Implementation plan for comprehensive SEO optimization for Luyện Kanji (https://luyenkanji.vercel.app), including rich meta tags, OpenGraph social card banner, Schema.org JSON-LD structured data, canonical URL resolution, sitemap.xml, and robots.txt.",
-  "updatedAt": "2026-11-07T02:17:41.449663292Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Kế hoạch tái cấu trúc toàn diện ứng dụng Luyện Kanji: Tích hợp React Router DOM với các route độc lập (/input, /kanji, /romaji, /translate, /converter, /radicals, /history, /guide), xử lý F5 giữ nguyên trang, tinh gọn Header (hiển thị tiêu đề trang thay vì trùng tên web), tách trang Chuyển đổi Romaji có nút Hoàn tác (Undo/Redo), nâng cấp Lịch sử tra cứu không giới hạn kèm tái sử dụng bảng nét vẽ và lưu trữ offline, xóa bỏ các thành phần trùng lặp/rác giao diện, và cập nhật tài liệu README.",
+  "updatedAt":  "2026-11-08T02:12:57.268190794Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

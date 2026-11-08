@@ -1,8 +1,9 @@
-# ⛩️ Luyện Kanji - Japanese Kanji Learning & Stroke Order Platform (v3.0.0)
-### *(漢字書き順・部首・練習・日越辞書ツール)*
+# ⛩️ Luyện Kanji - Japanese Kanji Learning & Stroke Order Platform (v3.1.0)
+### *(Học Chữ Hán, Tra Cứu Nét Viết, Bộ Thủ, Romaji & Dịch Thuật Nhật - Việt)*
 
-[![Version](https://img.shields.io/badge/version-v3.0.0-teal.svg)](https://luyenkanji.vercel.app)
+[![Version](https://img.shields.io/badge/version-v3.1.0-teal.svg)](https://luyenkanji.vercel.app)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
+[![React Router](https://img.shields.io/badge/React_Router-v7-ca4245.svg)](https://reactrouter.com)
 [![Vite](https://img.shields.io/badge/Vite-8-purple.svg)](https://vitejs.dev)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-v4-38bdf8.svg)](https://tailwindcss.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -12,76 +13,63 @@
 
 ## 🇻🇳 Tiếng Việt (Vietnamese)
 
-### 📢 Bản phát hành mới: Luyện Kanji v3.0.0 (Hepburn Romaji Engine, Snipping OCR, Google Docs Exporter & 4-Tier Radicals)
+### 📢 Bản phát hành mới: Luyện Kanji v3.1.0 (React Router SPA, Dedicated Multi-Route Pages & Romaji Converter with Undo)
 
-Bản cập nhật **v3.0.0** mang đến bước tiến đột phá cho hệ sinh thái **Luyện Kanji**:
-- **🔤 Phiên âm Romaji Xen kẽ Từng dòng (Interleaved Hepburn Romaji Transliteration Engine)**: Tự động phân tích và chuyển đổi toàn bộ đoạn văn tiếng Nhật (chứa mọi Kanji, Hiragana, Katakana) sang phiên âm Romaji chuẩn Hepburn với khoảng trắng tách từ ngữ cảnh, trường âm nguyên âm (`ō`, `ū`), trợ từ ngữ pháp (`は` → `wa`, `を` → `o`, `へ` → `e`). Trình bày dạng cặp dòng song song `[JP]` & `[ROMAJI]` giúp theo dõi dễ dàng, kèm nút tùy chỉnh cỡ chữ `A-`/`A+` (12px - 18px) trực tiếp trên ô nhập liệu và Cài đặt chung.
-- **⌨️ Bộ gõ IME Nhật Bản Toàn diện (Romaji → Hiragana → Kanji)**: Gõ phiên âm Latinh, bấm phím `Space` hoặc `Tab` để hiển thị menu gợi ý Kanji chuẩn IME Nhật (kèm chữ Hán, Furigana, âm Hán-Việt và nghĩa tiếng Việt). Hỗ trợ phím số `1`-`9`, `Enter`, `↑`/`↓`, tích hợp trên khung nhập chính và thanh tìm kiếm nhanh.
-- **📸 Chụp màn hình khoanh vùng (Screen Snipping OCR - `Ctrl + Shift + K`)**: Khoanh vùng chụp bất kỳ chữ Hán nào trên video YouTube, phim Anime, truyện tranh Manga scan, hình ảnh hoặc tệp PDF để tra cứu tức thì.
-- **📋 Xuất Bảng 1 Cột Tùy Chỉnh (Google Docs Table Exporter)**: Tùy chọn bật/tắt linh hoạt các cột (STT, Chữ Hán & Hán-Việt, Âm đọc & Ý nghĩa, Ảnh nét vẽ) và sao chép toàn bộ bảng ảnh chỉ với 1 cú nhấp để dán trực tiếp (`Ctrl + V`) vào Google Docs hoặc Microsoft Word.
-- **🖨️ In Ấn A4 Đa Trang & Tùy Chọn Cột (Multi-Page Print Engine)**: Thuật toán unroll CSS paged media giúp in trọn vẹn danh sách Kanji qua nhiều trang A4 sạch sẽ, không bị giới hạn 1 trang hay lặp lại giao diện, tùy chọn cột in linh hoạt.
-- **⚡ Điều Hướng Modal Trái / Phải (Modal Fast Navigation)**: Lướt nhanh qua các chữ Kanji trong danh sách bằng phím mũi tên `←` / `→` trên bàn phím hoặc nút điều hướng nổi mà không phải đóng modal rồi cuộn trang.
-- **🌳 Mô hình Tra cứu 4 Tầng Bộ Thủ & Cấu Phần**: Phân tích cấu trúc đệ quy KanjiVG kết hợp 214 Bộ thủ Khang Hi và từ điển 11,000+ chữ Hán-Việt với độ chính xác tuyệt đối.
-- **🎯 Chế độ Luyện viết kiểm tra nét (Stroke Verification Engine)**: So khớp vector hình học, nhận diện vẽ ngược chiều và chấm điểm độ chính xác theo thời gian thực (0 - 100%).
+Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng dụng sang hệ thống **React Router DOM đa trang chuẩn mực**, loại bỏ hoàn toàn các thành phần lặp lại và mang lại trải nghiệm mượt mà, tối giản:
 
----
+- **🌐 Định tuyến React Router Đa trang Chuẩn mực (F5 Không mất trang)**:
+  - `/` hoặc `/input`: **Nhập văn bản** - Giao diện nhập liệu tinh gọn, bo góc mềm mại, tích hợp bộ gõ Kanji IME và bộ chuyển đổi cỡ chữ.
+  - `/kanji`: **Nét viết Kanji** - Bảng tra nét vẽ, hoạt ảnh SVG động, thanh chọn nhanh Kanji Quick Bar 1-chạm, chế độ lưới kẻ ô mễ và modal luyện viết tay.
+  - `/romaji`: **Phiên âm Romaji** - Trang chuyên biệt hiển thị các cặp dòng song song `[JP]` & `[ROMAJI]` chuẩn Hepburn, phân tách từ ghép rõ ràng, kèm tính năng phát âm và sao chép.
+  - `/translate`: **Dịch câu song ngữ** - Trang dịch thuật chuyên biệt Nhật - Việt với công nghệ Google Dịch & Gemini AI.
+  - `/converter`: **Chuyển đổi Romaji ⇄ Kana có Hoàn tác (Undo/Redo)** - Trang chuyển đổi độc lập 2 ngăn Input - Output với tính năng Hoàn tác / Làm lại nhiều bước, tránh nhầm lẫn khi chỉnh sửa văn bản.
+  - `/radicals`: **214 Bộ thủ Khang Hy** - Khám phá cấu trúc và ý nghĩa gốc các bộ thủ chữ Hán.
+  - `/history`: **Lịch sử tra cứu Nâng cấp** - Không giới hạn số lượng từ, lưu trữ đầy đủ toàn bộ dữ liệu chi tiết và nét vẽ ngoại tuyến (localStorage) không cần gọi lại API, hỗ trợ xem cả Bảng nét và Thẻ tương tự trang chính.
+  - `/guide`: **Hướng dẫn sử dụng** - Cẩm nang học tập toàn diện dạng trang riêng.
 
-### 🌐 English
-
-### 📢 Release: Luyện Kanji v3.0.0 (Interleaved Hepburn Romaji Engine, Japanese IME, Snipping OCR & Google Docs Exporter)
-
-Version **v3.0.0** introduces major enhancements to the **Luyện Kanji** ecosystem:
-- **🔤 Interleaved Hepburn Romaji Transliteration Engine**: Automatically converts full Japanese text (containing Kanji, Hiragana, Katakana) into Hepburn Romaji with word spacing, long vowel macrons (`ō`, `ū`), and contextual particle pronunciations (`は` → `wa`, `を` → `o`, `へ` → `e`). Displays side-by-side line pairs `[JP]` & `[ROMAJI]` for easy reading, equipped with font size controls (`A-`/`A+`, 12px - 18px) in the input toolbar and General Settings.
-- **⌨️ Built-in Japanese IME Engine (Romaji → Hiragana → Kanji)**: Type Latin Romaji, press `Space` or `Tab` to open the standard Japanese IME candidate popover with Kanji, Furigana, Sino-Vietnamese readings, and meanings. Supports keys `1`-`9`, `Enter`, `↑`/`↓`, available in both main textarea and quick search bars.
-- **📸 Screen Snipping OCR (`Ctrl + Shift + K`)**: Capture and extract Kanji characters from YouTube videos, Anime, scanned Manga, images, or PDFs using global shortcut or extension popup.
-- **📋 Google Docs Table Exporter**: Export and customize 1-column Kanji stroke order tables with selectable columns (Index, Kanji & Sino-Vietnamese, Readings & Meanings, Stroke Order Images). Copy the entire table with 1 click and paste (`Ctrl + V`) directly into Google Docs or Microsoft Word.
-- **🖨️ Multi-Page A4 Print Engine with Column Options**: CSS paged media unroll engine that paginates all Kanji seamlessly across multiple A4 sheets without single-page truncation or duplicate fixed headers.
-- **⚡ Modal Fast Navigation (Left/Right Keys)**: Instantly cycle through Kanji in the inspection/practice dialog using `←` / `→` arrow keys or floating buttons without closing and scrolling.
-- **🌳 4-Tier Radical & Component Decomposition Engine**: Recursive KanjiVG DOM parsing combined with 214 Kangxi radicals and an 11,000+ Sino-Vietnamese offline dictionary.
-- **🎯 Stroke Verification Engine**: Real-time geometric vector matching for handwriting practice with reverse-stroke detection and accuracy scoring (0 - 100%).
+- **✨ Tinh gọn Giao diện & Xóa bỏ Trùng lặp**:
+  - **Header thông minh**: Loại bỏ việc lặp lại tên web cạnh Sidebar; Header hiển thị chính xác tên trang và mô tả của tính năng đang truy cập.
+  - **Dọn sạch mô tả và mẫu thừa**: Xóa các mô tả dài dòng và các nút mẫu có sẵn gây rối ở ô nhập liệu và modal quét OCR.
+  - **Tách bạch tính năng**: Mỗi trang tập trung 100% vào nghiệp vụ riêng, không chèn lẫn nút của tính năng khác vào nhau.
+  - **Không còn Toast phiền hà**: Lược bỏ các thông báo popup không cần thiết cho các thao tác gõ chữ thông thường.
 
 ---
 
-## ✨ Tổng quan tính năng / Feature Overview
+## 🌐 English
 
-| Tính năng (Feature) | Mô tả chi tiết (Description) |
-| :--- | :--- |
-| **🔍 Tách lọc Kanji** | Tự động trích xuất mọi chữ Kanji từ văn bản hỗn hợp Nhật - Việt - Anh. / Extract unique Kanji from text. |
-| **🔤 Furigana & Hán-Việt** | Hiển thị chữ mềm Hiragana trên đầu và nhãn Hán-Việt dưới chân chữ (chuẩn `<ruby>`). |
-| **📋 Xuất Google Docs** | Tạo bảng 1 cột chứa ảnh nét vẽ với tùy chọn cột linh hoạt, dán trực tiếp vào Google Docs/Word. |
-| **🎯 Luyện viết chấm điểm** | Kiểm tra thứ tự và hướng vẽ từng nét, chấm điểm độ chính xác % và cảnh báo vẽ ngược chiều. |
-| **⌨️ Gõ Romaji sang Kana** | Tự động chuyển trực tiếp chữ Latinh thành Hiragana/Katakana khi gõ vào ô nhập liệu. |
-| **🧩 Extension Trình duyệt** | Bôi đen đọc báo tra cứu tức thì, chụp khoanh vùng màn hình OCR với phím tắt `Ctrl + Shift + K`. |
-| **🌳 Bóc tách Bộ thủ 4 Tầng** | Sơ đồ cây phân giải các thành phần bộ thủ của 6,000+ Kanji kèm câu chuyện mẹo nhớ. |
-| **🖨️ Phiếu in tập viết A4** | Bảng in chuẩn giấy A4 dạng kẻ ô chữ điền Genkouyoushi có nét đứt `+` chống cắt trang. |
-| **📋 Xuất thẻ Anki & CSV** | Tải ảnh nét vẽ PNG 600×600px nền trắng có lưới và xuất file CSV nhập trực tiếp vào Anki. |
+### 📢 Release: Luyện Kanji v3.1.0 (React Router SPA, Clean URLs & Romaji Converter with Undo/Redo)
+
+Version **v3.1.0** introduces a complete architectural overhaul to **React Router DOM SPA**:
+- **🌐 React Router Deep-linking (F5 Persistent Navigation)**:
+  - `/` / `/input`: Minimalist, focused Japanese text input area with IME support.
+  - `/kanji`: Dedicated stroke order list, SVG animation, practice modal, and horizontal Quick Bar.
+  - `/romaji`: Dedicated Hepburn Romaji transliteration reading view with side-by-side line pairs.
+  - `/translate`: Focused Japanese-Vietnamese translation powered by Google Translate & Gemini AI.
+  - `/converter`: Dedicated Romaji ⇄ Kana converter featuring a dual-panel layout and full multi-step Undo/Redo history stack.
+  - `/radicals`: 214 Kangxi Radicals explorer.
+  - `/history`: Unlimited local storage caching with full offline Kanji details and reusable stroke tables/grids.
+  - `/guide`: Dedicated full-page user guide.
+- **✨ UI Decluttering & Header Breadcrumbs**:
+  - Header displays current page context instead of repeating the application brand.
+  - Removed redundant sample presets, cluttering banners, and noisy toasts on routine actions.
 
 ---
 
 ## 🛠️ Công nghệ cốt lõi / Core Technologies
 
-- **Frontend:** React 19, TypeScript 5.8, Vite 8
-- **UI Design:** Tailwind CSS v4, Lucide React Icons
-- **Graphics & Animation:** SVG Vector Paths, HTML5 Canvas API, `requestAnimationFrame` (60fps)
-- **Algorithms:** Vector Cosine Similarity Stroke Matching, Hepburn/Kunrei Romaji Parser
+- **Frontend Framework:** React 19, TypeScript 5.8, Vite 8
+- **Routing:** React Router DOM v7 (HTML5 History API with full deep-linking & F5 persistence)
+- **UI & Styling:** Tailwind CSS v4, Lucide React Icons
+- **State Management:** React Context API (`KanjiContext`) with persistent LocalStorage caching
+- **Graphics & Vector Animation:** KanjiVG SVG Vector Paths, HTML5 Canvas API, `requestAnimationFrame`
 - **OCR Engine:** Tesseract.js (Client-side WebAssembly OCR)
 - **Speech Synthesis:** Web Speech Synthesis API (`ja-JP`)
 - **Backend & AI:** Node.js Express Server, `@google/genai` (Gemini API)
 
 ---
 
-## 🌐 Thư viện & Dữ liệu mở / Open Source Data & Libraries
-
-- **[KanjiVG](https://github.com/KanjiVG/kanjivg)** (CC BY-SA 3.0): Stroke order vector data for 6,000+ Kanji.
-- **[kanjiapi.dev](https://kanjiapi.dev/)**: REST API for Onyomi, Kunyomi, JLPT, stroke counts.
-- **[Google Translate & Gemini AI](https://ai.google.dev/)**: Translation and contextual AI features.
-- **[Tesseract.js](https://tesseract.projectnaptha.com/)**: Client-side OCR engine.
-
----
-
 ## 🚀 Hướng dẫn Cài đặt / Installation Guide
 
-### 1. Khởi chạy ứng dụng Web (Run Web App)
 ```bash
 # Clone repository
 git clone https://github.com/your-username/luyen-kanji.git
@@ -96,12 +84,6 @@ npm run dev
 # Production Build
 npm run build
 ```
-
-### 2. Cài đặt Tiện ích Chrome / Edge Extension (Install Extension)
-1. Mở trình duyệt Chrome / Edge, truy cập: `chrome://extensions` (hoặc `edge://extensions`).
-2. Bật công tắc **Developer mode** ở góc trên bên phải.
-3. Nhấp vào nút **Load unpacked** và chọn thư mục `src/extension` trong dự án.
-4. Tiện ích **Luyện Kanji v3.0** đã sẵn sàng sử dụng!
 
 ---
 

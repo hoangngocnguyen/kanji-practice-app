@@ -20,19 +20,18 @@ import {
   CheckCircle2,
   ExternalLink
 } from 'lucide-react';
-import { WorkspaceTab } from './AppSidebar';
+import { useNavigate } from 'react-router-dom';
 
 interface UserGuideViewProps {
   onOpenScanner?: () => void;
-  onNavigateTab?: (tab: WorkspaceTab) => void;
 }
 
 type TabKey = 'lookup' | 'extension' | 'scanner' | 'radicals' | 'anki' | 'export';
 
 export const UserGuideView: React.FC<UserGuideViewProps> = ({
   onOpenScanner,
-  onNavigateTab,
 }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('lookup');
 
   const tabs: { id: TabKey; label: string; icon: React.ReactNode; badge?: string }[] = [
@@ -95,16 +94,14 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
-            {onNavigateTab && (
-              <button
-                type="button"
-                onClick={() => onNavigateTab('input-text')}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
-              >
-                <span>Bắt đầu Luyện Kanji</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => navigate('/input')}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+            >
+              <span>Bắt đầu Luyện Kanji</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>

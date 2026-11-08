@@ -8,7 +8,7 @@ interface GoogleDocsTableExporterProps {
   kanjiList: KanjiItem[];
   isOpen: boolean;
   onClose: () => void;
-  showToast: (text: string, type?: 'success' | 'error' | 'info') => void;
+  showToast?: (text: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = ({
