@@ -13,7 +13,7 @@ import {
   Printer,
   HelpCircle,
   X,
-  Sparkles
+  ArrowLeftRight
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 
@@ -69,7 +69,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     {
       to: '/converter',
       label: 'Chuyển đổi Romaji',
-      icon: Sparkles,
+      icon: ArrowLeftRight,
       badge: null,
       desc: 'Đổi Romaji sang Kana có Hoàn tác',
     },

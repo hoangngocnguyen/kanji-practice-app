@@ -27,8 +27,13 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
   - `/history`: **Lịch sử tra cứu Nâng cấp** - Không giới hạn số lượng từ, lưu trữ đầy đủ toàn bộ dữ liệu chi tiết và nét vẽ ngoại tuyến (localStorage) không cần gọi lại API, hỗ trợ xem cả Bảng nét và Thẻ tương tự trang chính.
   - `/guide`: **Hướng dẫn sử dụng** - Cẩm nang học tập toàn diện dạng trang riêng.
 
-- **✨ Tinh gọn Giao diện & Xóa bỏ Trùng lặp**:
+- **🖨️ In Phiếu Tập Viết A4 Tùy Chọn Kanji & Giao diện Tinh Tế**:
+  - Modal in ấn được nâng cấp với giao diện trắng thanh lịch, sạch đẹp thay cho nền xanh cũ.
+  - Cho phép tích chọn hoặc bỏ chọn từng chữ Kanji cần in (kèm nút "Chọn tất cả" / "Bỏ chọn tất cả") thay vì bắt buộc in toàn bộ.
+- **✨ Tinh gọn Giao diện, Xóa bỏ Trùng lặp & Cập nhật Hướng Dẫn**:
   - **Header thông minh**: Loại bỏ việc lặp lại tên web cạnh Sidebar; Header hiển thị chính xác tên trang và mô tả của tính năng đang truy cập.
+  - **Trang Hướng dẫn sử dụng chuẩn mực**: Xóa bỏ banner gradient cồng kềnh, tối ưu hóa kích thước chữ nhỏ gọn dễ đọc, cập nhật nội dung bám sát 8 tính năng thực tế.
+  - **Biểu tượng Chuyển đổi Romaji mới**: Thay biểu tượng ngôi sao bằng icon 2 chiều chuyển đổi `<->` trực quan (`ArrowLeftRight`).
   - **Dọn sạch mô tả và mẫu thừa**: Xóa các mô tả dài dòng và các nút mẫu có sẵn gây rối ở ô nhập liệu và modal quét OCR.
   - **Tách bạch tính năng**: Mỗi trang tập trung 100% vào nghiệp vụ riêng, không chèn lẫn nút của tính năng khác vào nhau.
   - **Không còn Toast phiền hà**: Lược bỏ các thông báo popup không cần thiết cho các thao tác gõ chữ thông thường.

@@ -127,7 +127,7 @@ export const RomajiConverterView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-teal-600" />
+              <ArrowRightLeft className="w-5 h-5 text-teal-600" />
               <span>Chuyển đổi Romaji sang Hiragana &amp; Katakana</span>
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
