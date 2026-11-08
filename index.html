@@ -62,8 +62,24 @@
       rel="stylesheet"
     />
 
+    <!-- Favicon & Touch Icons for Browsers & Google Search -->
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <link rel="alternate icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- Schema.org WebSite (Sets Site Name 'Luyện Kanji' on Google Search) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Luyện Kanji",
+        "alternateName": ["Luyện Kanji Pro", "Luyen Kanji"],
+        "url": "https://luyenkanji.vercel.app/"
+      }
+    </script>
 
     <!-- Schema.org Structured Data (JSON-LD) -->
     <script type="application/ld+json">
