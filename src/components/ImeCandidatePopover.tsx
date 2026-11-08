@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { ImeCandidate } from '../utils/kanjiImeEngine';
-import { Sparkles, CornerDownLeft, X, Loader2 } from 'lucide-react';
+import { Languages, CornerDownLeft, X, Loader2 } from 'lucide-react';
 
 interface ImeCandidatePopoverProps {
   candidates: ImeCandidate[];
@@ -71,7 +71,7 @@ export const ImeCandidatePopover: React.FC<ImeCandidatePopoverProps> = ({
       <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-900 px-3.5 py-2.5 flex items-center justify-between text-white shadow-xs">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-5 h-5 rounded-md bg-teal-700/80 border border-teal-500/40 flex items-center justify-center shrink-0 shadow-inner">
-            <Sparkles className="w-3 h-3 text-amber-300" />
+            <Languages className="w-3 h-3 text-teal-200" />
           </div>
           <span className="text-xs font-semibold text-teal-100">Gợi ý Kanji:</span>
           <span className="font-japanese font-bold text-xs sm:text-sm text-white bg-teal-700/90 border border-teal-400/40 px-2 py-0.5 rounded-md shadow-2xs tracking-wide truncate max-w-[140px]">

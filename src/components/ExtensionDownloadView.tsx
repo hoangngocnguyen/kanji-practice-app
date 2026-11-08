@@ -5,7 +5,8 @@ import {
   CheckCircle2,
   Scissors,
   Layers,
-  Sparkles,
+  Zap,
+  PenTool,
   ExternalLink,
   Copy,
   Check,
@@ -33,7 +34,7 @@ export const ExtensionDownloadView: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
         <div className="border-b border-slate-100 pb-3">
           <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-teal-700" />
+            <Zap className="w-5 h-5 text-teal-700" />
             <span>Tính Năng Nổi Bật Của Extension v3.0.0</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
@@ -64,7 +65,7 @@ export const ExtensionDownloadView: React.FC = () => {
 
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
             <div className="flex items-center gap-2 text-teal-800 font-bold text-sm">
-              <Sparkles className="w-4 h-4 text-teal-600" />
+              <PenTool className="w-4 h-4 text-teal-600" />
               <span>3. Xem Thứ Tự Nét Vẽ SVG &amp; Luyện Viết</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">

@@ -12,7 +12,7 @@ import {
   ChevronRight,
   ExternalLink,
   Layers,
-  Sparkles,
+  RotateCcw,
   Camera,
   Play,
   Grid,
@@ -150,7 +150,7 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
 
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <Languages className="w-4 h-4 text-teal-600" />
                     Gõ Hiragana &amp; Katakana tự động
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
@@ -366,7 +366,7 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
 
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <RotateCcw className="w-4 h-4 text-teal-600" />
                     Nút Hoàn tác (Undo) &amp; Làm lại (Redo)
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">

@@ -100,8 +100,8 @@ export const KanjiStrokesView: React.FC = () => {
 
   return (
     <section id="kanji-stroke-section" className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200">
-      {/* Sticky Toolbar */}
-      <div className="sticky top-2 z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
+      {/* Sticky Toolbar beneath Header */}
+      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
         {/* Top row: Status info + Quick Scan + Scroll to top */}
         <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -292,8 +292,8 @@ export const KanjiStrokesView: React.FC = () => {
             </div>
           </div>
 
-          {/* Status & Controls row */}
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 flex-wrap sm:flex-nowrap">
+          {/* Status & Controls row - Fully Responsive */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
             <div className="text-xs text-slate-500 font-medium">
               {searchFilter ? (
                 <span>
@@ -306,11 +306,11 @@ export const KanjiStrokesView: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto justify-start sm:justify-end pb-0.5 sm:pb-0">
               <button
                 type="button"
                 onClick={() => setIncludeGrid((prev) => !prev)}
-                className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 ${
+                className={`h-8 sm:h-9 inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 ${
                   includeGrid
                     ? 'bg-teal-50 border-teal-600 text-teal-950 ring-1 ring-teal-500/20 shadow-xs'
                     : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-600'
@@ -320,7 +320,7 @@ export const KanjiStrokesView: React.FC = () => {
                 <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
                 <span>Kèm lưới</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold tracking-tight ${
+                  className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-bold tracking-tight ${
                     includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
                   }`}
                 >
@@ -331,7 +331,7 @@ export const KanjiStrokesView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsGoogleDocsExporterOpen(true)}
-                className="h-9 inline-flex items-center gap-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
+                className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
                 title="Xuất bảng 1 cột chứa ảnh nét vẽ để dán sang Google Docs"
               >
                 <TableIcon className="w-3.5 h-3.5 text-emerald-700" />
@@ -339,11 +339,11 @@ export const KanjiStrokesView: React.FC = () => {
                 <span className="sm:hidden">Docs</span>
               </button>
 
-              <div className="h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0">
+              <div className="h-8 sm:h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0 ml-auto sm:ml-0">
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
-                  className={`h-full inline-flex items-center gap-1.5 px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
+                  className={`h-full inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
                     viewMode === 'table'
                       ? 'bg-teal-800 text-white shadow-xs font-bold'
                       : 'text-slate-600 hover:text-slate-900'
@@ -355,7 +355,7 @@ export const KanjiStrokesView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`h-full inline-flex items-center gap-1.5 px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
+                  className={`h-full inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 text-xs rounded-lg transition-all cursor-pointer whitespace-nowrap font-semibold ${
                     viewMode === 'grid'
                       ? 'bg-teal-800 text-white shadow-xs font-bold'
                       : 'text-slate-600 hover:text-slate-900'
