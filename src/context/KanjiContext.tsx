@@ -32,6 +32,7 @@ interface KanjiContextType {
   setIsGoogleDocsExporterOpen: (val: boolean) => void;
   isLicenseOpen: boolean;
   setIsLicenseOpen: (val: boolean) => void;
+  handleRemoveKanjiFromList: (char: string) => void;
   showListFurigana: boolean;
   setShowListFurigana: (val: boolean) => void;
 }
@@ -246,6 +247,15 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Remove a specific Kanji character from current active input list
+  const handleRemoveKanjiFromList = useCallback((charToRemove: string) => {
+    if (!charToRemove) return;
+    setInputText((prev) => {
+      if (!prev) return '';
+      return prev.replaceAll(charToRemove, '');
+    });
+  }, []);
+
   return (
     <KanjiContext.Provider
       value={{
@@ -263,6 +273,7 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setInspectedKanji,
         handleInspectKanji,
         handleSelectRecentKanji,
+        handleRemoveKanjiFromList,
         copyStatus,
         handleCopyImage,
         handleDownloadPng,

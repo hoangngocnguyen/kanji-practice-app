@@ -329,14 +329,14 @@ export const InputSection: React.FC = () => {
             Nội dung văn bản:
           </span>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1 bg-slate-100/90 rounded-xl border border-slate-200 shrink-0">
-            <span className="text-slate-500 font-normal px-1 text-[11px] hidden sm:inline">
+          <div className="flex items-center flex-nowrap gap-1.5 overflow-x-auto no-scrollbar p-1 bg-slate-100/90 rounded-xl border border-slate-200 text-[13pt] shrink-0">
+            <span className="text-slate-500 font-normal px-1 text-[13pt] hidden sm:inline">
               Bộ gõ:
             </span>
             <button
               type="button"
               onClick={() => setKanaMode('off')}
-              className={`px-2 py-0.5 rounded-lg transition-all text-xs cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'off' ? 'bg-white text-slate-800 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -345,30 +345,30 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('kanji')}
-              className={`px-2 py-0.5 rounded-lg transition-all text-xs cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'kanji' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
               title="Gõ Romaji -> bấm Space hoặc Tab để chọn Kanji"
             >
-              漢 Kanji IME
+              IME
             </button>
             <button
               type="button"
               onClick={() => setKanaMode('hiragana')}
-              className={`px-2 py-0.5 rounded-lg transition-all text-xs cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'hiragana' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
             >
-              あ Hiragana
+              Hiragana
             </button>
             <button
               type="button"
               onClick={() => setKanaMode('katakana')}
-              className={`px-2 py-0.5 rounded-lg transition-all text-xs cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'katakana' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
             >
-              ア Katakana
+              Katakana
             </button>
 
             {/* Font size stepper */}

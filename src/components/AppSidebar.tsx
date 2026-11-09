@@ -39,6 +39,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     setIsSettingsOpen
   } = useKanji();
 
+  const effectiveCollapsed = isMobileOpen ? false : isCollapsed;
+
   const navItems = [
     {
       to: '/input',
@@ -100,38 +102,51 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   const sidebarContent = (
     <div className="h-full flex flex-col justify-between select-none">
-      {/* Top Header: Menu Toggle Button (replaces logo in sidebar) */}
+      {/* Top Header: Menu Toggle Button (desktop) or Brand Logo + Close (mobile) */}
       <div>
-        <div className="h-16 flex items-center justify-center px-2 border-b border-slate-200/90 bg-white">
+        <div className="h-16 flex items-center justify-between px-3 border-b border-slate-200/90 bg-white">
           <button
             type="button"
             onClick={onToggleCollapse}
             className={`hidden md:flex items-center gap-2 rounded-xl text-slate-700 hover:text-teal-800 hover:bg-teal-50/80 transition-all cursor-pointer group ${
-              isCollapsed ? 'justify-center p-2.5' : 'justify-between w-full px-3 py-2'
+              isCollapsed ? 'justify-center p-2.5 w-full' : 'justify-between w-full px-3 py-2'
             }`}
             title={isCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}
             aria-label={isCollapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
           >
             {isCollapsed ? (
-              <PanelLeftOpen className="w-5 h-5 text-teal-700 group-hover:scale-110 transition-transform" />
+              <PanelLeftOpen className="w-5 h-5 text-teal-700 group-hover:scale-110 transition-transform mx-auto" />
             ) : (
-              <>
-                <div className="flex items-center gap-2.5">
-                  <PanelLeftClose className="w-5 h-5 text-teal-700 group-hover:scale-105 transition-transform" />
-                  <span className="font-bold text-xs text-slate-800">Thu gọn danh mục</span>
-                </div>
-              </>
+              <div className="flex items-center gap-2.5">
+                <PanelLeftClose className="w-5 h-5 text-teal-700 group-hover:scale-105 transition-transform" />
+                <span className="font-bold text-xs text-slate-800">Thu gọn danh mục</span>
+              </div>
             )}
           </button>
 
-          {/* Close button for Mobile Drawer */}
-          <button
-            type="button"
-            onClick={onCloseMobile}
-            className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg ml-auto"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Mobile Drawer Brand Header */}
+          <div className="md:hidden flex items-center justify-between w-full">
+            <NavLink to="/input" onClick={onCloseMobile} className="flex items-center gap-2 shrink-0 group">
+              <div className="w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-teal-900/15">
+                <span className="font-kanji font-black text-lg leading-none">漢</span>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="font-black text-slate-900 text-sm tracking-tight">Luyện Kanji</span>
+                  <span className="text-[9px] font-bold px-1 rounded bg-teal-50 text-teal-700 border border-teal-200">Pro</span>
+                </div>
+              </div>
+            </NavLink>
+
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+              title="Đóng menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation List */}
@@ -153,7 +168,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
                   }`
                 }
-                title={isCollapsed ? `${item.label} (${item.desc})` : undefined}
+                title={effectiveCollapsed ? `${item.label} (${item.desc})` : undefined}
               >
                 {({ isActive }) => (
                   <>
@@ -163,7 +178,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       }`}
                     />
 
-                    {!isCollapsed && (
+                    {!effectiveCollapsed && (
                       <div className="flex-1 text-left min-w-0 flex items-center justify-between">
                         <span className="truncate">{item.label}</span>
                         {item.badge !== null && (
@@ -180,7 +195,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                       </div>
                     )}
 
-                    {isCollapsed && (
+                    {effectiveCollapsed && (
                       <div className="hidden md:group-hover:flex absolute left-full ml-2 z-50 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap items-center gap-1.5 pointer-events-none animate-in fade-in zoom-in-95 duration-100">
                         <span>{item.label}</span>
                         {item.badge !== null && (
@@ -213,7 +228,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
             }`
           }
-          title={isCollapsed ? 'In trang tập viết A4' : undefined}
+          title={effectiveCollapsed ? 'In trang tập viết A4' : undefined}
         >
           {({ isActive }) => (
             <>
@@ -222,7 +237,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   isActive ? 'text-white' : 'text-slate-500 group-hover:text-teal-700'
                 }`}
               />
-              {!isCollapsed && <span className="truncate">In trang tập viết</span>}
+              {!effectiveCollapsed && <span className="truncate">In trang tập viết</span>}
             </>
           )}
         </NavLink>
@@ -240,12 +255,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
             }`
           }
-          title={isCollapsed ? 'Hướng dẫn & Mẹo học' : undefined}
+          title={effectiveCollapsed ? 'Hướng dẫn & Mẹo học' : undefined}
         >
           {({ isActive }) => (
             <>
               <HelpCircle className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-teal-700'}`} />
-              {!isCollapsed && <span className="truncate">Hướng dẫn sử dụng</span>}
+              {!effectiveCollapsed && <span className="truncate">Hướng dẫn sử dụng</span>}
             </>
           )}
         </NavLink>
@@ -258,10 +273,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             if (isMobileOpen) onCloseMobile();
           }}
           className="w-full group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
-          title={isCollapsed ? 'Cài đặt giao diện & Màu nét' : undefined}
+          title={effectiveCollapsed ? 'Cài đặt giao diện & Màu nét' : undefined}
         >
           <Settings className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-teal-700" />
-          {!isCollapsed && <span className="truncate">Cài đặt ứng dụng</span>}
+          {!effectiveCollapsed && <span className="truncate">Cài đặt ứng dụng</span>}
         </button>
       </div>
     </div>

@@ -1,11 +1,12 @@
 import React from 'react';
 import { KanjiItem } from '../types/kanji';
 import { getKanjiInfo } from '../data/kanjiDictionary';
-import { Zap, ChevronRight } from 'lucide-react';
+import { Zap, X } from 'lucide-react';
 
 interface KanjiQuickBarProps {
   kanjiList: KanjiItem[];
   onSelectKanji: (item: KanjiItem) => void;
+  onRemoveKanji?: (kanjiChar: string) => void;
   selectedKanjiChar?: string;
   title?: string;
 }
@@ -13,6 +14,7 @@ interface KanjiQuickBarProps {
 export const KanjiQuickBar: React.FC<KanjiQuickBarProps> = ({
   kanjiList,
   onSelectKanji,
+  onRemoveKanji,
   selectedKanjiChar,
   title = 'Chọn nhanh từ Kanji (Click mở xem nét vẽ & luyện viết ngay):',
 }) => {
@@ -31,41 +33,57 @@ export const KanjiQuickBar: React.FC<KanjiQuickBarProps> = ({
       </div>
 
       {/* Horizontal scrollable quick chips bar */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar touch-pan-x scroll-smooth select-none">
+      <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto pb-1 pt-1.5 no-scrollbar touch-pan-x scroll-smooth select-none px-0.5">
         {kanjiList.map((item, index) => {
           const isSelected = selectedKanjiChar === item.kanji;
           const hanViet = item.detail?.hanViet || getKanjiInfo(item.kanji)?.hanViet;
           const primaryMeaning = item.detail?.meanings?.[0] || getKanjiInfo(item.kanji)?.meanings?.[0];
 
           return (
-            <button
-              key={`${item.kanji}-${index}`}
-              type="button"
-              onClick={() => onSelectKanji(item)}
-              className={`group relative flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95 ${
-                isSelected
-                  ? 'bg-teal-700 text-white border-teal-800 shadow-md ring-2 ring-teal-500/30 scale-105 font-black min-w-[42px]'
-                  : 'bg-white hover:bg-teal-50/70 text-slate-800 border-slate-200/90 hover:border-teal-300 min-w-[40px]'
-              }`}
-              title={`Click mở xem nhanh thứ tự nét vẽ chữ "${item.kanji}"${hanViet ? ` (Hán-Việt: ${hanViet})` : ''}`}
-            >
-              <span
-                className={`font-kanji font-bold text-base sm:text-lg leading-none ${
-                  isSelected ? 'text-white' : 'text-slate-900 group-hover:text-teal-900'
-                }`}
-              >
-                {item.kanji}
-              </span>
-              <span
-                className={`text-[9px] sm:text-[10px] font-bold leading-tight mt-0.5 max-w-[70px] truncate px-1 rounded ${
+            <div key={`${item.kanji}-${index}`} className="group/pill relative inline-block shrink-0">
+              <button
+                type="button"
+                onClick={() => onSelectKanji(item)}
+                className={`group flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border transition-all cursor-pointer shrink-0 shadow-2xs active:scale-95 ${
                   isSelected
-                    ? 'bg-white/20 text-teal-100 font-extrabold'
-                    : 'bg-teal-50 text-teal-900 border border-teal-200/80 group-hover:bg-teal-100'
+                    ? 'bg-teal-700 text-white border-teal-800 shadow-md ring-2 ring-teal-500/30 scale-105 font-black min-w-[42px]'
+                    : 'bg-white hover:bg-teal-50/70 text-slate-800 border-slate-200/90 hover:border-teal-300 min-w-[40px]'
                 }`}
+                title={`Click mở xem nhanh thứ tự nét vẽ chữ "${item.kanji}"${hanViet ? ` (Hán-Việt: ${hanViet})` : ''}`}
               >
-                {hanViet || primaryMeaning || `#${index + 1}`}
-              </span>
-            </button>
+                <span
+                  className={`font-kanji font-bold text-base sm:text-lg leading-none ${
+                    isSelected ? 'text-white' : 'text-slate-900 group-hover:text-teal-900'
+                  }`}
+                >
+                  {item.kanji}
+                </span>
+                <span
+                  className={`text-[9px] sm:text-[10px] font-bold leading-tight mt-0.5 max-w-[70px] truncate px-1 rounded ${
+                    isSelected
+                      ? 'bg-white/20 text-teal-100 font-extrabold'
+                      : 'bg-teal-50 text-teal-900 border border-teal-200/80 group-hover:bg-teal-100'
+                  }`}
+                >
+                  {hanViet || primaryMeaning || `#${index + 1}`}
+                </span>
+              </button>
+
+              {/* Nút X màu đỏ ở mép trên bên phải để loại chữ Kanji ra khỏi danh sách */}
+              {onRemoveKanji && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveKanji(item.kanji);
+                  }}
+                  className="absolute -top-1.5 -right-1.5 z-20 w-4 h-4 rounded-full bg-white hover:bg-red-600 text-slate-400 hover:text-white border border-slate-200 hover:border-red-600 shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-75 hover:scale-110"
+                  title={`Loại chữ "${item.kanji}" khỏi danh sách`}
+                >
+                  <X className="w-2.5 h-2.5 stroke-[2.5]" />
+                </button>
+              )}
+            </div>
           );
         })}
       </div>

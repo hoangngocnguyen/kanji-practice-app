@@ -8,7 +8,8 @@ import {
   RotateCcw,
   Repeat1,
   Repeat,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
@@ -25,6 +26,7 @@ interface KanjiGridProps {
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
+  onRemoveKanji?: (kanjiChar: string) => void;
 }
 
 export const KanjiGrid: React.FC<KanjiGridProps> = ({
@@ -35,6 +37,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
   onCopyImage,
   onDownloadPng,
   onInspect,
+  onRemoveKanji,
 }) => {
   const [animStateMap, setAnimStateMap] = useState<
     Record<string, { animKey: number; mode: 'off' | 'once' | 'infinite' }>
@@ -80,7 +83,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
           e.stopPropagation();
           handleTogglePlayMode(hex);
         }}
-        className={`absolute -top-2 -right-2 z-20 p-1.5 rounded-full border transition-all cursor-pointer active:scale-90 hover:scale-110 ${btnStyle}`}
+        className={`absolute -top-2 -right-2 z-10 p-1.5 rounded-full border transition-all cursor-pointer active:scale-90 hover:scale-110 ${btnStyle}`}
         title={title}
       >
         {icon}
@@ -106,7 +109,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             key={item.hex}
             className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-teal-400 p-4 sm:p-5 flex flex-col items-center justify-between gap-3 sm:gap-3.5 transition-all shadow-xs hover:shadow-md group"
           >
-            {/* Top row: STT, JLPT & Stroke Count */}
+            {/* Top row: STT, JLPT & Stroke Count & Remove button */}
             <div className="w-full flex items-center justify-between text-xs font-mono text-slate-400">
               <span className="font-semibold text-teal-700">#{item.id}</span>
               <div className="flex items-center gap-1.5">
@@ -119,6 +122,19 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
                   <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[11px] font-medium">
                     {detail.strokeCount} nét
                   </span>
+                )}
+                {onRemoveKanji && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveKanji(item.kanji);
+                    }}
+                    className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer ml-0.5"
+                    title={`Loại chữ "${item.kanji}" khỏi danh sách`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
             </div>

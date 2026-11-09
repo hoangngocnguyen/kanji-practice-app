@@ -10,7 +10,8 @@ import {
   RotateCcw,
   Repeat1,
   Repeat,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
@@ -27,6 +28,7 @@ interface KanjiTableProps {
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
+  onRemoveKanji?: (kanjiChar: string) => void;
 }
 
 export const KanjiTable: React.FC<KanjiTableProps> = ({
@@ -37,6 +39,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
   onCopyImage,
   onDownloadPng,
   onInspect,
+  onRemoveKanji,
 }) => {
   const [animStateMap, setAnimStateMap] = useState<
     Record<string, { animKey: number; mode: 'off' | 'once' | 'infinite' }>
@@ -82,7 +85,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
           e.stopPropagation();
           handleTogglePlayMode(hex);
         }}
-        className={`absolute -top-2 -right-2 z-20 p-1.5 rounded-full border transition-all cursor-pointer active:scale-90 hover:scale-110 ${btnStyle}`}
+        className={`absolute -top-2 -right-2 z-10 p-1.5 rounded-full border transition-all cursor-pointer active:scale-90 hover:scale-110 ${btnStyle}`}
         title={title}
       >
         {icon}
@@ -133,6 +136,19 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                     <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
                       {detail.strokeCount} nét
                     </span>
+                  )}
+                  {onRemoveKanji && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveKanji(item.kanji);
+                      }}
+                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer ml-1"
+                      title={`Loại chữ "${item.kanji}" khỏi danh sách`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -530,6 +546,17 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                           <Download className="w-3.5 h-3.5 text-slate-600" />
                           <span>Tải ảnh</span>
                         </button>
+
+                        {onRemoveKanji && (
+                          <button
+                            type="button"
+                            onClick={() => onRemoveKanji(item.kanji)}
+                            className="h-8 w-8 inline-flex items-center justify-center text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
+                            title={`Loại chữ "${item.kanji}" khỏi danh sách`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </td>

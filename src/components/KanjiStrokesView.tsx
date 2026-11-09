@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   LayoutGrid,
@@ -8,7 +8,12 @@ import {
   ArrowUp,
   Plus,
   X,
-  Languages
+  Languages,
+  FileText,
+  Edit3,
+  ChevronDown,
+  ChevronUp,
+  Check
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 import { KanjiTable } from './KanjiTable';
@@ -36,7 +41,16 @@ export const KanjiStrokesView: React.FC = () => {
     setIsScannerOpen,
     setIsGoogleDocsExporterOpen,
     handleSelectRecentKanji,
+    handleRemoveKanjiFromList,
   } = useKanji();
+
+  const [isTextContainerExpanded, setIsTextContainerExpanded] = useState<boolean>(true);
+  const [isEditingSourceText, setIsEditingSourceText] = useState<boolean>(false);
+  const [editableText, setEditableText] = useState<string>(inputText);
+
+  useEffect(() => {
+    setEditableText(inputText);
+  }, [inputText]);
 
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [searchImeMode, setSearchImeMode] = useState<boolean>(true);
@@ -101,7 +115,7 @@ export const KanjiStrokesView: React.FC = () => {
   return (
     <section id="kanji-stroke-section" className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200">
       {/* Sticky Toolbar beneath Header */}
-      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/90 shadow-xs hover:shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
+      <div className="sticky top-16 sm:top-[68px] z-30 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/90 shadow-xs hover:shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
         {/* Top row: Status info + Quick Scan + Scroll to top */}
         <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -370,10 +384,93 @@ export const KanjiStrokesView: React.FC = () => {
         </div>
       </div>
 
+      {/* Container chứa đoạn văn bản nguồn (Có hỗ trợ thu gọn/mở rộng & sửa văn bản trực tiếp) */}
+      <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3 sm:p-4 space-y-2.5 transition-all">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 font-bold text-slate-800 text-xs sm:text-sm">
+            <FileText className="w-4 h-4 text-teal-700 shrink-0" />
+            <span>Nội dung văn bản nguồn ({inputText.length} ký tự, {extractedKanjiList.length} Kanji)</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsEditingSourceText(!isEditingSourceText)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-teal-800 bg-white hover:bg-teal-50 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs"
+              title="Chỉnh sửa đoạn văn bản nguồn trực tiếp"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-teal-700" />
+              <span>{isEditingSourceText ? 'Đóng sửa' : 'Sửa văn bản'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsTextContainerExpanded(!isTextContainerExpanded)}
+              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+              title={isTextContainerExpanded ? 'Thu gọn ô văn bản' : 'Mở rộng ô văn bản'}
+            >
+              {isTextContainerExpanded ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {isTextContainerExpanded && (
+          <div className="pt-1">
+            {isEditingSourceText ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editableText}
+                  onChange={(e) => setEditableText(e.target.value)}
+                  rows={3}
+                  placeholder="Dán hoặc nhập đoạn văn bản tiếng Nhật tại đây..."
+                  className="w-full p-3 text-xs sm:text-sm bg-white border border-teal-400 focus:border-teal-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 font-sans shadow-inner leading-relaxed"
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditableText(inputText);
+                      setIsEditingSourceText(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputText(editableText);
+                      setIsEditingSourceText(false);
+                    }}
+                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Lưu thay đổi</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl p-3 border border-slate-200/80 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans max-h-36 overflow-y-auto whitespace-pre-wrap select-text">
+                {inputText ? (
+                  inputText
+                ) : (
+                  <span className="italic text-slate-400">Chưa có văn bản nào được nhập. Bấm "Sửa văn bản" để nhập dữ liệu.</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Horizontal Quick-Selection Bar */}
       <KanjiQuickBar
         kanjiList={filteredKanjiList}
         onSelectKanji={handleInspectKanji}
+        onRemoveKanji={handleRemoveKanjiFromList}
         selectedKanjiChar={inspectedKanji?.kanji}
       />
 
@@ -401,6 +498,7 @@ export const KanjiStrokesView: React.FC = () => {
           onCopyImage={handleCopyImage}
           onDownloadPng={handleDownloadPng}
           onInspect={handleInspectKanji}
+          onRemoveKanji={handleRemoveKanjiFromList}
         />
       ) : (
         <KanjiGrid
@@ -411,6 +509,7 @@ export const KanjiStrokesView: React.FC = () => {
           onCopyImage={handleCopyImage}
           onDownloadPng={handleDownloadPng}
           onInspect={handleInspectKanji}
+          onRemoveKanji={handleRemoveKanjiFromList}
         />
       )}
     </section>
