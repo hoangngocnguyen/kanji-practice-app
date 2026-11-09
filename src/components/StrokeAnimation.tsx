@@ -83,7 +83,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isLooping, setIsLooping] = useState<boolean>(true); // Vẽ nét liên tục tự động lặp lại
+  const [isLooping, setIsLooping] = useState<boolean>(false); // Mặc định TẮT chế độ tự động vẽ lặp lại liên tục (Vẽ 1 lần)
   const [currentStrokeIdx, setCurrentStrokeIdx] = useState<number>(0);
   const [currentProgress, setCurrentProgress] = useState<number>(0); // 0 to 1 for current stroke
   const [speed, setSpeed] = useState<number>(1.0);

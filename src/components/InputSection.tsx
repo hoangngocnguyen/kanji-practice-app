@@ -479,7 +479,7 @@ export const InputSection: React.FC = () => {
               disabled={extractedKanjiList.length === 0}
               className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center gap-1.5"
             >
-              <span>Xem nét viết Kanji</span>
+              <span>Chi tiết nét vẽ</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

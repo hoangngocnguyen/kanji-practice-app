@@ -960,7 +960,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           '<button class="lk-btn" id="lk-anim-speak-btn">🔊 Phát âm</button>' +
         '</div>' +
         '<div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center; font-size: 11px; color: #475569;">' +
-          '<label style="cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="lk-anim-chk-continuous" checked /> Vẽ liên tục</label>' +
+          '<label style="cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="lk-anim-chk-continuous" /> Vẽ liên tục</label>' +
           '<label style="cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="lk-anim-chk-color" checked /> Đa màu nét</label>' +
           '<label style="cursor:pointer; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="lk-anim-chk-numbers" checked /> Hiển thị số nét</label>' +
         '</div>' +

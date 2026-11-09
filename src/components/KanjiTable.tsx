@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Copy,
   CheckCheck,
@@ -6,7 +6,9 @@ import {
   Download,
   ExternalLink,
   Volume2,
-  PlayCircle
+  PlayCircle,
+  RotateCcw,
+  Info
 } from 'lucide-react';
 import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
@@ -34,6 +36,18 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
   onDownloadPng,
   onInspect,
 }) => {
+  const [animStateMap, setAnimStateMap] = useState<Record<string, { animKey: number; animate: boolean }>>({});
+
+  const handleReloadAnimation = (hex: string) => {
+    setAnimStateMap((prev) => ({
+      ...prev,
+      [hex]: {
+        animKey: ((prev[hex]?.animKey) || 0) + 1,
+        animate: true,
+      },
+    }));
+  };
+
   return (
     <div className="space-y-4">
       {/* 1. MOBILE RESPONSIVE CARD VIEW (< 768px screens) */}
@@ -47,6 +61,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
           const hasOn = detail?.on && detail.on.length > 0;
           const hasKun = detail?.kun && detail.kun.length > 0;
           const hasMeanings = detail?.meanings && detail.meanings.length > 0;
+          const animState = animStateMap[item.hex] || { animKey: 0, animate: false };
 
           return (
             <div
@@ -82,21 +97,39 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
 
               {/* Main Content: Kanji Graphic + Stroke Image + Details */}
               <div className="flex items-start gap-3.5">
-                {/* Kanji Image Preview Box */}
-                <div
-                  onClick={() => onInspect(item)}
-                  className="relative w-28 h-28 shrink-0 bg-white rounded-2xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden"
-                  title="Click để mở hoạt ảnh vẽ từng nét"
-                >
-                  {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
-                  <KanjiSvgView
-                    svgUrl={item.svgUrl}
-                    kanji={item.kanji}
-                    className="w-full h-full object-contain relative z-0"
-                  />
-                  <div className="absolute bottom-1 right-1 bg-white/90 rounded-md p-0.5 shadow-2xs border border-slate-200 text-teal-700">
-                    <PlayCircle className="w-3.5 h-3.5" />
+                {/* Kanji Image Preview Box Wrapper */}
+                <div className="relative inline-block shrink-0">
+                  <div
+                    onClick={() => onInspect(item)}
+                    className="relative w-28 h-28 bg-white rounded-2xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden group/img"
+                    title="Click để xem chi tiết nét vẽ"
+                  >
+                    {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
+                    <KanjiSvgView
+                      svgUrl={item.svgUrl}
+                      kanji={item.kanji}
+                      animKey={animState.animKey}
+                      animate={animState.animate}
+                      className="w-full h-full object-contain relative z-0"
+                    />
+
+                    <div className="absolute bottom-1 right-1 bg-white/90 rounded-md p-0.5 shadow-2xs border border-slate-200 text-teal-700">
+                      <PlayCircle className="w-3.5 h-3.5" />
+                    </div>
                   </div>
+
+                  {/* Nút Reload đặt NẰM BÊN NGOÀI ô nét vẽ (Góc trên bên phải) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReloadAnimation(item.hex);
+                    }}
+                    className="absolute -top-2 -right-2 z-20 p-1.5 rounded-full bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-90 active:rotate-180 hover:scale-110"
+                    title="Chạy lại nét vẽ"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-teal-700" />
+                  </button>
                 </div>
 
                 {/* Text Metadata */}
@@ -105,7 +138,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                     <ruby
                       onClick={() => onInspect(item)}
                       className="font-kanji font-black text-3xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors inline-flex flex-col items-start"
-                      title="Bấm để xem hoạt ảnh nét vẽ"
+                      title="Bấm để xem chi tiết nét vẽ"
                     >
                       {showFurigana && detail && getPrimaryHiragana(detail) && (
                         <rt className="text-[11px] font-semibold text-teal-700 select-none pb-0.5 tracking-normal">
@@ -212,10 +245,10 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   type="button"
                   onClick={() => onInspect(item)}
                   className="h-9 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 transition-all cursor-pointer border border-slate-200 hover:border-teal-300 shadow-2xs hover:shadow-xs active:scale-95 whitespace-nowrap"
-                  title="Xem hoạt ảnh vẽ từng nét"
+                  title="Xem chi tiết nét vẽ"
                 >
-                  <PlayCircle className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                  <span>Xem nét vẽ</span>
+                  <Info className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                  <span>Chi tiết</span>
                 </button>
               </div>
             </div>
@@ -256,6 +289,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               const hasOn = detail?.on && detail.on.length > 0;
               const hasKun = detail?.kun && detail.kun.length > 0;
               const hasMeanings = detail?.meanings && detail.meanings.length > 0;
+              const animState = animStateMap[item.hex] || { animKey: 0, animate: false };
 
               return (
                 <tr
@@ -283,7 +317,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                         <ruby
                           onClick={() => onInspect(item)}
                           className="font-kanji font-black text-4xl lg:text-5xl text-slate-800 group-hover:text-teal-700 transition-colors cursor-pointer select-all drop-shadow-2xs leading-none inline-flex flex-col items-center"
-                          title={`Click để mở hoạt ảnh nét vẽ chữ ${item.kanji}`}
+                          title={`Click để xem chi tiết nét vẽ chữ ${item.kanji}`}
                         >
                           {showFurigana && detail && getPrimaryHiragana(detail) && (
                             <rt className="text-xs font-semibold text-teal-700 select-none pb-0.5 tracking-normal font-sans">
@@ -324,25 +358,43 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   {/* Cột 3: Hình ảnh nét vẽ & Âm đọc On/Kun, Nghĩa */}
                   <td className="py-4 px-4 lg:px-6">
                     <div className="flex items-center gap-4 lg:gap-5">
-                      {/* KHUNG HÌNH ẢNH NÉT VẼ */}
-                      <div
-                        onClick={() => onInspect(item)}
-                        className="relative w-24 h-24 lg:w-28 lg:h-28 shrink-0 bg-white rounded-2xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:shadow-md hover:border-teal-500 transition-all cursor-pointer group/img flex items-center justify-center overflow-hidden"
-                        title="Click để xem hoạt ảnh vẽ nét chi tiết"
-                      >
-                        {/* Lưới ô chữ nét đứt mảnh tinh tế */}
-                        {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
+                      {/* KHUNG HÌNH ẢNH NÉT VẼ WRAPPER */}
+                      <div className="relative inline-block shrink-0">
+                        <div
+                          onClick={() => onInspect(item)}
+                          className="relative w-24 h-24 lg:w-28 lg:h-28 bg-white rounded-2xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:shadow-md hover:border-teal-500 transition-all cursor-pointer group/img flex items-center justify-center overflow-hidden"
+                          title="Click để xem chi tiết nét vẽ"
+                        >
+                          {/* Lưới ô chữ nét đứt mảnh tinh tế */}
+                          {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
 
-                        <KanjiSvgView
-                          svgUrl={item.svgUrl}
-                          kanji={item.kanji}
-                          className="w-full h-full object-contain transform group-hover/img:scale-105 transition-transform relative z-0"
-                        />
-                        <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-2xs">
-                          <span className="bg-white/95 text-slate-800 font-bold text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 border border-slate-200">
-                            <PlayCircle className="w-3.5 h-3.5 text-teal-600" /> Xem nét
-                          </span>
+                          <KanjiSvgView
+                            svgUrl={item.svgUrl}
+                            kanji={item.kanji}
+                            animKey={animState.animKey}
+                            animate={animState.animate}
+                            className="w-full h-full object-contain transform group-hover/img:scale-105 transition-transform relative z-0"
+                          />
+
+                          <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity rounded-2xl backdrop-blur-2xs">
+                            <span className="bg-white/95 text-slate-800 font-bold text-xs px-2 py-0.5 rounded-lg shadow-sm flex items-center gap-1 border border-slate-200">
+                              <Info className="w-3.5 h-3.5 text-teal-600" /> Chi tiết
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Nút Reload phát lại nét vẽ (nằm BÊN NGOÀI ô nét vẽ góc trên bên phải) */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReloadAnimation(item.hex);
+                          }}
+                          className="absolute -top-2 -right-2 z-20 p-1.5 rounded-full bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-90 active:rotate-180 hover:scale-110"
+                          title="Chạy lại nét vẽ"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-teal-700" />
+                        </button>
                       </div>
 
                       {/* Chi tiết: Âm On, Âm Kun, Nghĩa tiếng Việt & Số nét */}
@@ -441,10 +493,10 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                           type="button"
                           onClick={() => onInspect(item)}
                           className="h-8 inline-flex items-center gap-1 px-2.5 text-xs text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer font-semibold shadow-2xs hover:shadow-xs active:scale-95"
-                          title="Xem hoạt ảnh từng nét vẽ"
+                          title="Xem chi tiết nét vẽ"
                         >
-                          <PlayCircle className="w-3.5 h-3.5 text-teal-600" />
-                          <span>Xem nét</span>
+                          <Info className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Chi tiết</span>
                         </button>
 
                         <button
