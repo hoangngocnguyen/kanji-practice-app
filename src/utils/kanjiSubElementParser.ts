@@ -120,13 +120,82 @@ const COMPONENT_MEANINGS: Record<string, string> = {
   '売': 'Bán hàng',
   '舌': 'Cái lưỡi',
   '五': 'Số 5',
-  '⺍': 'Ba chấm học tập'
+  '⺍': 'Ba chấm học tập',
+  '寸': 'Thước tấc, đơn vị đo',
+  '土': 'Đất đai, thổ nhưỡng',
+  '目': 'Con mắt, nhìn ngắm',
+  '儿': 'Tượng hình người đứng, chân người',
+  '彳': 'Bước chân trái, bước đi ngắn',
+  '亻': 'Hình người đứng (bộ Nhân đứng)',
+  '言': 'Lời nói, ngôn ngữ',
+  '口': 'Miệng, cổng vào',
+  '手': 'Bàn tay',
+  '扌': 'Tay (bộ Thủ gảy)',
+  '心': 'Trái tim, tâm trí',
+  '忄': 'Tâm đứng, tình cảm',
+  '水': 'Nước, sông suối',
+  '氵': 'Ba chấm thủy (nước)',
+  '火': 'Ngọn lửa',
+  '灬': 'Bốn chấm hỏa (lửa cháy)',
+  '木': 'Cây cối, gỗ',
+  '日': 'Mặt trời, ban ngày',
+  '月': 'Mặt trăng, tháng, thịt',
+  '女': 'Phụ nữ, con gái',
+  '子': 'Đứa trẻ, con cái',
+  '糸': 'Sợi tơ, sợi chỉ',
+  '金': 'Kim loại, vàng, tiền',
+  '門': 'Cổng lớn, cửa',
+  '食': 'Ăn uống, thức ăn',
+  '飠': 'Bộ Thực (thức ăn)',
+  '馬': 'Con ngựa',
+  '鳥': 'Con chim',
+  '魚': 'Con cá',
 };
 
 /**
- * Trích xuất vị trí bộ thủ từ kvg:position
+ * Đọc thuộc tính XML an toàn không phụ thuộc namespace resolver
  */
-function parsePositionType(positionStr?: string | null): { positionType: RadicalPositionType; positionName: string } {
+export function getKvgAttr(el: Element, name: string): string | null {
+  // 1. getAttribute trực tiếp với tiền tố
+  const val1 = el.getAttribute(`kvg:${name}`);
+  if (val1) return val1;
+
+  // 2. getAttribute không có tiền tố
+  const val2 = el.getAttribute(name);
+  if (val2) return val2;
+
+  // 3. Namespace lookup chuẩn W3C
+  try {
+    const val3 = el.getAttributeNS('http://kanjivg.tagaini.net', name);
+    if (val3) return val3;
+  } catch {
+    // Ignore namespace lookup failure
+  }
+
+  // 4. Quét mảng attributes để tìm khớp localName hoặc kết thúc bằng :name
+  if (el.attributes) {
+    for (let i = 0; i < el.attributes.length; i++) {
+      const attr = el.attributes[i];
+      if (
+        attr.name === `kvg:${name}` ||
+        attr.localName === name ||
+        attr.name.endsWith(`:${name}`)
+      ) {
+        return attr.value;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Trích xuất vị trí bộ thủ từ chuỗi kvg:position
+ */
+export function parsePositionType(positionStr?: string | null): {
+  positionType: RadicalPositionType;
+  positionName: string;
+} {
   if (!positionStr) {
     return { positionType: 'center', positionName: 'Thành phần' };
   }
@@ -158,12 +227,23 @@ function parsePositionType(positionStr?: string | null): { positionType: Radical
 }
 
 /**
- * Tra cứu thông tin đầy đủ Hán Việt, Số nét, Nghĩa cho ký tự bộ thủ
+ * Tra cứu thông tin đầy đủ Hán Việt, Số nét chuẩn Khang Hy, Nghĩa cho ký tự bộ thủ
  */
-export function findRadicalInfo(char: string): { hanViet: string; meaning: string; strokeCount: number } {
-  // 1. Check in 214 Primary Kangxi Radicals
+export function findRadicalInfo(char: string): {
+  hanViet: string;
+  meaning: string;
+  strokeCount: number;
+} {
+  if (!char) {
+    return { hanViet: '', meaning: '', strokeCount: 0 };
+  }
+
+  // 1. Tra trong 214 Bộ thủ Khang Hy chuẩn xác 100%
   const match = RADICALS_LIST.find(
-    (r) => r.character === char || (r.variant && r.variant.includes(char))
+    (r) =>
+      r.character === char ||
+      r.variant === char ||
+      (r.variant && r.variant.includes(char))
   );
 
   if (match) {
@@ -174,17 +254,20 @@ export function findRadicalInfo(char: string): { hanViet: string; meaning: strin
     };
   }
 
-  // 2. Check in KANJI_DICTIONARY
+  // 2. Tra trong KANJI_DICTIONARY
   if (KANJI_DICTIONARY[char]) {
     const kData = KANJI_DICTIONARY[char];
+    const meanStr = Array.isArray(kData.meanings)
+      ? kData.meanings.slice(0, 2).join(', ')
+      : kData.meanings || COMPONENT_MEANINGS[char] || '';
     return {
-      hanViet: kData.hanViet || (SINO_VIETNAMESE_MAP[char] || ''),
-      meaning: Array.isArray(kData.meanings) ? kData.meanings.slice(0, 2).join(', ') : (kData.meanings || COMPONENT_MEANINGS[char] || ''),
+      hanViet: kData.hanViet || SINO_VIETNAMESE_MAP[char] || '',
+      meaning: meanStr,
       strokeCount: kData.strokeCount || 2,
     };
   }
 
-  // 3. Check in SINO_VIETNAMESE_MAP (11,000+ Kanji)
+  // 3. Tra trong SINO_VIETNAMESE_MAP (11,000+ Kanji)
   const hv = SINO_VIETNAMESE_MAP[char];
   if (hv) {
     return {
@@ -194,7 +277,16 @@ export function findRadicalInfo(char: string): { hanViet: string; meaning: strin
     };
   }
 
-  // 4. Default Fallback if completely unknown: Leave empty string
+  // 4. Tra trong danh mục ý nghĩa thành phần phụ trợ
+  if (COMPONENT_MEANINGS[char]) {
+    return {
+      hanViet: '',
+      meaning: COMPONENT_MEANINGS[char],
+      strokeCount: 2,
+    };
+  }
+
+  // 5. Mặc định
   return {
     hanViet: '',
     meaning: '',
@@ -203,68 +295,206 @@ export function findRadicalInfo(char: string): { hanViet: string; meaning: strin
 }
 
 /**
- * Phân tích cây DOM XML KanjiVG SVG để bóc tách 100% tất cả các sub-elements
+ * Trích xuất danh sách số thứ tự nét và tổng số path từ thẻ Element
  */
-export function parseKanjiVgSvgXml(xmlString: string, targetKanji: string): RadicalComponent[] {
-  if (!xmlString) return [];
+function extractPathStats(el: Element): { count: number; indices: number[] } {
+  const paths = Array.from(el.querySelectorAll('path'));
+  const indices: number[] = [];
+
+  paths.forEach((p) => {
+    const id = p.getAttribute('id') || '';
+    const match = id.match(/-s(\d+)$/);
+    if (match) {
+      indices.push(parseInt(match[1], 10));
+    }
+  });
+
+  indices.sort((a, b) => a - b);
+  return {
+    count: paths.length,
+    indices,
+  };
+}
+
+/**
+ * Phân tích cây DOM XML KanjiVG SVG với thuật toán phân tầng đa cấp (Cấp 1 trực tiếp, Cấp 2, Cấp 3)
+ * và nhận diện chuẩn xác thuộc tính kvg:radical="general"
+ */
+export function parseKanjiVgSvgXml(
+  xmlString: string,
+  targetKanji: string
+): {
+  isSelfRadical: boolean;
+  primaryRadicalName: string;
+  directComponents: RadicalComponent[];
+  allComponents: RadicalComponent[];
+} {
+  if (!xmlString) {
+    return {
+      isSelfRadical: false,
+      primaryRadicalName: '',
+      directComponents: [],
+      allComponents: [],
+    };
+  }
 
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlString, 'image/svg+xml');
 
-    // Find all <g> elements with kvg:element attribute
-    const gNodes = Array.from(doc.querySelectorAll('g'));
-    const results: RadicalComponent[] = [];
-    const seenMap = new Map<string, number>();
+    // Tìm thẻ <g> gốc của chữ Kanji
+    // Thông thường id="kvg:0898b" hoặc kvg:element="見"
+    const hex = targetKanji.codePointAt(0)?.toString(16).toLowerCase().padStart(5, '0') || '';
+    let rootGroup: Element | null =
+      doc.querySelector(`g[id="kvg:${hex}"]`) ||
+      doc.querySelector(`g[id="kvg:${hex}-g"]`) ||
+      doc.querySelector(`g[element="${targetKanji}"]`);
 
-    gNodes.forEach((g) => {
-      const elementVal = g.getAttribute('kvg:element') || g.getAttribute('element');
-      if (!elementVal || elementVal === targetKanji) return;
+    if (!rootGroup) {
+      // Tìm <g> bất kỳ có kvg:element === targetKanji
+      const allGs = Array.from(doc.querySelectorAll('g'));
+      rootGroup = allGs.find((g) => getKvgAttr(g, 'element') === targetKanji) || null;
+    }
 
-      // Inherit position attribute from ancestor if missing on this node
-      let posVal = g.getAttribute('kvg:position') || g.getAttribute('position');
-      if (!posVal) {
-        let parent = g.parentElement;
-        while (parent && !posVal) {
-          posVal = parent.getAttribute('kvg:position') || parent.getAttribute('position');
-          parent = parent.parentElement;
+    if (!rootGroup) {
+      // Fallback: Tìm <g id^="kvg:StrokePaths_"> rồi lấy con đầu tiên
+      const strokeContainer = doc.querySelector('g[id^="kvg:StrokePaths_"]') || doc.querySelector('svg > g');
+      if (strokeContainer && strokeContainer.children.length > 0) {
+        rootGroup = strokeContainer.children[0] as Element;
+      }
+    }
+
+    if (!rootGroup) {
+      return {
+        isSelfRadical: false,
+        primaryRadicalName: '',
+        directComponents: [],
+        allComponents: [],
+      };
+    }
+
+    // 1. Kiểm tra xem bản thân chữ gốc có phải là bộ thủ chính độc lập không
+    // (như 見, 木, 門, 日 khi root có kvg:radical="general")
+    const rootRadicalAttr = getKvgAttr(rootGroup, 'radical');
+    const isSelfRadical = rootRadicalAttr === 'general';
+
+    // 2. Hàm đệ quy duyệt bóc tách các nhóm <g> con theo tầng (Depth 1, 2, 3)
+    function extractSubComponents(
+      parentEl: Element,
+      currentDepth: number,
+      inheritedPos?: string | null
+    ): RadicalComponent[] {
+      if (currentDepth > 3) return [];
+
+      const childNodes = Array.from(parentEl.children).filter(
+        (c) => c.tagName.toLowerCase() === 'g'
+      );
+      const results: RadicalComponent[] = [];
+
+      for (const g of childNodes) {
+        const elemAttr = getKvgAttr(g, 'element');
+        const posAttr = getKvgAttr(g, 'position') || inheritedPos;
+        const radAttr = getKvgAttr(g, 'radical');
+        const isPrimary = radAttr === 'general';
+
+        if (elemAttr) {
+          // Bỏ qua trường hợp thẻ con lồng nhau trùng chính xác ký tự chữ đích ở cấp 1
+          if (elemAttr === targetKanji && currentDepth === 1) {
+            results.push(...extractSubComponents(g, currentDepth, posAttr));
+            continue;
+          }
+
+          const { positionType, positionName } = parsePositionType(posAttr);
+          const radicalInfo = findRadicalInfo(elemAttr);
+          const pathStats = extractPathStats(g);
+
+          // Phân rã sâu hơn cấp 2 và cấp 3
+          const subComponents = extractSubComponents(g, currentDepth + 1, posAttr);
+
+          // Kiểm tra xem trong các con có nhánh nào mang kvg:radical="general" không
+          const hasChildPrimary = subComponents.some(
+            (c) => c.isPrimaryRadical || (c.subComponents && c.subComponents.some((sc) => sc.isPrimaryRadical))
+          );
+
+          results.push({
+            radical: elemAttr,
+            variant: getKvgAttr(g, 'original') || getKvgAttr(g, 'variant') || undefined,
+            hanViet: radicalInfo.hanViet,
+            meaning: radicalInfo.meaning,
+            strokeCount: radicalInfo.strokeCount, // Số nét chuẩn 214 bộ thủ Khang Hy
+            actualPathCount: pathStats.count,      // Số nét đồ họa thực tế từ thẻ <path>
+            pathIndices: pathStats.indices,
+            positionType,
+            positionName,
+            isPrimaryRadical: isPrimary || hasChildPrimary,
+            depth: currentDepth,
+            subComponents: subComponents.length > 0 ? subComponents : undefined,
+          });
+        } else {
+          // Thẻ <g> chỉ dùng để gom nhóm bố cục/vị trí (không có kvg:element)
+          // Kế thừa vị trí xuống các thẻ con
+          results.push(...extractSubComponents(g, currentDepth, posAttr));
         }
       }
 
-      // Check if this g-node is nested inside another g-node with identical element character
-      const isNestedDuplicate = Array.from(g.querySelectorAll('g')).some(
-        (child) => (child.getAttribute('kvg:element') || child.getAttribute('element')) === elementVal
-      );
+      return results;
+    }
 
-      if (isNestedDuplicate) return;
+    // Trích xuất thành phần trực tiếp cấp 1
+    const directComponents = extractSubComponents(rootGroup, 1);
 
-      const { positionType, positionName } = parsePositionType(posVal);
-      const info = findRadicalInfo(elementVal);
+    // Thu thập danh sách phẳng tất cả các thành phần lá và cấp 1 cho tương thích ngược
+    const allComponents: RadicalComponent[] = [];
+    function collectFlat(list: RadicalComponent[]) {
+      for (const comp of list) {
+        allComponents.push(comp);
+        if (comp.subComponents) {
+          collectFlat(comp.subComponents);
+        }
+      }
+    }
+    collectFlat(directComponents);
 
-      // Track occurrences to handle repeated radicals (e.g., 2x 匕 in 能 or 2x 木 in 林)
-      const count = (seenMap.get(elementVal) || 0) + 1;
-      seenMap.set(elementVal, count);
+    // Xác định tên Bộ thủ chính
+    let primaryRadicalName = '';
+    if (isSelfRadical) {
+      const rootInfo = findRadicalInfo(targetKanji);
+      primaryRadicalName = `${targetKanji}${rootInfo.hanViet ? ' (' + rootInfo.hanViet + ' - Bản thân là bộ thủ độc lập)' : ' (Bản thân là bộ thủ độc lập)'}`;
+    } else {
+      const primaryComp =
+        directComponents.find((c) => c.isPrimaryRadical) ||
+        allComponents.find((c) => c.isPrimaryRadical);
 
-      results.push({
-        radical: elementCharWithIndex(elementVal, count),
-        hanViet: info.hanViet,
-        meaning: info.meaning,
-        strokeCount: info.strokeCount,
-        positionType,
-        positionName,
-      });
-    });
+      if (primaryComp) {
+        primaryRadicalName = `${primaryComp.radical}${primaryComp.hanViet ? ' (' + primaryComp.hanViet + ')' : ''}`;
+      } else {
+        // Fallback tra cứu trong danh sách 214 bộ thủ
+        const matched = RADICALS_LIST.find((r) =>
+          directComponents.some((c) => c.radical === r.character || (r.variant && r.variant.includes(c.radical)))
+        );
+        if (matched) {
+          primaryRadicalName = `${matched.character} (${matched.hanViet})`;
+        } else if (directComponents.length > 0) {
+          primaryRadicalName = `${directComponents[0].radical}${directComponents[0].hanViet ? ' (' + directComponents[0].hanViet + ')' : ''}`;
+        }
+      }
+    }
 
-    return results;
+    return {
+      isSelfRadical,
+      primaryRadicalName,
+      directComponents,
+      allComponents: directComponents.length > 0 ? directComponents : allComponents,
+    };
   } catch (err) {
     console.warn('Lỗi phân tích XML KanjiVG:', err);
-    return [];
+    return {
+      isSelfRadical: false,
+      primaryRadicalName: '',
+      directComponents: [],
+      allComponents: [],
+    };
   }
-}
-
-function elementCharWithIndex(char: string, count: number): string {
-  // Keep clean character representation
-  return char;
 }
 
 /**
@@ -299,7 +529,7 @@ export async function fetchAndDecomposeKanji(
     return DECOMPOSITION_CACHE.get(kanji)!;
   }
 
-  // 1. Local curated map
+  // 1. Kiểm tra cấu hình có sẵn trong KANJI_DECOMPOSITIONS
   if (KANJI_DECOMPOSITIONS[kanji]) {
     const dec = KANJI_DECOMPOSITIONS[kanji];
     DECOMPOSITION_CACHE.set(kanji, dec);
@@ -308,22 +538,32 @@ export async function fetchAndDecomposeKanji(
 
   const resolvedHv = hanVietName || SINO_VIETNAMESE_MAP[kanji] || '';
 
-  // 2. Fetch KanjiVG SVG online for 100% comprehensive coverage
+  // 2. Fetch KanjiVG SVG online và phân tích cây XML chính xác
   const svgText = await fetchKanjiVgSvg(kanji);
   if (svgText) {
-    const extracted = parseKanjiVgSvgXml(svgText, kanji);
-    if (extracted.length > 0) {
-      const primaryRad = extracted[0];
-      const storyParts = extracted
+    const { isSelfRadical, primaryRadicalName, directComponents, allComponents } =
+      parseKanjiVgSvgXml(svgText, kanji);
+
+    if (directComponents.length > 0 || allComponents.length > 0) {
+      const activeComponents = directComponents.length > 0 ? directComponents : allComponents;
+      const storyParts = activeComponents
         .filter((c) => c.meaning || c.hanViet)
-        .map((c) => `[${c.radical}${c.hanViet ? ' - ' + c.hanViet : ''}${c.meaning ? ': ' + c.meaning : ''}]`);
+        .map(
+          (c) =>
+            `[${c.radical}${c.hanViet ? ' - ' + c.hanViet : ''}${c.meaning ? ': ' + c.meaning : ''}]`
+        );
 
       const dec: KanjiDecomposition = {
         kanji,
         hanViet: resolvedHv,
-        primaryRadical: `${primaryRad.radical}${primaryRad.hanViet ? ' (' + primaryRad.hanViet + ')' : ''}`,
-        components: extracted,
-        mnemonicStory: `Ghi nhớ chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} bằng cách kết hợp các bộ thủ: ${storyParts.join(', ')}.`,
+        primaryRadical: primaryRadicalName || (activeComponents[0]?.radical || 'Cơ bản'),
+        isSelfRadical,
+        directComponents,
+        components: activeComponents,
+        mnemonicStory:
+          storyParts.length > 0
+            ? `Ghi nhớ chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} bằng cách kết hợp các bộ phận: ${storyParts.join(', ')}.`
+            : `Chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} cấu tạo từ các bộ phận: ${activeComponents.map((c) => c.radical).join(', ')}.`,
       };
 
       DECOMPOSITION_CACHE.set(kanji, dec);
@@ -351,8 +591,11 @@ export async function fetchAndDecomposeKanji(
           hanViet: r.hanViet,
           meaning: r.meaning,
           strokeCount: r.strokeCount,
+          actualPathCount: r.strokeCount,
           positionType: r.positionType || (idx === 0 ? 'hen' : 'tsukuri'),
           positionName: r.positionName || (idx === 0 ? 'Bên trái' : 'Thành phần'),
+          isPrimaryRadical: idx === 0,
+          depth: 1,
         }))
       : [
           {
@@ -360,8 +603,11 @@ export async function fetchAndDecomposeKanji(
             hanViet: resolvedHv,
             meaning: '',
             strokeCount: kanji.length,
+            actualPathCount: kanji.length,
             positionType: 'center' as RadicalPositionType,
             positionName: 'Gốc',
+            isPrimaryRadical: true,
+            depth: 1,
           },
         ];
 
@@ -369,6 +615,8 @@ export async function fetchAndDecomposeKanji(
     kanji,
     hanViet: resolvedHv,
     primaryRadical,
+    isSelfRadical: matchingRadicals.some((r) => r.character === kanji),
+    directComponents: components,
     components,
     mnemonicStory: `Mẹo nhớ cho chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''}: Liên tưởng kết hợp hình ảnh các nét bộ thủ để ghi nhớ lâu hơn.`,
   };

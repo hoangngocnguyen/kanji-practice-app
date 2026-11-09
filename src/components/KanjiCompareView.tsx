@@ -15,6 +15,9 @@ import {
   Lightbulb,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Star,
   GitBranch,
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
@@ -518,8 +521,8 @@ export const KanjiCompareView: React.FC = () => {
                     key={char}
                     className="bg-white rounded-2xl border-2 border-slate-200/90 shadow-xs hover:border-teal-400 transition-all flex flex-col justify-between overflow-hidden group"
                   >
-                    {/* Header Cột: Chữ Hán, STT, Nút xóa */}
-                    <div className="p-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                    {/* Header Cột: Chữ Hán, STT, Nút xóa (h-12) */}
+                    <div className="h-12 px-3.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between shrink-0">
                       <div className="flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 text-xs font-bold font-mono flex items-center justify-center">
                           #{index + 1}
@@ -546,10 +549,10 @@ export const KanjiCompareView: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Vùng Trực quan: Chữ Kanji Lớn & Hoạt ảnh nét vẽ */}
-                    <div className="p-4 space-y-4 flex-1">
-                      {/* Tiêu đề Chữ & Hán-Việt */}
-                      <div className="text-center space-y-1">
+                    {/* Nội dung cột đồng bộ chiều cao từng hàng */}
+                    <div className="p-3.5 space-y-3 flex-1 flex flex-col justify-between">
+                      {/* Hàng 1: Tiêu đề Chữ & Hán-Việt (h-22) */}
+                      <div className="h-22 flex flex-col items-center justify-center shrink-0 space-y-1">
                         <div className="relative inline-flex items-center justify-center">
                           <span className="font-kanji font-black text-5xl text-slate-900 group-hover:text-teal-700 transition-colors leading-none">
                             {char}
@@ -570,24 +573,26 @@ export const KanjiCompareView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Khung Hoạt ảnh Nét Vẽ SVG */}
-                      <div className="relative w-full aspect-square max-w-[190px] mx-auto bg-slate-50/70 rounded-xl border border-slate-200/90 p-2 shadow-inner flex items-center justify-center overflow-hidden">
-                        {includeGrid && <KanjiGridOverlay dashed={true} type="mi" />}
-                        <KanjiSvgView
-                          svgUrl={svgUrl}
-                          kanji={char}
-                          animKey={animSyncKey}
-                          loopMode={animMode}
-                          className="w-full h-full object-contain relative z-0"
-                        />
+                      {/* Hàng 2: Khung Hoạt ảnh Nét Vẽ SVG (h-[195px]) */}
+                      <div className="h-[195px] flex items-center justify-center shrink-0">
+                        <div className="relative w-full aspect-square max-w-[190px] mx-auto bg-slate-50/70 rounded-xl border border-slate-200/90 p-2 shadow-inner flex items-center justify-center overflow-hidden">
+                          {includeGrid && <KanjiGridOverlay dashed={true} type="mi" />}
+                          <KanjiSvgView
+                            svgUrl={svgUrl}
+                            kanji={char}
+                            animKey={animSyncKey}
+                            loopMode={animMode}
+                            className="w-full h-full object-contain relative z-0"
+                          />
+                        </div>
                       </div>
 
-                      {/* Ý nghĩa cốt lõi */}
-                      <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      {/* Hàng 3: Ý nghĩa (Cố định h-[68px] đồng bộ ngang hàng) */}
+                      <div className="h-[68px] bg-slate-50 rounded-xl p-2.5 border border-slate-100 flex flex-col justify-start shrink-0 overflow-hidden">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5 shrink-0">
                           Ý nghĩa
                         </span>
-                        <p className="text-xs font-semibold text-slate-800 leading-snug">
+                        <p className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug">
                           {hasValidMeaning ? (
                             detail.meanings.join(', ')
                           ) : (
@@ -596,170 +601,121 @@ export const KanjiCompareView: React.FC = () => {
                         </p>
                       </div>
 
-                      {/* KHỐI BÓC TÁCH BỘ THỦ & CẤU TẠO CHỮ (TRỰC TIẾP TRÊN THẺ) */}
-                      <div className="bg-gradient-to-br from-teal-50/70 via-slate-50 to-teal-50/30 rounded-xl p-3 border border-teal-200/90 shadow-2xs space-y-2.5">
+                      {/* Hàng 4: TÁCH BỘ THỦ NGẮN GỌN (Cố định h-[112px] ngang hàng, mở modal để bóc tách đa cấp) */}
+                      <div className="h-[112px] bg-gradient-to-br from-teal-50/70 via-slate-50 to-teal-50/30 rounded-xl p-2.5 border border-teal-200/90 shadow-2xs flex flex-col justify-between shrink-0">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-900 flex items-center gap-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-900 flex items-center gap-1">
                             <Layers3 className="w-3.5 h-3.5 text-teal-700" />
-                            Tách bộ thủ & Cấu tạo chữ
+                            Tách bộ thủ
                           </span>
-                          {decomp && decomp.components && decomp.components.length > 0 && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100/90 text-teal-900 border border-teal-200">
-                              {decomp.components.length} thành phần
+                          {decomp?.isSelfRadical ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5">
+                              <Star className="w-2.5 h-2.5 fill-amber-600 text-amber-600" />
+                              Bộ thủ độc lập
                             </span>
+                          ) : decomp && (decomp.directComponents || decomp.components).length > 0 ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-teal-100/90 text-teal-900 border border-teal-200">
+                              {(decomp.directComponents || decomp.components).length} thành phần
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Công thức phân rã nét trực quan */}
+                        <div className="py-1 px-2 rounded-lg bg-white/90 border border-teal-100 text-xs flex items-center flex-wrap gap-1 overflow-hidden max-h-[36px]">
+                          <span className="font-kanji font-black text-xs text-teal-950">{char}</span>
+                          <span className="text-slate-400 font-bold">=</span>
+                          {decomp && (decomp.directComponents || decomp.components).length > 0 ? (
+                            (decomp.directComponents || decomp.components).map((comp, cIdx) => (
+                              <React.Fragment key={cIdx}>
+                                {cIdx > 0 && <span className="text-teal-600 font-bold text-[10px]">+</span>}
+                                <span
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded font-kanji font-bold text-xs border ${
+                                    comp.isPrimaryRadical
+                                      ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                      : 'bg-slate-50 text-slate-800 border-slate-200'
+                                  }`}
+                                  title={`${comp.positionName || 'Thành phần'}: ${comp.hanViet || ''} ${comp.meaning ? '- ' + comp.meaning : ''}`}
+                                >
+                                  <span>{comp.radical}</span>
+                                  {comp.isPrimaryRadical && <span className="text-[8px] text-amber-600">★</span>}
+                                  {comp.hanViet && (
+                                    <span className="text-[9px] font-sans font-medium text-slate-600">
+                                      {comp.hanViet}
+                                    </span>
+                                  )}
+                                </span>
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            <span className="text-slate-400 text-[11px] italic">Đang bóc tách...</span>
                           )}
                         </div>
 
-                        {decomp && decomp.components && decomp.components.length > 0 ? (
-                          <div className="space-y-2">
-                            {/* Công thức phân rã nét: 待 = 彳 + 寺 */}
-                            <div className="flex items-center flex-wrap gap-1.5 py-1 px-2 rounded-lg bg-white/90 border border-teal-100 text-xs">
-                              <span className="font-kanji font-black text-sm text-teal-950">{char}</span>
-                              <span className="text-slate-400 font-bold">=</span>
-                              {decomp.components.map((comp, cIdx) => {
-                                const pos = getPositionBadge(comp.positionType);
-                                return (
-                                  <React.Fragment key={cIdx}>
-                                    {cIdx > 0 && <span className="text-teal-600 font-bold text-xs">+</span>}
-                                    <span
-                                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-kanji font-bold text-xs border ${pos.badgeClass}`}
-                                      title={`${comp.positionName || pos.name}: ${comp.hanViet || ''} ${comp.meaning ? '- ' + comp.meaning : ''}`}
-                                    >
-                                      <span>{comp.radical}</span>
-                                      {comp.hanViet && (
-                                        <span className="text-[10px] font-sans font-medium opacity-90">
-                                          {comp.hanViet}
-                                        </span>
-                                      )}
-                                    </span>
-                                  </React.Fragment>
-                                );
-                              })}
-                            </div>
-
-                            {/* Danh sách thẻ chi tiết từng thành phần con */}
-                            <div className="space-y-1.5">
-                              {decomp.components.map((comp, cIdx) => {
-                                const pos = getPositionBadge(comp.positionType);
-                                return (
-                                  <div
-                                    key={cIdx}
-                                    className={`flex items-start gap-2 p-2 rounded-xl border transition-all ${
-                                      comp.positionType === 'hen'
-                                        ? 'bg-cyan-50/50 border-cyan-200/90'
-                                        : comp.positionType === 'tsukuri'
-                                        ? 'bg-indigo-50/50 border-indigo-200/90'
-                                        : 'bg-white border-slate-200'
-                                    }`}
-                                  >
-                                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-2xs flex items-center justify-center shrink-0">
-                                      <span className="font-kanji font-black text-base text-slate-900">
-                                        {comp.radical}
-                                      </span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${pos.badgeClass}`}>
-                                          {comp.positionName || pos.name}
-                                        </span>
-                                        {comp.hanViet && (
-                                          <span className="text-xs font-bold text-slate-900">
-                                            {comp.hanViet}
-                                          </span>
-                                        )}
-                                        {comp.strokeCount && (
-                                          <span className="text-[10px] text-slate-400 font-mono">
-                                            ({comp.strokeCount} nét)
-                                          </span>
-                                        )}
-                                      </div>
-                                      {comp.meaning && (
-                                        <p className="text-[11px] text-slate-600 line-clamp-2 mt-0.5 leading-snug">
-                                          {comp.meaning}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Mẹo liên tưởng / Ghi nhớ nếu có */}
-                            {decomp.mnemonicStory && (
-                              <div className="text-[11px] text-slate-600 bg-amber-50/80 border border-amber-200/90 rounded-lg p-2 leading-relaxed flex items-start gap-1.5">
-                                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                <span>{decomp.mnemonicStory}</span>
-                              </div>
-                            )}
-
-                            {/* Nút xem sơ đồ nhánh chi tiết dạng cây */}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTreeModalChar(char)}
-                              className="w-full py-1.5 text-[11px] font-semibold text-teal-800 hover:text-teal-950 bg-white hover:bg-teal-50 border border-teal-200 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                            >
-                              <GitBranch className="w-3.5 h-3.5 text-teal-600" />
-                              <span>Xem sơ đồ cây bóc tách</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="text-center py-2 text-xs text-slate-400 italic">
-                            Đang phân tích cấu trúc bộ thủ...
-                          </div>
-                        )}
+                        {/* Nút xem sơ đồ bóc tách (hỗ trợ toggle đa cấp) */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTreeModalChar(char)}
+                          className="w-full py-1 text-[11px] font-bold text-teal-800 hover:text-white bg-white hover:bg-teal-700 border border-teal-300 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs group"
+                        >
+                          <GitBranch className="w-3.5 h-3.5 text-teal-600 group-hover:text-white" />
+                          <span>Xem sơ đồ bóc tách đa cấp</span>
+                        </button>
                       </div>
 
-                      {/* Âm đọc On / Kun */}
-                      <div className="space-y-2 pt-1 text-xs">
-                        <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-2.5">
-                          <span className="text-[10px] font-bold text-blue-800 block mb-0.5">
-                            Âm On (Katakana):
-                          </span>
-                          <span className="font-mono font-bold text-blue-950">
-                            {hasValidOn ? detail.on.join(', ') : '—'}
-                          </span>
-                        </div>
-
-                        <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-2.5">
-                          <span className="text-[10px] font-bold text-emerald-800 block mb-0.5">
-                            Âm Kun (Hiragana):
-                          </span>
-                          <span className="font-mono font-bold text-emerald-950">
-                            {hasValidKun ? detail.kun.join(', ') : '—'}
-                          </span>
-                        </div>
+                      {/* Hàng 5: Âm On (Cố định h-[60px] đồng bộ ngang hàng) */}
+                      <div className="h-[60px] bg-blue-50/60 border border-blue-200/80 rounded-xl p-2.5 flex flex-col justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-blue-800 block mb-0.5">
+                          Âm On (Katakana):
+                        </span>
+                        <span className="font-mono font-bold text-blue-950 truncate text-xs">
+                          {hasValidOn ? detail.on.join(', ') : '—'}
+                        </span>
                       </div>
 
-                      {/* Từ ghép tiêu biểu */}
-                      {detail?.examples && detail.examples.length > 0 && (
-                        <div className="space-y-1.5 pt-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1">
-                            <BookOpen className="w-3 h-3" />
-                            Từ vựng thường gặp
-                          </span>
-                          <div className="space-y-1">
-                            {detail.examples.slice(0, 3).map((ex, i) => (
+                      {/* Hàng 6: Âm Kun (Cố định h-[60px] đồng bộ ngang hàng) */}
+                      <div className="h-[60px] bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-2.5 flex flex-col justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-emerald-800 block mb-0.5">
+                          Âm Kun (Hiragana):
+                        </span>
+                        <span className="font-mono font-bold text-emerald-950 truncate text-xs">
+                          {hasValidKun ? detail.kun.join(', ') : '—'}
+                        </span>
+                      </div>
+
+                      {/* Hàng 7: Từ vựng thường gặp (Cố định h-[180px] đồng bộ ngang hàng) */}
+                      <div className="h-[180px] flex flex-col shrink-0 space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 shrink-0">
+                          <BookOpen className="w-3 h-3" />
+                          Từ vựng thường gặp
+                        </span>
+                        <div className="space-y-1 flex-1 flex flex-col justify-between">
+                          {detail?.examples && detail.examples.length > 0 ? (
+                            detail.examples.slice(0, 3).map((ex, i) => (
                               <div
                                 key={i}
-                                className="p-2 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] space-y-0.5"
+                                className="h-[46px] p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px] flex flex-col justify-center overflow-hidden"
                               >
                                 <div className="flex items-center justify-between font-bold text-slate-800">
-                                  <span className="font-kanji text-xs text-teal-800">{ex.word}</span>
-                                  <span className="text-slate-500 font-mono text-[10px]">{ex.reading}</span>
+                                  <span className="font-kanji text-xs text-teal-800 truncate">{ex.word}</span>
+                                  <span className="text-slate-500 font-mono text-[10px] truncate ml-1">{ex.reading}</span>
                                 </div>
-                                <div className="text-slate-600 text-[10px]">
+                                <div className="text-slate-600 text-[10px] truncate">
                                   {ex.hanViet ? <strong className="text-slate-700">{ex.hanViet}: </strong> : null}
                                   {ex.meaning}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            ))
+                          ) : (
+                            <div className="h-full flex items-center justify-center p-3 rounded-lg bg-slate-50/60 border border-dashed border-slate-200 text-[10px] text-slate-400 italic">
+                              Chưa có từ vựng mẫu
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
 
-                    {/* Footer Thẻ Cột */}
-                    <div className="p-3 bg-slate-50/80 border-t border-slate-200 text-center">
+                    {/* Footer Thẻ Cột (h-14) */}
+                    <div className="h-14 p-2.5 bg-slate-50/80 border-t border-slate-200 text-center flex items-center justify-center shrink-0">
                       <button
                         type="button"
                         onClick={() => {

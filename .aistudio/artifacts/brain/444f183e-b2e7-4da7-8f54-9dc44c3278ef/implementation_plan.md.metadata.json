@@ -1,6 +1,6 @@
 {
-  "summary":  "Chi tiết kế hoạch tối ưu SEO và xuất hiện trên Google AI Overview (GEO), chuẩn hóa Thương hiệu 'Luyện Kanji Pro', Favicon '漢' Teal và Schema.org JSON-LD.",
-  "updatedAt":  "2026-11-09T11:03:05.352077336Z",
+  "summary":  "Kế hoạch cải tiến thuật toán bóc tách bộ thủ KanjiVG XML 2 cấp độ: nhận diện chính xác kvg:radical=\"general\" làm Bộ thủ chính, bóc tách cấp 1 trực tiếp (như 見 = 目 ở trên + 儿 ở dưới) và mở rộng chi tiết cấp 2, đếm số thẻ path thực tế phục vụ đồ họa đồng thời lấy số nét chuẩn 214 Khang Hy để hiển thị.",
+  "updatedAt":  "2026-11-09T16:32:44.495507772Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

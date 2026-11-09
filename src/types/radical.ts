@@ -26,15 +26,22 @@ export interface RadicalComponent {
   variant?: string;
   hanViet: string;
   meaning: string;
-  strokeCount: number;
+  strokeCount: number;          // Số nét chuẩn Khang Hy để hiển thị
+  actualPathCount?: number;      // Số thẻ <path> thực tế đếm từ SVG (cho đồ họa / tô màu)
+  pathIndices?: number[];       // Danh sách số thứ tự nét của component trong file SVG (1, 2, ...)
   positionType?: RadicalPositionType;
   positionName?: string;
+  isPrimaryRadical?: boolean;   // true nếu thẻ <g> có thuộc tính kvg:radical="general"
+  depth?: number;               // 1 = cấp 1 trực tiếp, 2 = cấp 2, 3 = cấp 3
+  subComponents?: RadicalComponent[]; // Các thành phần con phân rã sâu hơn
 }
 
 export interface KanjiDecomposition {
   kanji: string;
   hanViet: string;
-  primaryRadical: string;
-  components: RadicalComponent[];
+  primaryRadical: string;       // Tên bộ thủ chính xác định qua kvg:radical="general"
+  isSelfRadical?: boolean;      // true nếu bản thân chữ là một bộ thủ độc lập (như 見, 門, 木)
+  components: RadicalComponent[]; // Danh sách thành phần (tương thích các view hiện có)
+  directComponents?: RadicalComponent[]; // Thành phần trực tiếp cấp 1
   mnemonicStory: string;
 }
