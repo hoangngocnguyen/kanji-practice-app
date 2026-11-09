@@ -1,6 +1,6 @@
 {
-  "summary":  "Kế hoạch tái cấu trúc toàn diện ứng dụng Luyện Kanji: Tích hợp React Router DOM với các route độc lập (/input, /kanji, /romaji, /translate, /converter, /radicals, /history, /guide), xử lý F5 giữ nguyên trang, tinh gọn Header (hiển thị tiêu đề trang thay vì trùng tên web), tách trang Chuyển đổi Romaji có nút Hoàn tác (Undo/Redo), nâng cấp Lịch sử tra cứu không giới hạn kèm tái sử dụng bảng nét vẽ và lưu trữ offline, xóa bỏ các thành phần trùng lặp/rác giao diện, và cập nhật tài liệu README.",
-  "updatedAt":  "2026-11-08T02:12:57.268190794Z",
+  "summary":  "Chi tiết kế hoạch tối ưu SEO và xuất hiện trên Google AI Overview (GEO), chuẩn hóa Thương hiệu 'Luyện Kanji Pro', Favicon '漢' Teal và Schema.org JSON-LD.",
+  "updatedAt":  "2026-11-09T11:03:05.352077336Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
