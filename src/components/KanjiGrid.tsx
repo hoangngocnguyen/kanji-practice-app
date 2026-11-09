@@ -27,6 +27,9 @@ interface KanjiGridProps {
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
   onRemoveKanji?: (kanjiChar: string) => void;
+  isCompareSelectionMode?: boolean;
+  selectedCompareKanji?: string[];
+  onToggleCompareKanji?: (kanjiChar: string) => void;
 }
 
 export const KanjiGrid: React.FC<KanjiGridProps> = ({
@@ -38,6 +41,9 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
   onDownloadPng,
   onInspect,
   onRemoveKanji,
+  isCompareSelectionMode = false,
+  selectedCompareKanji = [],
+  onToggleCompareKanji,
 }) => {
   const [animStateMap, setAnimStateMap] = useState<
     Record<string, { animKey: number; mode: 'off' | 'once' | 'infinite' }>
@@ -107,11 +113,25 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
         return (
           <div
             key={item.hex}
-            className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-teal-400 p-4 sm:p-5 flex flex-col items-center justify-between gap-3 sm:gap-3.5 transition-all shadow-xs hover:shadow-md group"
+            className={`bg-white rounded-xl sm:rounded-2xl border-2 p-4 sm:p-5 flex flex-col items-center justify-between gap-3 sm:gap-3.5 transition-all shadow-xs hover:shadow-md group ${
+              isCompareSelectionMode && selectedCompareKanji.includes(item.kanji)
+                ? 'border-teal-600 bg-teal-50/20 ring-2 ring-teal-500/20'
+                : 'border-slate-200/90 hover:border-teal-400'
+            }`}
           >
-            {/* Top row: STT, JLPT & Stroke Count & Remove button */}
+            {/* Top row: Checkbox, STT, JLPT & Stroke Count & Remove button */}
             <div className="w-full flex items-center justify-between text-xs font-mono text-slate-400">
-              <span className="font-semibold text-teal-700">#{item.id}</span>
+              <div className="flex items-center gap-1.5">
+                {isCompareSelectionMode && onToggleCompareKanji && (
+                  <input
+                    type="checkbox"
+                    checked={selectedCompareKanji.includes(item.kanji)}
+                    onChange={() => onToggleCompareKanji(item.kanji)}
+                    className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 cursor-pointer accent-teal-700"
+                  />
+                )}
+                <span className="font-semibold text-teal-700">#{item.id}</span>
+              </div>
               <div className="flex items-center gap-1.5">
                 {detail?.jlpt && (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] border font-bold ${getJlptBadgeClass(detail.jlpt)}`}>

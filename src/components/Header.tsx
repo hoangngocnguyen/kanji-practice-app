@@ -44,6 +44,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           title: '214 Bộ thủ Khang Hy',
           subtitle: 'Cấu trúc và ý nghĩa gốc các bộ thủ chữ Hán',
         };
+      case '/compare':
+        return {
+          title: 'So sánh Kanji song song',
+          subtitle: 'Đối chiếu cách viết, bộ thủ, âm đọc và phân biệt từ dễ nhầm lẫn',
+        };
       case '/history':
         return {
           title: 'Lịch sử tra cứu',

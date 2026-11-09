@@ -20,6 +20,7 @@ import { UserGuideView } from './components/UserGuideView';
 import { PracticeModal } from './components/PracticeModal';
 import { KanjiScannerModal } from './components/KanjiScannerModal';
 import { KanjiPrintView } from './components/KanjiPrintView';
+import { KanjiCompareView } from './components/KanjiCompareView';
 import { ExtensionDownloadView } from './components/ExtensionDownloadView';
 import { SettingsModal } from './components/SettingsModal';
 import { GoogleDocsTableExporter } from './components/GoogleDocsTableExporter';
@@ -113,6 +114,7 @@ function AppLayout() {
               path="/radicals"
               element={<RadicalExplorer onSelectKanji={handleSelectRecentKanji} />}
             />
+            <Route path="/compare" element={<KanjiCompareView />} />
             <Route path="/print" element={<KanjiPrintView />} />
             <Route path="/extension" element={<ExtensionDownloadView />} />
             <Route path="/history" element={<RecentlyViewedKanji />} />

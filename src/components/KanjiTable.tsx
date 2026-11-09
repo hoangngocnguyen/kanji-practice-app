@@ -29,6 +29,9 @@ interface KanjiTableProps {
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
   onRemoveKanji?: (kanjiChar: string) => void;
+  isCompareSelectionMode?: boolean;
+  selectedCompareKanji?: string[];
+  onToggleCompareKanji?: (kanjiChar: string) => void;
 }
 
 export const KanjiTable: React.FC<KanjiTableProps> = ({
@@ -40,6 +43,9 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
   onDownloadPng,
   onInspect,
   onRemoveKanji,
+  isCompareSelectionMode = false,
+  selectedCompareKanji = [],
+  onToggleCompareKanji,
 }) => {
   const [animStateMap, setAnimStateMap] = useState<
     Record<string, { animKey: number; mode: 'off' | 'once' | 'infinite' }>
@@ -116,6 +122,14 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               {/* Header: STT, Hán-Việt & JLPT */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                 <div className="flex items-center gap-2">
+                  {isCompareSelectionMode && onToggleCompareKanji && (
+                    <input
+                      type="checkbox"
+                      checked={selectedCompareKanji.includes(item.kanji)}
+                      onChange={() => onToggleCompareKanji(item.kanji)}
+                      className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 cursor-pointer accent-teal-700 shrink-0"
+                    />
+                  )}
                   <span className="text-xs font-mono font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md">
                     #{item.id}
                   </span>
@@ -309,9 +323,9 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-              {/* Cột 1: STT & JLPT */}
-              <th scope="col" className="py-3.5 px-3 lg:px-4 w-16 text-center">
-                STT
+              {/* Cột 1: STT, Checkbox & JLPT */}
+              <th scope="col" className="py-3.5 px-3 lg:px-4 w-20 text-center">
+                {isCompareSelectionMode ? 'So sánh' : 'STT'}
               </th>
               {/* Cột 2: Chữ Kanji & Âm Hán-Việt */}
               <th scope="col" className="py-3.5 px-3 lg:px-5 w-40 text-center">
@@ -342,11 +356,23 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               return (
                 <tr
                   key={item.hex}
-                  className="hover:bg-slate-50/60 transition-colors group"
+                  className={`transition-colors group ${
+                    isCompareSelectionMode && selectedCompareKanji.includes(item.kanji)
+                      ? 'bg-teal-50/60 hover:bg-teal-50/80'
+                      : 'hover:bg-slate-50/60'
+                  }`}
                 >
-                  {/* Cột 1: STT & JLPT */}
+                  {/* Cột 1: STT, Checkbox & JLPT */}
                   <td className="py-4 px-3 lg:px-4 text-center">
-                    <div className="flex flex-col items-center justify-center gap-1">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      {isCompareSelectionMode && onToggleCompareKanji && (
+                        <input
+                          type="checkbox"
+                          checked={selectedCompareKanji.includes(item.kanji)}
+                          onChange={() => onToggleCompareKanji(item.kanji)}
+                          className="w-4 h-4 rounded text-teal-700 focus:ring-teal-500 cursor-pointer accent-teal-700 mb-0.5"
+                        />
+                      )}
                       <span className="text-xs font-mono font-bold text-slate-400 group-hover:text-teal-700">
                         #{item.id}
                       </span>

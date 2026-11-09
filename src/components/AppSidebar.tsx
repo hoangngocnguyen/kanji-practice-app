@@ -15,7 +15,8 @@ import {
   Chrome,
   PanelLeftClose,
   PanelLeftOpen,
-  Menu
+  Menu,
+  Columns3
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 
@@ -55,6 +56,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       icon: PenTool,
       badge: extractedKanjiList.length > 0 ? extractedKanjiList.length : null,
       desc: 'Bảng nét & hoạt ảnh SVG động',
+    },
+    {
+      to: '/compare',
+      label: 'So sánh Kanji',
+      icon: Columns3,
+      badge: null,
+      desc: 'Đối chiếu các chữ dễ nhầm lẫn',
     },
     {
       to: '/romaji',

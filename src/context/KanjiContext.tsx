@@ -35,6 +35,12 @@ interface KanjiContextType {
   handleRemoveKanjiFromList: (char: string) => void;
   showListFurigana: boolean;
   setShowListFurigana: (val: boolean) => void;
+  selectedCompareKanji: string[];
+  toggleCompareKanji: (char: string) => void;
+  clearCompareKanji: () => void;
+  isCompareSelectionMode: boolean;
+  setIsCompareSelectionMode: (val: boolean | ((prev: boolean) => boolean)) => void;
+  setEnrichedDetails: React.Dispatch<React.SetStateAction<Record<string, KanjiDetail>>>;
 }
 
 const KanjiContext = createContext<KanjiContextType | undefined>(undefined);
@@ -107,6 +113,26 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [copyStatus, setCopyStatus] = useState<Record<string, CopyStatus>>({});
+
+  // Kanji Comparison Selection State
+  const [isCompareSelectionMode, setIsCompareSelectionMode] = useState<boolean>(false);
+  const [selectedCompareKanji, setSelectedCompareKanji] = useState<string[]>([]);
+
+  const toggleCompareKanji = useCallback((char: string) => {
+    if (!char) return;
+    setSelectedCompareKanji((prev) => {
+      if (prev.includes(char)) {
+        return prev.filter((c) => c !== char);
+      } else {
+        if (prev.length >= 6) return prev; // Maximum 6 characters to compare side by side
+        return [...prev, char];
+      }
+    });
+  }, []);
+
+  const clearCompareKanji = useCallback(() => {
+    setSelectedCompareKanji([]);
+  }, []);
 
   // Extract unique Kanji
   const extractedKanjiList = useMemo<KanjiItem[]>(() => {
@@ -289,6 +315,12 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsLicenseOpen,
         showListFurigana,
         setShowListFurigana,
+        selectedCompareKanji,
+        toggleCompareKanji,
+        clearCompareKanji,
+        isCompareSelectionMode,
+        setIsCompareSelectionMode,
+        setEnrichedDetails,
       }}
     >
       {children}
