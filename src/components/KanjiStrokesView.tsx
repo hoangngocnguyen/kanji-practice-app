@@ -99,9 +99,9 @@ export const KanjiStrokesView: React.FC = () => {
   };
 
   return (
-    <section id="kanji-stroke-section" className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200">
+    <section id="kanji-stroke-section" className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200">
       {/* Sticky Toolbar beneath Header */}
-      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
+      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/90 shadow-xs hover:shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
         {/* Top row: Status info + Quick Scan + Scroll to top */}
         <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">

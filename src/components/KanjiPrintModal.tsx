@@ -73,7 +73,7 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
 
   return (
     <div className="kanji-print-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="kanji-print-modal-dialog bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+      <div className="kanji-print-modal-dialog bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
         {/* Clean Light Modal Header */}
         <div className="kanji-print-modal-header px-6 py-4 bg-white border-b border-slate-200/90 text-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">

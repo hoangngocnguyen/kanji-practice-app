@@ -257,7 +257,7 @@ export const InputSection: React.FC = () => {
   };
 
   return (
-    <section id="input-section" className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-4 transition-all">
+    <section id="input-section" className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-4 transition-all">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -420,7 +420,7 @@ export const InputSection: React.FC = () => {
                 : "Dán đoạn văn tiếng Nhật hoặc bấm Ctrl+V để dán ảnh chụp màn hình vào đây..."
             }
             rows={5}
-            className={`w-full p-4 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-2xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans resize-y leading-relaxed shadow-inner min-h-[120px] ${
+            className={`w-full p-4 text-slate-800 placeholder-slate-400 bg-slate-50/70 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-sans resize-y leading-relaxed shadow-inner min-h-[120px] ${
               inputFontSize === 'sm'
                 ? 'text-xs'
                 : inputFontSize === 'lg'

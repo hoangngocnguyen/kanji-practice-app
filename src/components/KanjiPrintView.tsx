@@ -107,10 +107,10 @@ export const KanjiPrintView: React.FC = () => {
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
-      {/* Configuration & Actions Bar (Hidden when printed) */}
-      <div className="print:hidden space-y-3">
+      {/* Configuration & Actions Bar (Hidden when printed, Sticky on scroll) */}
+      <div className="print:hidden sticky top-16 sm:top-[68px] z-20">
         {/* Main Controls Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 sm:p-5 space-y-4">
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-sm hover:shadow-md p-4 sm:p-5 space-y-4 transition-all">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div className="space-y-0.5">
               <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">

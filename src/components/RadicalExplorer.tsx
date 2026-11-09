@@ -68,7 +68,7 @@ export const RadicalExplorer: React.FC<RadicalExplorerProps> = ({
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
       {/* Top Filter and Search Bar Card - Sticky beneath Header */}
-      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xs hover:shadow-sm p-3.5 sm:p-4 space-y-2.5 transition-shadow">
+      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200 shadow-xs hover:shadow-sm p-3.5 sm:p-4 space-y-2.5 transition-shadow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           {/* Search input */}
           <div className="relative flex-1">
@@ -203,7 +203,7 @@ export const RadicalExplorer: React.FC<RadicalExplorerProps> = ({
       {/* Radical Detail Popup Modal */}
       {selectedRadicalModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
             <button
               type="button"
               onClick={() => setSelectedRadicalModal(null)}

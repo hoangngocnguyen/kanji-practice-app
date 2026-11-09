@@ -123,7 +123,7 @@ export const RomajiConverterView: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Page Header */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-2">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -164,7 +164,7 @@ export const RomajiConverterView: React.FC = () => {
       {/* Converter Dual Pane */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Left Pane: Input */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-5 flex flex-col justify-between space-y-3">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-5 flex flex-col justify-between space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-xs">
             <div className="flex items-center gap-2 font-bold text-slate-700">
               <span className="w-2 h-2 rounded-full bg-teal-600" />
@@ -202,7 +202,7 @@ export const RomajiConverterView: React.FC = () => {
         </div>
 
         {/* Right Pane: Output */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-5 flex flex-col justify-between space-y-3">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-5 flex flex-col justify-between space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-xs">
             <div className="flex items-center gap-2 font-bold text-slate-700">
               <span className="w-2 h-2 rounded-full bg-emerald-600" />

@@ -41,7 +41,7 @@ export const RomajiReaderView: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header Banner */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-2">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -100,7 +100,7 @@ export const RomajiReaderView: React.FC = () => {
       </div>
 
       {/* Input Text Box */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-5 space-y-3">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-5 space-y-3">
         <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2 font-bold text-slate-700">
             <BookOpen className="w-4 h-4 text-teal-600" />
@@ -140,7 +140,7 @@ export const RomajiReaderView: React.FC = () => {
 
       {/* Interleaved Display Pairs */}
       {inputText.trim() ? (
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 space-y-4">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 text-xs text-slate-500">
             <span className="font-bold text-slate-700">
               Kết quả đọc xen dòng ({romajiPairs.length} câu / dòng):
@@ -182,7 +182,7 @@ export const RomajiReaderView: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-12 text-center space-y-3">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-12 text-center space-y-3">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 font-bold text-xl">
             あA
           </div>

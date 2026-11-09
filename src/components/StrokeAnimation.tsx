@@ -413,7 +413,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
       {/* SVG Canvas Box */}
       <div
-        className="relative w-full aspect-square bg-white rounded-3xl border-2 border-slate-200 shadow-sm flex items-center justify-center overflow-hidden mx-auto"
+        className="relative w-full aspect-square bg-white rounded-2xl border-2 border-slate-200 shadow-sm flex items-center justify-center overflow-hidden mx-auto"
         style={{ maxWidth: size, maxHeight: size }}
       >
         {/* Practice Grid */}
@@ -505,7 +505,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
       </div>
 
       {/* Animation Player Controls */}
-      <div className="w-full mt-3 bg-slate-100/90 rounded-2xl p-2.5 border border-slate-200/80 shadow-2xs space-y-2">
+      <div className="w-full mt-3 bg-slate-100/90 rounded-xl p-2.5 border border-slate-200/80 shadow-2xs space-y-2">
         {/* Main playback buttons */}
         <div className="flex items-center justify-center gap-2">
           {/* Replay */}

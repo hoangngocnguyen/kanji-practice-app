@@ -49,7 +49,7 @@ export const RecentlyViewedKanji: React.FC = () => {
   return (
     <div id="recently-viewed-page" className="space-y-6 animate-in fade-in duration-200">
       {/* Header Banner */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-3">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-5 sm:p-6 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-teal-50 text-teal-800 rounded-2xl border border-teal-200/80">
@@ -135,13 +135,13 @@ export const RecentlyViewedKanji: React.FC = () => {
           kanjiList={filteredHistory}
           onSelectKanji={handleInspectKanji}
           selectedKanjiChar={inspectedKanji?.kanji}
-          title="⚡ Chữ Kanji đã tra cứu gần đây (Click mở xem hoạt ảnh nét vẽ ngay):"
+          title="Chữ Kanji đã tra cứu gần đây (Click mở xem hoạt ảnh nét vẽ ngay):"
         />
       )}
 
       {/* Full Table / Grid View of History Items */}
       {recentlyViewed.length === 0 ? (
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-16 text-center space-y-3">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-16 text-center space-y-3">
           <div className="w-16 h-16 mx-auto rounded-3xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
             <Clock className="w-8 h-8 text-teal-600" />
           </div>
@@ -159,11 +159,11 @@ export const RecentlyViewedKanji: React.FC = () => {
           </button>
         </div>
       ) : filteredHistory.length === 0 ? (
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-12 text-center text-slate-400 text-sm">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-12 text-center text-slate-400 text-sm">
           Không tìm thấy chữ nào trong lịch sử khớp với "{filterText}".
         </div>
       ) : viewMode === 'table' ? (
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6">
           <KanjiTable
             kanjiList={filteredHistory}
             copyStatus={copyStatus}
@@ -175,7 +175,7 @@ export const RecentlyViewedKanji: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6">
           <KanjiGrid
             kanjiList={filteredHistory}
             copyStatus={copyStatus}

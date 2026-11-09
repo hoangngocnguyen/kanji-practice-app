@@ -14,7 +14,7 @@ export const KanjiQuickBar: React.FC<KanjiQuickBarProps> = ({
   kanjiList,
   onSelectKanji,
   selectedKanjiChar,
-  title = '⚡ Chọn nhanh từ Kanji (Click mở xem nét vẽ & luyện viết ngay):',
+  title = 'Chọn nhanh từ Kanji (Click mở xem nét vẽ & luyện viết ngay):',
 }) => {
   if (!kanjiList || kanjiList.length === 0) return null;
 

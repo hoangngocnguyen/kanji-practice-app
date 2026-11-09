@@ -8,6 +8,8 @@ import {
   Volume2,
   PlayCircle,
   RotateCcw,
+  Repeat1,
+  Repeat,
   Info
 } from 'lucide-react';
 import { KanjiItem, CopyStatus } from '../types/kanji';
@@ -36,16 +38,56 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
   onDownloadPng,
   onInspect,
 }) => {
-  const [animStateMap, setAnimStateMap] = useState<Record<string, { animKey: number; animate: boolean }>>({});
+  const [animStateMap, setAnimStateMap] = useState<
+    Record<string, { animKey: number; mode: 'off' | 'once' | 'infinite' }>
+  >({});
 
-  const handleReloadAnimation = (hex: string) => {
-    setAnimStateMap((prev) => ({
-      ...prev,
-      [hex]: {
-        animKey: ((prev[hex]?.animKey) || 0) + 1,
-        animate: true,
-      },
-    }));
+  const handleTogglePlayMode = (hex: string) => {
+    setAnimStateMap((prev) => {
+      const current = prev[hex] || { animKey: 0, mode: 'off' };
+      let nextMode: 'off' | 'once' | 'infinite';
+      if (current.mode === 'off') nextMode = 'once';
+      else if (current.mode === 'once') nextMode = 'infinite';
+      else nextMode = 'off';
+
+      return {
+        ...prev,
+        [hex]: {
+          animKey: current.animKey + 1,
+          mode: nextMode,
+        },
+      };
+    });
+  };
+
+  const renderReloadButton = (hex: string, mode: 'off' | 'once' | 'infinite') => {
+    let icon = <RotateCcw className="w-3.5 h-3.5 text-teal-700" />;
+    let btnStyle = "bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border-slate-200 shadow-md hover:shadow-lg";
+    let title = "Phát nét vẽ (1 lần)";
+
+    if (mode === 'once') {
+      icon = <Repeat1 className="w-3.5 h-3.5 text-white" />;
+      btnStyle = "bg-teal-600 hover:bg-teal-700 text-white border-teal-700 shadow-md ring-2 ring-teal-300/60";
+      title = "Lặp lại liên tục (Đang phát 1 lần)";
+    } else if (mode === 'infinite') {
+      icon = <Repeat className="w-3.5 h-3.5 text-white animate-pulse" />;
+      btnStyle = "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-md ring-2 ring-emerald-300/60";
+      title = "Tắt nét vẽ (Đang lặp liên tục)";
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleTogglePlayMode(hex);
+        }}
+        className={`absolute -top-2 -right-2 z-20 p-1.5 rounded-full border transition-all cursor-pointer active:scale-90 hover:scale-110 ${btnStyle}`}
+        title={title}
+      >
+        {icon}
+      </button>
+    );
   };
 
   return (
@@ -61,12 +103,12 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
           const hasOn = detail?.on && detail.on.length > 0;
           const hasKun = detail?.kun && detail.kun.length > 0;
           const hasMeanings = detail?.meanings && detail.meanings.length > 0;
-          const animState = animStateMap[item.hex] || { animKey: 0, animate: false };
+          const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
 
           return (
             <div
               key={`mobile-${item.hex}`}
-              className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 space-y-3 transition-all hover:border-teal-400 group"
+              className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-4 space-y-3 transition-all hover:border-teal-400 group"
             >
               {/* Header: STT, Hán-Việt & JLPT */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
@@ -101,7 +143,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                 <div className="relative inline-block shrink-0">
                   <div
                     onClick={() => onInspect(item)}
-                    className="relative w-28 h-28 bg-white rounded-2xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden group/img"
+                    className="relative w-28 h-28 bg-white rounded-xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden group/img"
                     title="Click để xem chi tiết nét vẽ"
                   >
                     {showGrid && <KanjiGridOverlay dashed={true} type="mi" />}
@@ -109,7 +151,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       svgUrl={item.svgUrl}
                       kanji={item.kanji}
                       animKey={animState.animKey}
-                      animate={animState.animate}
+                      loopMode={animState.mode}
                       className="w-full h-full object-contain relative z-0"
                     />
 
@@ -119,17 +161,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   </div>
 
                   {/* Nút Reload đặt NẰM BÊN NGOÀI ô nét vẽ (Góc trên bên phải) */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleReloadAnimation(item.hex);
-                    }}
-                    className="absolute -top-2 -right-2 z-20 p-1.5 rounded-full bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-90 active:rotate-180 hover:scale-110"
-                    title="Chạy lại nét vẽ"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-teal-700" />
-                  </button>
+                  {renderReloadButton(item.hex, animState.mode)}
                 </div>
 
                 {/* Text Metadata */}
@@ -257,7 +289,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
       </div>
 
       {/* 2. TABLET & DESKTOP TABLE VIEW (md: >= 768px screens) */}
-      <div className="hidden md:block overflow-x-auto rounded-3xl border border-slate-200/90 shadow-xs bg-white">
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-xs bg-white">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
@@ -289,7 +321,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               const hasOn = detail?.on && detail.on.length > 0;
               const hasKun = detail?.kun && detail.kun.length > 0;
               const hasMeanings = detail?.meanings && detail.meanings.length > 0;
-              const animState = animStateMap[item.hex] || { animKey: 0, animate: false };
+              const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
 
               return (
                 <tr
@@ -362,7 +394,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       <div className="relative inline-block shrink-0">
                         <div
                           onClick={() => onInspect(item)}
-                          className="relative w-24 h-24 lg:w-28 lg:h-28 bg-white rounded-2xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:shadow-md hover:border-teal-500 transition-all cursor-pointer group/img flex items-center justify-center overflow-hidden"
+                          className="relative w-24 h-24 lg:w-28 lg:h-28 bg-white rounded-xl border-2 border-slate-200/90 p-1.5 shadow-xs hover:shadow-md hover:border-teal-500 transition-all cursor-pointer group/img flex items-center justify-center overflow-hidden"
                           title="Click để xem chi tiết nét vẽ"
                         >
                           {/* Lưới ô chữ nét đứt mảnh tinh tế */}
@@ -372,7 +404,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                             svgUrl={item.svgUrl}
                             kanji={item.kanji}
                             animKey={animState.animKey}
-                            animate={animState.animate}
+                            loopMode={animState.mode}
                             className="w-full h-full object-contain transform group-hover/img:scale-105 transition-transform relative z-0"
                           />
 
@@ -384,17 +416,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                         </div>
 
                         {/* Nút Reload phát lại nét vẽ (nằm BÊN NGOÀI ô nét vẽ góc trên bên phải) */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReloadAnimation(item.hex);
-                          }}
-                          className="absolute -top-2 -right-2 z-20 p-1.5 rounded-full bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-90 active:rotate-180 hover:scale-110"
-                          title="Chạy lại nét vẽ"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5 text-teal-700" />
-                        </button>
+                        {renderReloadButton(item.hex, animState.mode)}
                       </div>
 
                       {/* Chi tiết: Âm On, Âm Kun, Nghĩa tiếng Việt & Số nét */}

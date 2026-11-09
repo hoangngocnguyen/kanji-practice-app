@@ -11,6 +11,7 @@ interface KanjiSvgViewProps {
   title?: string;
   monochrome?: boolean;
   animate?: boolean;
+  loopMode?: 'off' | 'once' | 'infinite';
   animKey?: number;
 }
 
@@ -35,6 +36,7 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
   title,
   monochrome = false,
   animate = false,
+  loopMode,
   animKey = 0,
 }) => {
   const [coloredSvgText, setColoredSvgText] = useState<string>('');
@@ -42,6 +44,8 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
   const [hasError, setHasError] = useState<boolean>(false);
 
   const hex = kanji ? kanji.codePointAt(0)?.toString(16).toLowerCase().padStart(5, '0') : undefined;
+
+  const activeMode: 'off' | 'once' | 'infinite' = loopMode ?? (animate ? 'once' : 'off');
 
   const [colorMode, setColorMode] = useState<'multi' | 'single'>(() => {
     try {
@@ -83,9 +87,14 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 
       const uniqueId = `ksvg_${Math.random().toString(36).substring(2, 8)}_${animKey}`;
 
-      // Single playback animation parameters
       const strokeDuration = 0.45; // seconds per stroke
-      const totalDuration = Math.max(1.2, numPaths * strokeDuration);
+      const totalDrawDuration = Math.max(1.2, numPaths * strokeDuration);
+      const isInfinite = activeMode === 'infinite';
+      const isOnce = activeMode === 'once';
+      const isAnimating = (isOnce || isInfinite) && !monochrome;
+
+      // Pause 1.2s at end before restarting in infinite mode
+      const cycleDuration = isInfinite ? totalDrawDuration + 1.2 : totalDrawDuration;
 
       let keyframesCss = '';
 
@@ -96,17 +105,18 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 
         path.setAttribute('stroke', strokeColor);
 
-        if (animate && !monochrome) {
+        if (isAnimating) {
           const dAttr = path.getAttribute('d') || '';
           const len = getPathLength(dAttr);
 
           const tStart = idx * strokeDuration;
           const tEnd = (idx + 1) * strokeDuration;
 
-          const pStart = ((tStart / totalDuration) * 100).toFixed(1);
-          const pEnd = Math.min(100, (tEnd / totalDuration) * 100).toFixed(1);
+          const pStart = ((tStart / cycleDuration) * 100).toFixed(1);
+          const pEnd = Math.min(100, (tEnd / cycleDuration) * 100).toFixed(1);
 
           const animName = `${uniqueId}_s${idx}`;
+          const fillOption = isInfinite ? 'infinite' : 'forwards';
 
           keyframesCss += `
 @keyframes ${animName} {
@@ -117,7 +127,7 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 
           path.setAttribute(
             'style',
-            `stroke: ${strokeColor} !important; stroke-width: 3.2px !important; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: ${len}; stroke-dashoffset: ${len}; animation: ${animName} ${totalDuration}s cubic-bezier(0.4, 0, 0.2, 1) forwards;`
+            `stroke: ${strokeColor} !important; stroke-width: 3.2px !important; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: ${len}; stroke-dashoffset: ${len}; animation: ${animName} ${cycleDuration}s cubic-bezier(0.4, 0, 0.2, 1) ${fillOption};`
           );
         } else {
           path.setAttribute(
@@ -142,13 +152,14 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 
             textEl.setAttribute('fill', numColor);
 
-            if (animate && !monochrome) {
+            if (isAnimating) {
               const tStart = idx * strokeDuration;
 
-              const pStart = ((tStart / totalDuration) * 100).toFixed(1);
-              const pShow = Math.min(100, (tStart / totalDuration) * 100 + 1.5).toFixed(1);
+              const pStart = ((tStart / cycleDuration) * 100).toFixed(1);
+              const pShow = Math.min(100, (tStart / cycleDuration) * 100 + 1.5).toFixed(1);
 
               const numAnimName = `${uniqueId}_n${idx}`;
+              const fillOption = isInfinite ? 'infinite' : 'forwards';
 
               keyframesCss += `
 @keyframes ${numAnimName} {
@@ -159,7 +170,7 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
 
               textEl.setAttribute(
                 'style',
-                `fill: ${numColor} !important; font-size: 6.5px !important; font-weight: 500 !important; font-family: system-ui, -apple-system, sans-serif !important; fill-opacity: 0.82 !important; animation: ${numAnimName} ${totalDuration}s ease-in-out forwards;`
+                `fill: ${numColor} !important; font-size: 6.5px !important; font-weight: 500 !important; font-family: system-ui, -apple-system, sans-serif !important; fill-opacity: 0.82 !important; animation: ${numAnimName} ${cycleDuration}s ease-in-out ${fillOption};`
               );
             } else {
               textEl.setAttribute(
@@ -245,7 +256,7 @@ export const KanjiSvgView: React.FC<KanjiSvgViewProps> = ({
       isCancelled = true;
       window.removeEventListener('kanji-svg-cached', handleSvgCached);
     };
-  }, [svgUrl, colorMode, singleColor, hex, monochrome, animate, animKey]);
+  }, [svgUrl, colorMode, singleColor, hex, monochrome, animate, activeMode, animKey]);
 
   if (loading) {
     return (

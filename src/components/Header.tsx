@@ -77,8 +77,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs print:hidden">
       <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-        {/* Left: Mobile Menu Toggle & Current Page Title */}
-        <div className="flex items-center gap-3 min-w-0">
+        {/* Left: Mobile Menu Toggle & Brand Logo with Web Name */}
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           {onOpenMobileMenu && (
             <button
               type="button"
@@ -90,15 +90,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             </button>
           )}
 
-          {/* Current Page Title (shows exact section user is on) */}
-          <div className="min-w-0">
-            <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate">
-              {title}
-            </h1>
-            <p className="text-[11px] text-slate-500 hidden sm:block truncate">
-              {subtitle}
-            </p>
-          </div>
+          {/* Brand Logo & Web Name (Only Logo & Name per user request) */}
+          <NavLink to="/input" className="flex items-center gap-2.5 shrink-0 group" title="Trang chủ / Nhập văn bản">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-teal-900/15 ring-1 ring-emerald-400/30 group-hover:scale-105 transition-transform">
+              <span className="font-kanji font-black text-xl leading-none">漢</span>
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-slate-900 text-base sm:text-lg tracking-tight truncate">Luyện Kanji</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-teal-50 text-teal-700 border border-teal-200">Pro</span>
+              </div>
+              <p className="text-[11px] text-slate-500 -mt-0.5 truncate">Học &amp; Tra cứu chữ Hán</p>
+            </div>
+          </NavLink>
         </div>
 
         {/* Right: Clean Utility Actions */}

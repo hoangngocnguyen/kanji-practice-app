@@ -408,7 +408,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           </button>
         )}
 
-        <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Header with Kanji & Sino-Vietnamese Reading */}
           <div className="flex items-center justify-between px-3 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">

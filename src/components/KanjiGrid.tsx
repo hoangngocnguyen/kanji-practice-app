@@ -6,6 +6,8 @@ import {
   Download,
   Volume2,
   RotateCcw,
+  Repeat1,
+  Repeat,
   Info
 } from 'lucide-react';
 import { KanjiItem, CopyStatus } from '../types/kanji';
@@ -34,16 +36,56 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
   onDownloadPng,
   onInspect,
 }) => {
-  const [animStateMap, setAnimStateMap] = useState<Record<string, { animKey: number; animate: boolean }>>({});
+  const [animStateMap, setAnimStateMap] = useState<
+    Record<string, { animKey: number; mode: 'off' | 'once' | 'infinite' }>
+  >({});
 
-  const handleReloadAnimation = (hex: string) => {
-    setAnimStateMap((prev) => ({
-      ...prev,
-      [hex]: {
-        animKey: ((prev[hex]?.animKey) || 0) + 1,
-        animate: true,
-      },
-    }));
+  const handleTogglePlayMode = (hex: string) => {
+    setAnimStateMap((prev) => {
+      const current = prev[hex] || { animKey: 0, mode: 'off' };
+      let nextMode: 'off' | 'once' | 'infinite';
+      if (current.mode === 'off') nextMode = 'once';
+      else if (current.mode === 'once') nextMode = 'infinite';
+      else nextMode = 'off';
+
+      return {
+        ...prev,
+        [hex]: {
+          animKey: current.animKey + 1,
+          mode: nextMode,
+        },
+      };
+    });
+  };
+
+  const renderReloadButton = (hex: string, mode: 'off' | 'once' | 'infinite') => {
+    let icon = <RotateCcw className="w-3.5 h-3.5 text-teal-700" />;
+    let btnStyle = "bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border-slate-200 shadow-md hover:shadow-lg";
+    let title = "Phát nét vẽ (1 lần)";
+
+    if (mode === 'once') {
+      icon = <Repeat1 className="w-3.5 h-3.5 text-white" />;
+      btnStyle = "bg-teal-600 hover:bg-teal-700 text-white border-teal-700 shadow-md ring-2 ring-teal-300/60";
+      title = "Lặp lại liên tục (Đang phát 1 lần)";
+    } else if (mode === 'infinite') {
+      icon = <Repeat className="w-3.5 h-3.5 text-white animate-pulse" />;
+      btnStyle = "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-md ring-2 ring-emerald-300/60";
+      title = "Tắt nét vẽ (Đang lặp liên tục)";
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleTogglePlayMode(hex);
+        }}
+        className={`absolute -top-2 -right-2 z-20 p-1.5 rounded-full border transition-all cursor-pointer active:scale-90 hover:scale-110 ${btnStyle}`}
+        title={title}
+      >
+        {icon}
+      </button>
+    );
   };
 
   return (
@@ -57,12 +99,12 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
         const hasOn = detail?.on && detail.on.length > 0;
         const hasKun = detail?.kun && detail.kun.length > 0;
         const hasMeanings = detail?.meanings && detail.meanings.length > 0;
-        const animState = animStateMap[item.hex] || { animKey: 0, animate: false };
+        const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
 
         return (
           <div
             key={item.hex}
-            className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 hover:border-teal-400 p-4 sm:p-5 flex flex-col items-center justify-between gap-3 sm:gap-3.5 transition-all shadow-xs hover:shadow-md group"
+            className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 hover:border-teal-400 p-4 sm:p-5 flex flex-col items-center justify-between gap-3 sm:gap-3.5 transition-all shadow-xs hover:shadow-md group"
           >
             {/* Top row: STT, JLPT & Stroke Count */}
             <div className="w-full flex items-center justify-between text-xs font-mono text-slate-400">
@@ -138,7 +180,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
             <div className="relative w-full aspect-square max-w-[170px] sm:max-w-[190px]">
               <div
                 onClick={() => onInspect(item)}
-                className="relative w-full h-full bg-white rounded-2xl border-2 border-slate-100 p-2 shadow-inner flex items-center justify-center cursor-pointer hover:border-teal-300 transition-colors overflow-hidden group/box"
+                className="relative w-full h-full bg-white rounded-xl border-2 border-slate-100 p-2 shadow-inner flex items-center justify-center cursor-pointer hover:border-teal-300 transition-colors overflow-hidden group/box"
                 title={`Click để xem chi tiết nét vẽ chữ ${item.kanji}`}
               >
                 {/* Lưới ô nét đứt mảnh */}
@@ -148,7 +190,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
                   svgUrl={item.svgUrl}
                   kanji={item.kanji}
                   animKey={animState.animKey}
-                  animate={animState.animate}
+                  loopMode={animState.mode}
                   className="w-full h-full object-contain transform group-hover/box:scale-105 transition-transform relative z-0"
                 />
 
@@ -160,17 +202,7 @@ export const KanjiGrid: React.FC<KanjiGridProps> = ({
               </div>
 
               {/* Nút Reload phát lại nét vẽ (Nằm BÊN NGOÀI ô nét vẽ góc trên bên phải) */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReloadAnimation(item.hex);
-                }}
-                className="absolute -top-2 -right-2 z-20 p-1.5 rounded-full bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-800 border border-slate-200 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-90 active:rotate-180 hover:scale-110"
-                title="Chạy lại nét vẽ"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-teal-700" />
-              </button>
+              {renderReloadButton(item.hex, animState.mode)}
             </div>
 
             {/* Bottom Actions */}

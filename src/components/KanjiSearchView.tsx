@@ -97,7 +97,7 @@ export const KanjiSearchView: React.FC<KanjiSearchViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Search Header Banner */}
-      <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-900 rounded-2xl sm:rounded-3xl p-5 sm:p-7 text-white shadow-md space-y-4">
+      <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-900 rounded-xl sm:rounded-2xl p-5 sm:p-7 text-white shadow-md space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
@@ -262,12 +262,12 @@ export const KanjiSearchView: React.FC<KanjiSearchViewProps> = ({
         <KanjiQuickBar
           kanjiList={searchResults.slice(0, 50)}
           onSelectKanji={onInspectKanji}
-          title="⚡ Chọn nhanh Kanji từ kết quả tìm kiếm (Click mở nét vẽ):"
+          title="Chọn nhanh Kanji từ kết quả tìm kiếm (Click mở nét vẽ):"
         />
       )}
 
       {/* Results Container */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs p-4 sm:p-6 min-h-[400px]">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6 min-h-[400px]">
         {searchResults.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 font-kanji text-3xl">

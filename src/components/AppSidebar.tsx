@@ -8,13 +8,14 @@ import {
   Layers3,
   History,
   Settings,
-  ChevronLeft,
-  ChevronRight,
   Printer,
   HelpCircle,
   X,
   ArrowLeftRight,
-  Chrome
+  Chrome,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Menu
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 
@@ -99,46 +100,35 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   const sidebarContent = (
     <div className="h-full flex flex-col justify-between select-none">
-      {/* Top Header / Brand */}
+      {/* Top Header: Menu Toggle Button (replaces logo in sidebar) */}
       <div>
-        <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-200/90 bg-white">
-          <NavLink
-            to="/input"
-            onClick={() => {
-              if (isMobileOpen) onCloseMobile();
-            }}
-            className="flex items-center gap-3 overflow-hidden cursor-pointer"
-          >
-            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-teal-900/15 ring-1 ring-emerald-400/30">
-              <span className="font-kanji font-black text-xl leading-none">漢</span>
-            </div>
-            {!isCollapsed && (
-              <div className="min-w-0 transition-opacity duration-200">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-black text-slate-900 text-base tracking-tight truncate">Luyện Kanji</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-teal-50 text-teal-700 border border-teal-200">Pro</span>
-                </div>
-                <p className="text-[11px] text-slate-500 truncate">Học &amp; Tra cứu chữ Hán</p>
-              </div>
-            )}
-          </NavLink>
-
-          {/* Collapse Toggle for Desktop */}
+        <div className="h-16 flex items-center justify-center px-2 border-b border-slate-200/90 bg-white">
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className={`hidden md:flex items-center gap-2 rounded-xl text-slate-700 hover:text-teal-800 hover:bg-teal-50/80 transition-all cursor-pointer group ${
+              isCollapsed ? 'justify-center p-2.5' : 'justify-between w-full px-3 py-2'
+            }`}
             title={isCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}
             aria-label={isCollapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {isCollapsed ? (
+              <PanelLeftOpen className="w-5 h-5 text-teal-700 group-hover:scale-110 transition-transform" />
+            ) : (
+              <>
+                <div className="flex items-center gap-2.5">
+                  <PanelLeftClose className="w-5 h-5 text-teal-700 group-hover:scale-105 transition-transform" />
+                  <span className="font-bold text-xs text-slate-800">Thu gọn danh mục</span>
+                </div>
+              </>
+            )}
           </button>
 
-          {/* Close for Mobile Drawer */}
+          {/* Close button for Mobile Drawer */}
           <button
             type="button"
             onClick={onCloseMobile}
-            className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
+            className="md:hidden p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg ml-auto"
           >
             <X className="w-5 h-5" />
           </button>
