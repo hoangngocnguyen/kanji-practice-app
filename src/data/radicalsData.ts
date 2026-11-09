@@ -2158,7 +2158,7 @@ export const RADICALS_LIST: RadicalInfo[] = [
   {
     "number": 122,
     "character": "羊",
-    "variant": "⺶",
+    "variant": "⺷, ⺶, ⺱, ⺲, ⺳",
     "hanViet": "DƯƠNG",
     "hiragana": "ひつじ",
     "meaning": "Con cừu, con dê có hai sừng cong: Sự hiền lành, cát tường tốt lành",

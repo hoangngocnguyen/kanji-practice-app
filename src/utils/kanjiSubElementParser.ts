@@ -4,6 +4,95 @@ import { KANJI_DICTIONARY, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
 
 const DECOMPOSITION_CACHE = new Map<string, KanjiDecomposition>();
 
+/**
+ * Bảng ánh xạ CJK Radical Supplement & Radical Variants (U+2E80..U+2EFF)
+ * Quy đổi tất cả các biến thể ký tự bộ thủ KanjiVG về chữ Khang Hy chuẩn 100%
+ */
+export const CJK_RADICAL_VARIANTS: Record<string, string> = {
+  // 羊 variants (DƯƠNG)
+  '⺷': '羊', '⺶': '羊', '⺱': '羊', '⺲': '羊', '⺳': '羊',
+  // 水 variants (THỦY - 氵, ⺡, 氺)
+  '氵': '水', '⺡': '水', '氺': '水',
+  // 火 variants (HỎA - 灬, ⺣)
+  '灬': '火', '⺣': '火',
+  // 艸 / 草 variants (THẢO - 艹, ⺾, ⺿, , ⻀)
+  '艹': '艸', '⺾': '艸', '⺿': '艸', '': '艸', '⻀': '艸',
+  // 犬 variants (KHUYỂN - 犭, ⺨)
+  '犭': '犬', '⺨': '犬',
+  // 人 variants (NHÂN - 亻, ⺅)
+  '亻': '人', '⺅': '人',
+  // 手 variants (THỦ - 扌)
+  '扌': '手',
+  // 心 variants (TÂM - 忄, ⺗)
+  '忄': '心', '⺗': '心',
+  // 示 variants (THỊ - 礻, ⺬)
+  '礻': '示', '⺬': '示',
+  // 衣 variants (Y - 衤)
+  '衤': '衣',
+  // 辵 / 辶 variants (SÁCH - 辶, ⻌, ⻍, ⻎)
+  '辶': '辵', '⻌': '辵', '⻍': '辵', '⻎': '辵',
+  // 邑 variants (ẤP - ⻏ bên phải)
+  '⻏': '邑',
+  // 阜 variants (PHỤ - ⻖ bên trái)
+  '⻖': '阜',
+  // 爪 variants (TRẢO - 爫, ⺍)
+  '爫': '爪', '⺍': '爪',
+  // 竹 variants (TRÚC - ⺮)
+  '⺮': '竹',
+  // 网 / 罒 variants (VÕNG - 罒, ⺴)
+  '罒': '网', '⺴': '网',
+  // 玉 / 王 variants (NGỌC - ⺩, 王)
+  '⺩': '玉',
+  // 老 variants (LÃO - 耂, ⺹)
+  '耂': '老', '⺹': '老',
+  // 肉 variants (NHỤC - ⺼)
+  '⺼': '肉',
+  // 刀 variants (ĐAO - 刂, ⺈)
+  '刂': '刀', '⺈': '刀',
+  // 攴 / 夂 variants (PHẠC - 攵, ⺙)
+  '攵': '攴', '⺙': '攴',
+  // 西 variants (TÂY - 覀, ⻃, ⻄)
+  '覀': '西', '⻃': '西', '⻄': '西',
+  // 言 variants (NGÔN - 訁, 讠)
+  '訁': '言', '讠': '言',
+  // 金 variants (KIM - 釒, ⻐)
+  '釒': '金', '⻐': '金',
+  // 食 variants (THỰC - 飠, ⻝, ⻞, ⻟)
+  '飠': '食', '⻝': '食', '⻞': '食', '⻟': '食',
+  // 車 variants (XA - ⻋)
+  '⻋': '車',
+  // 貝 variants (BỐI - ⻉)
+  '⻉': '貝',
+  // 足 variants (TÚC - ⻊)
+  '⻊': '足',
+  // 長 variants (TRƯỜNG - ⻑, ⻒, ⻓)
+  '⻑': '長', '⻒': '長', '⻓': '長',
+  // 門 variants (MÔN - ⻔)
+  '⻔': '門',
+  // 青 variants (THANH - ⻘)
+  '⻘': '青',
+  // 魚 variants (NGƯ - ⻥)
+  '⻥': '魚',
+  // 鳥 variants (ĐIỂU - ⻦)
+  '⻦': '鳥',
+  // 鹵 variants (LỖ - ⻧)
+  '⻧': '鹵',
+  // 麥 variants (MẠCH - ⻨)
+  '⻨': '麥',
+  // 黃 variants (HOÀNG - ⻩)
+  '⻩': '黃',
+  // 黍 variants (THỬ - ⻪)
+  '⻪': '黍',
+  // 齊 variants (TỀ - ⻫)
+  '⻫': '齊',
+  // 齒 variants (XỈ - ⻬, ⻭)
+  '⻬': '齒', '⻭': '齒',
+  // 龍 variants (LONG - ⻯, ⻰)
+  '⻯': '龍', '⻰': '龍',
+  // 龜 variants (QUY - ⻱, ⻲, ⻳)
+  '⻱': '龜', '⻲': '龜', '⻳': '龜',
+};
+
 // Extensive Sub-component Meaning Database for phonetic & semantic components
 const COMPONENT_MEANINGS: Record<string, string> = {
   '可': 'Khả năng, có thể',
@@ -150,6 +239,8 @@ const COMPONENT_MEANINGS: Record<string, string> = {
   '馬': 'Con ngựa',
   '鳥': 'Con chim',
   '魚': 'Con cá',
+  '羊': 'Con cừu, con dê có hai sừng cong: Sự hiền lành, cát tường tốt lành',
+  '大': 'To lớn, vĩ đại, người dang rộng hai tay hai chân',
 };
 
 /**
@@ -227,63 +318,80 @@ export function parsePositionType(positionStr?: string | null): {
 }
 
 /**
- * Tra cứu thông tin đầy đủ Hán Việt, Số nét chuẩn Khang Hy, Nghĩa cho ký tự bộ thủ
+ * Tra cứu thông tin đầy đủ Hán Việt, Số nét chuẩn Khang Hy, Nghĩa cho ký tự bộ thủ.
+ * Hỗ trợ nhận diện thông minh qua kvg:original, CJK Radical Variants và 214 Bộ thủ Khang Hy.
  */
-export function findRadicalInfo(char: string): {
+export function findRadicalInfo(
+  char: string,
+  origChar?: string | null,
+  rawElem?: string | null
+): {
   hanViet: string;
   meaning: string;
   strokeCount: number;
 } {
-  if (!char) {
-    return { hanViet: '', meaning: '', strokeCount: 0 };
+  const candidates = [
+    origChar,
+    char,
+    rawElem,
+    origChar ? CJK_RADICAL_VARIANTS[origChar] : null,
+    char ? CJK_RADICAL_VARIANTS[char] : null,
+    rawElem ? CJK_RADICAL_VARIANTS[rawElem] : null,
+  ].filter((c): c is string => !!c && c.trim().length > 0);
+
+  // 1. Thử tra các ký tự ứng viên trong 214 Bộ thủ Khang Hy
+  for (const c of candidates) {
+    const match = RADICALS_LIST.find(
+      (r) =>
+        r.character === c ||
+        r.variant === c ||
+        (r.variant && r.variant.includes(c))
+    );
+    if (match) {
+      return {
+        hanViet: match.hanViet,
+        meaning: match.meaning,
+        strokeCount: match.strokeCount,
+      };
+    }
   }
 
-  // 1. Tra trong 214 Bộ thủ Khang Hy chuẩn xác 100%
-  const match = RADICALS_LIST.find(
-    (r) =>
-      r.character === char ||
-      r.variant === char ||
-      (r.variant && r.variant.includes(char))
-  );
-
-  if (match) {
-    return {
-      hanViet: match.hanViet,
-      meaning: match.meaning,
-      strokeCount: match.strokeCount,
-    };
+  // 2. Thử tra trong KANJI_DICTIONARY
+  for (const c of candidates) {
+    if (KANJI_DICTIONARY[c]) {
+      const kData = KANJI_DICTIONARY[c];
+      const meanStr = Array.isArray(kData.meanings)
+        ? kData.meanings.slice(0, 2).join(', ')
+        : kData.meanings || COMPONENT_MEANINGS[c] || '';
+      return {
+        hanViet: kData.hanViet || SINO_VIETNAMESE_MAP[c] || '',
+        meaning: meanStr,
+        strokeCount: kData.strokeCount || 2,
+      };
+    }
   }
 
-  // 2. Tra trong KANJI_DICTIONARY
-  if (KANJI_DICTIONARY[char]) {
-    const kData = KANJI_DICTIONARY[char];
-    const meanStr = Array.isArray(kData.meanings)
-      ? kData.meanings.slice(0, 2).join(', ')
-      : kData.meanings || COMPONENT_MEANINGS[char] || '';
-    return {
-      hanViet: kData.hanViet || SINO_VIETNAMESE_MAP[char] || '',
-      meaning: meanStr,
-      strokeCount: kData.strokeCount || 2,
-    };
+  // 3. Thử tra trong SINO_VIETNAMESE_MAP (11,000+ Kanji)
+  for (const c of candidates) {
+    const hv = SINO_VIETNAMESE_MAP[c];
+    if (hv) {
+      return {
+        hanViet: hv,
+        meaning: COMPONENT_MEANINGS[c] || '',
+        strokeCount: c.length > 0 ? c.length * 2 : 2,
+      };
+    }
   }
 
-  // 3. Tra trong SINO_VIETNAMESE_MAP (11,000+ Kanji)
-  const hv = SINO_VIETNAMESE_MAP[char];
-  if (hv) {
-    return {
-      hanViet: hv,
-      meaning: COMPONENT_MEANINGS[char] || '',
-      strokeCount: char.length > 0 ? char.length * 2 : 2,
-    };
-  }
-
-  // 4. Tra trong danh mục ý nghĩa thành phần phụ trợ
-  if (COMPONENT_MEANINGS[char]) {
-    return {
-      hanViet: '',
-      meaning: COMPONENT_MEANINGS[char],
-      strokeCount: 2,
-    };
+  // 4. Thử tra trong danh mục ý nghĩa thành phần phụ trợ
+  for (const c of candidates) {
+    if (COMPONENT_MEANINGS[c]) {
+      return {
+        hanViet: '',
+        meaning: COMPONENT_MEANINGS[c],
+        strokeCount: 2,
+      };
+    }
   }
 
   // 5. Mặc định
@@ -318,7 +426,7 @@ function extractPathStats(el: Element): { count: number; indices: number[] } {
 
 /**
  * Phân tích cây DOM XML KanjiVG SVG với thuật toán phân tầng đa cấp (Cấp 1 trực tiếp, Cấp 2, Cấp 3)
- * và nhận diện chuẩn xác thuộc tính kvg:radical="general"
+ * và nhận diện chuẩn xác thuộc tính kvg:radical="general" & kvg:original
  */
 export function parseKanjiVgSvgXml(
   xmlString: string,
@@ -343,7 +451,6 @@ export function parseKanjiVgSvgXml(
     const doc = parser.parseFromString(xmlString, 'image/svg+xml');
 
     // Tìm thẻ <g> gốc của chữ Kanji
-    // Thông thường id="kvg:0898b" hoặc kvg:element="見"
     const hex = targetKanji.codePointAt(0)?.toString(16).toLowerCase().padStart(5, '0') || '';
     let rootGroup: Element | null =
       doc.querySelector(`g[id="kvg:${hex}"]`) ||
@@ -351,13 +458,11 @@ export function parseKanjiVgSvgXml(
       doc.querySelector(`g[element="${targetKanji}"]`);
 
     if (!rootGroup) {
-      // Tìm <g> bất kỳ có kvg:element === targetKanji
       const allGs = Array.from(doc.querySelectorAll('g'));
       rootGroup = allGs.find((g) => getKvgAttr(g, 'element') === targetKanji) || null;
     }
 
     if (!rootGroup) {
-      // Fallback: Tìm <g id^="kvg:StrokePaths_"> rồi lấy con đầu tiên
       const strokeContainer = doc.querySelector('g[id^="kvg:StrokePaths_"]') || doc.querySelector('svg > g');
       if (strokeContainer && strokeContainer.children.length > 0) {
         rootGroup = strokeContainer.children[0] as Element;
@@ -374,7 +479,6 @@ export function parseKanjiVgSvgXml(
     }
 
     // 1. Kiểm tra xem bản thân chữ gốc có phải là bộ thủ chính độc lập không
-    // (như 見, 木, 門, 日 khi root có kvg:radical="general")
     const rootRadicalAttr = getKvgAttr(rootGroup, 'radical');
     const isSelfRadical = rootRadicalAttr === 'general';
 
@@ -393,19 +497,28 @@ export function parseKanjiVgSvgXml(
 
       for (const g of childNodes) {
         const elemAttr = getKvgAttr(g, 'element');
+        const origAttr = getKvgAttr(g, 'original');
+        const varAttr = getKvgAttr(g, 'variant');
         const posAttr = getKvgAttr(g, 'position') || inheritedPos;
         const radAttr = getKvgAttr(g, 'radical');
         const isPrimary = radAttr === 'general';
 
-        if (elemAttr) {
+        if (elemAttr || origAttr) {
+          const rawElem = elemAttr || origAttr || '';
+          // Ưu tiên kvg:original (ví dụ 羊 thay vì ⺷) hoặc quy đổi qua CJK_RADICAL_VARIANTS
+          const canonicalChar = origAttr || CJK_RADICAL_VARIANTS[rawElem] || rawElem;
+
           // Bỏ qua trường hợp thẻ con lồng nhau trùng chính xác ký tự chữ đích ở cấp 1
-          if (elemAttr === targetKanji && currentDepth === 1) {
+          if (
+            (rawElem === targetKanji || canonicalChar === targetKanji) &&
+            currentDepth === 1
+          ) {
             results.push(...extractSubComponents(g, currentDepth, posAttr));
             continue;
           }
 
           const { positionType, positionName } = parsePositionType(posAttr);
-          const radicalInfo = findRadicalInfo(elemAttr);
+          const radicalInfo = findRadicalInfo(canonicalChar, origAttr, rawElem);
           const pathStats = extractPathStats(g);
 
           // Phân rã sâu hơn cấp 2 và cấp 3
@@ -417,8 +530,8 @@ export function parseKanjiVgSvgXml(
           );
 
           results.push({
-            radical: elemAttr,
-            variant: getKvgAttr(g, 'original') || getKvgAttr(g, 'variant') || undefined,
+            radical: canonicalChar, // Ký tự chuẩn hóa (vd: 羊 thay vì ký tự biến thể ⺷)
+            variant: rawElem !== canonicalChar ? rawElem : (varAttr || undefined),
             hanViet: radicalInfo.hanViet,
             meaning: radicalInfo.meaning,
             strokeCount: radicalInfo.strokeCount, // Số nét chuẩn 214 bộ thủ Khang Hy
