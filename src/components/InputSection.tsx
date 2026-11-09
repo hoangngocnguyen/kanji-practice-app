@@ -329,14 +329,14 @@ export const InputSection: React.FC = () => {
             Nội dung văn bản:
           </span>
 
-          <div className="flex items-center flex-nowrap gap-1.5 overflow-x-auto no-scrollbar p-1 bg-slate-100/90 rounded-xl border border-slate-200 text-[13pt] shrink-0">
-            <span className="text-slate-500 font-normal px-1 text-[13pt] hidden sm:inline">
+          <div className="flex items-center flex-nowrap gap-2 overflow-x-auto no-scrollbar py-1.5 px-2.5 bg-slate-100/90 rounded-xl border border-slate-200 text-[13px] shrink-0">
+            <span className="text-slate-500 font-normal px-1 text-[12px] hidden sm:inline">
               Bộ gõ:
             </span>
             <button
               type="button"
               onClick={() => setKanaMode('off')}
-              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
                 kanaMode === 'off' ? 'bg-white text-slate-800 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -345,7 +345,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('kanji')}
-              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
                 kanaMode === 'kanji' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
               title="Gõ Romaji -> bấm Space hoặc Tab để chọn Kanji"
@@ -355,7 +355,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('hiragana')}
-              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
                 kanaMode === 'hiragana' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
             >
@@ -364,7 +364,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('katakana')}
-              className={`px-2.5 py-0.5 rounded-lg transition-all text-[13pt] cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
                 kanaMode === 'katakana' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
             >
@@ -372,7 +372,7 @@ export const InputSection: React.FC = () => {
             </button>
 
             {/* Font size stepper */}
-            <div className="flex items-center gap-0.5 bg-slate-200/80 px-1 py-0.5 rounded-lg border border-slate-300/80 text-[10px] font-bold text-slate-700 ml-1 shrink-0">
+            <div className="flex items-center gap-1 bg-slate-200/80 px-2 py-1 rounded-lg border border-slate-300/80 text-sm font-bold text-slate-700 ml-1 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -381,12 +381,12 @@ export const InputSection: React.FC = () => {
                   handleChangeFontSize(sizes[Math.max(0, curIdx - 1)]);
                 }}
                 disabled={inputFontSize === 'sm'}
-                className="px-1 text-slate-700 disabled:opacity-30 cursor-pointer font-extrabold"
+                className="px-1.5 py-0.5 text-slate-700 disabled:opacity-30 cursor-pointer font-extrabold hover:text-teal-900 transition-colors"
                 title="Giảm cỡ chữ"
               >
                 A-
               </button>
-              <span className="px-0.5 text-[10px] text-teal-800 font-black">
+              <span className="px-1 text-sm text-teal-800 font-black">
                 {inputFontSize === 'sm' ? '12px' : inputFontSize === 'lg' ? '16px' : inputFontSize === 'xl' ? '18px' : '14px'}
               </span>
               <button
@@ -397,7 +397,7 @@ export const InputSection: React.FC = () => {
                   handleChangeFontSize(sizes[Math.min(sizes.length - 1, curIdx + 1)]);
                 }}
                 disabled={inputFontSize === 'xl'}
-                className="px-1 text-slate-700 disabled:opacity-30 cursor-pointer font-extrabold"
+                className="px-1.5 py-0.5 text-slate-700 disabled:opacity-30 cursor-pointer font-extrabold hover:text-teal-900 transition-colors"
                 title="Tăng cỡ chữ"
               >
                 A+
