@@ -13,7 +13,9 @@
 
 ## 🇻🇳 Tiếng Việt (Vietnamese)
 
-### 📢 Bản phát hành mới: Luyện Kanji v3.1.0 (React Router SPA, Dedicated Multi-Route Pages & Romaji Converter with Undo)
+### 📢 Bản phát hành mới: Luyện Kanji v3.1.0 (Phân tách Bộ thủ Đa cấp Đa tầng)
+
+Bản cập nhật **v3.1.0** nâng cấp thuật toán bóc tách bộ thủ KanjiVG lên mức độ chuyên sâu: hiển thị cấu trúc phân tầng (Cấp 1, 2, 3), hỗ trợ nút bấm toggle mở rộng/thu gọn các nhánh thành phần con trực quan, và gắn huy hiệu ★ Bộ thủ chính chuẩn xác cho 214 Bộ thủ Khang Hy. Cải thiện giao diện so sánh Kanji đồng bộ chiều cao ngang hàng.
 
 Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng dụng sang hệ thống **React Router DOM đa trang chuẩn mực**, loại bỏ hoàn toàn các thành phần lặp lại và mang lại trải nghiệm mượt mà, tối giản:
 
@@ -45,7 +47,9 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
 
 ## 🌐 English
 
-### 📢 Release: Luyện Kanji v3.1.0 (React Router SPA, Clean URLs & Romaji Converter with Undo/Redo)
+### 📢 Release: Luyện Kanji v3.1.0 (Multi-level Radical Decomposition)
+
+Version **v3.1.0** upgrades the KanjiVG radical decomposition algorithm to provide deep, multi-level structural insights: it displays hierarchical component structures (Levels 1, 2, & 3), introduces toggle buttons for interactive expansion/collapse of sub-component branches, and accurately marks ★ Primary Radicals for all 214 Kangxi radicals. It also refines the Kanji comparison interface with standardized, row-aligned card heights.
 
 Version **v3.1.0** introduces a complete architectural overhaul to **React Router DOM SPA**:
 - **🌐 React Router Deep-linking (F5 Persistent Navigation)**:
