@@ -661,6 +661,11 @@ export const DecksView: React.FC = () => {
             className="flex items-center gap-2 shrink-0 relative"
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
+            onMouseLeave={() => {
+              if (openMenuId === folder.id) {
+                setOpenMenuId(null);
+              }
+            }}
           >
             {dueCount > 0 && (
               <button
@@ -694,8 +699,9 @@ export const DecksView: React.FC = () => {
             {isMenuOpen && (
               <div
                 ref={menuContainerRef}
-                className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-30 text-xs"
+                className="absolute right-0 top-full pt-1 z-30"
               >
+                <div className="w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -781,6 +787,7 @@ export const DecksView: React.FC = () => {
                   </span>
                   <span className="text-[10px] text-rose-400 hidden sm:inline">Del</span>
                 </button>
+                </div>
               </div>
             )}
           </div>
@@ -963,6 +970,7 @@ export const DecksView: React.FC = () => {
       {contextMenu && (
         <div
           ref={contextMenuRef}
+          onMouseLeave={() => setContextMenu(null)}
           style={{ left: contextMenu.x, top: contextMenu.y }}
           className="fixed w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-50 text-xs"
         >

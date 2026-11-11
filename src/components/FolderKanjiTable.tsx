@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Play,
   Plus,
@@ -6,7 +6,6 @@ import {
   Globe,
   Trash2,
   ChevronRight,
-  ChevronDown,
   BookOpen,
   Volume2,
   Pencil,
@@ -14,6 +13,8 @@ import {
   X,
   Share2,
   ListPlus,
+  MoreVertical,
+  Eye,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
@@ -21,6 +22,8 @@ import { FolderKanjiItem, ReviewFilterMode } from '../types/deck';
 import { speakJapanese } from '../utils/speech';
 import { formatIntervalLabel } from '../utils/srsAlgorithm';
 import { BatchImportLessonModal } from './BatchImportLessonModal';
+import { BatchImportCompoundModal } from './BatchImportCompoundModal';
+import { KanjiItemDetailModal } from './KanjiItemDetailModal';
 
 interface FolderKanjiTableProps {
   onStartReview: (mode: ReviewFilterMode, onlyDue: boolean) => void;
@@ -45,8 +48,6 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     addKanjiListToFolder,
     updateKanjiItem,
     deleteKanjiItem,
-    addCompoundWord,
-    deleteCompoundWord,
     supabaseEnabled,
   } = useDecks();
 
@@ -55,15 +56,31 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   const [kanjiInput, setKanjiInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
-  const [expandedItemIds, setExpandedItemIds] = useState<Record<string, boolean>>({});
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
+  const [compoundImportItemId, setCompoundImportItemId] = useState<string | null>(null);
+  const [openKanjiMenuId, setOpenKanjiMenuId] = useState<string | null>(null);
+  const kanjiMenuRef = useRef<HTMLDivElement | null>(null);
+
   const [editingKanjiId, setEditingKanjiId] = useState<string | null>(null);
   const [editHv, setEditHv] = useState('');
   const [editMeanings, setEditMeanings] = useState('');
 
-  // Compound word form state per Kanji row
-  const [cwDrafts, setCwDrafts] = useState<
-    Record<string, { word: string; reading: string; hanViet: string; meaning: string }>
-  >({});
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (kanjiMenuRef.current && !kanjiMenuRef.current.contains(e.target as Node)) {
+        setOpenKanjiMenuId(null);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenKanjiMenuId(null);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) || null;
 
@@ -103,34 +120,6 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     }
   };
 
-  const toggleExpandRow = (id: string) => {
-    setExpandedItemIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const getDraft = (itemId: string) =>
-    cwDrafts[itemId] || { word: '', reading: '', hanViet: '', meaning: '' };
-
-  const setDraft = (
-    itemId: string,
-    patch: Partial<{ word: string; reading: string; hanViet: string; meaning: string }>
-  ) => {
-    setCwDrafts((prev) => ({
-      ...prev,
-      [itemId]: { ...getDraft(itemId), ...patch },
-    }));
-  };
-
-  const handleAddCompoundSubmit = (e: React.FormEvent, itemId: string) => {
-    e.preventDefault();
-    const draft = getDraft(itemId);
-    if (!draft.word.trim() || !draft.meaning.trim()) return;
-    addCompoundWord(itemId, draft);
-    setCwDrafts((prev) => ({
-      ...prev,
-      [itemId]: { word: '', reading: '', hanViet: '', meaning: '' },
-    }));
-  };
-
   const handleStartEditKanji = (item: FolderKanjiItem) => {
     setEditingKanjiId(item.id);
     setEditHv(item.hanViet);
@@ -147,6 +136,14 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     });
     setEditingKanjiId(null);
   };
+
+  const detailItem = detailItemId
+    ? folderItems.find((it) => it.id === detailItemId) || null
+    : null;
+
+  const compoundImportItem = compoundImportItemId
+    ? folderItems.find((it) => it.id === compoundImportItemId) || null
+    : null;
 
   return (
     <div className="space-y-4">
@@ -275,7 +272,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       </div>
 
       {/* Kanji Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-visible">
         {folderItems.length === 0 ? (
           <div className="p-10 text-center space-y-2">
             <p className="text-sm font-semibold text-slate-700">Thư mục này chưa có chữ Kanji nào</p>
@@ -286,17 +283,16 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
         ) : (
           <div className="divide-y divide-slate-100">
             {/* Table Column Header */}
-            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-50/90 text-[11px] font-semibold text-slate-500 border-b border-slate-200/80">
-              <div className="col-span-1">Kanji</div>
+            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-50/90 text-[11px] font-semibold text-slate-500 border-b border-slate-200/80 rounded-t-2xl">
+              <div className="col-span-2">Kanji</div>
               <div className="col-span-2">Hán-Việt</div>
               <div className="col-span-2">Âm On / Kun</div>
               <div className="col-span-3">Nghĩa</div>
-              <div className="col-span-2">Từ ghép & SRS</div>
-              <div className="col-span-2 text-right">Thao tác</div>
+              <div className="col-span-2">Từ ghép &amp; SRS</div>
+              <div className="col-span-1 text-right">Thao tác</div>
             </div>
 
             {folderItems.map((item) => {
-              const isExpanded = !!expandedItemIds[item.id];
               const isDue = item.srsState.dueAt <= Date.now();
               const cwCount = item.compoundWords?.length || 0;
               const belongFolderName =
@@ -305,8 +301,8 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               return (
                 <div key={item.id} className="transition-colors hover:bg-slate-50/50">
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-4 py-3 items-center">
-                    {/* Kanji Character */}
-                    <div className="md:col-span-1 flex items-center gap-2">
+                    {/* Kanji Character + Pronunciation button right next to it */}
+                    <div className="md:col-span-2 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleSelectRecentKanji(item.kanji)}
@@ -318,8 +314,9 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                       <button
                         type="button"
                         onClick={() => speakJapanese(item.kanji)}
-                        className="md:hidden p-1.5 text-slate-400 hover:text-teal-700 cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
                         title="Nghe phát âm"
+                        aria-label="Nghe phát âm"
                       >
                         <Volume2 className="w-4 h-4" />
                       </button>
@@ -378,19 +375,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                       )}
                     </div>
 
-                    {/* Compound Words Count & SRS Status */}
+                    {/* Compound Words Count & SRS Status -> Click opens Detail Modal */}
                     <div className="md:col-span-2 space-y-1">
                       <button
                         type="button"
-                        onClick={() => toggleExpandRow(item.id)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-teal-800 hover:text-teal-950 cursor-pointer"
+                        onClick={() => setDetailItemId(item.id)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-teal-800 hover:text-teal-950 hover:underline cursor-pointer"
                       >
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
                         <span className="tabular-nums">{cwCount} từ ghép</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                       <div className="text-[11px] tabular-nums text-slate-500">
                         {isDue ? (
@@ -403,17 +396,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="md:col-span-2 flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => speakJapanese(item.kanji)}
-                        className="hidden md:inline-flex p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
-                        title="Nghe phát âm"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </button>
-
+                    {/* Actions: 3-dot menu */}
+                    <div
+                      className="md:col-span-1 flex items-center justify-end gap-1 relative"
+                      onMouseLeave={() => {
+                        if (openKanjiMenuId === item.id) {
+                          setOpenKanjiMenuId(null);
+                        }
+                      }}
+                    >
                       {editingKanjiId === item.id ? (
                         <>
                           <button
@@ -434,137 +425,99 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </button>
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditKanji(item)}
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                          title="Sửa Hán-Việt & Nghĩa"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenKanjiMenuId((prev) =>
+                                prev === item.id ? null : item.id
+                              )
+                            }
+                            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                              openKanjiMenuId === item.id
+                                ? 'bg-slate-100 border-slate-300 text-slate-900'
+                                : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800'
+                            }`}
+                            title="Thao tác chữ Kanji"
+                            aria-label="Thao tác chữ Kanji"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {openKanjiMenuId === item.id && (
+                            <div
+                              ref={kanjiMenuRef}
+                              className="absolute right-0 top-full pt-1 z-30"
+                            >
+                              <div className="w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenKanjiMenuId(null);
+                                  setDetailItemId(item.id);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer font-medium"
+                              >
+                                <BookOpen className="w-3.5 h-3.5 text-teal-700" />
+                                <span>Xem chi tiết &amp; Từ ghép</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenKanjiMenuId(null);
+                                  handleSelectRecentKanji(item.kanji);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Xem nét viết &amp; Bộ thủ</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenKanjiMenuId(null);
+                                  handleStartEditKanji(item);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Sửa Hán-Việt &amp; Nghĩa</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenKanjiMenuId(null);
+                                  setCompoundImportItemId(item.id);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <ListPlus className="w-3.5 h-3.5 text-teal-700" />
+                                <span>Nhập từ ghép (Text / JSON)</span>
+                              </button>
+
+                              <div className="my-1 border-t border-slate-100" />
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenKanjiMenuId(null);
+                                  deleteKanjiItem(item.id);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Xóa khỏi bài</span>
+                              </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => toggleExpandRow(item.id)}
-                        className="px-2 py-1 text-[11px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        + Từ ghép
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => deleteKanjiItem(item.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                        title="Xóa khỏi bài"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
-
-                  {/* Expanded Compound Words Editor */}
-                  {isExpanded && (
-                    <div className="px-4 pb-4 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-700">
-                          Từ ghép của chữ <span className="font-kanji font-bold text-sm">{item.kanji}</span> (mỗi từ ghép sẽ thành 1 thẻ Flashcard riêng)
-                        </span>
-                      </div>
-
-                      {item.compoundWords.length > 0 && (
-                        <div className="divide-y divide-slate-200/70 bg-white border border-slate-200 rounded-xl overflow-hidden">
-                          {item.compoundWords.map((cw) => {
-                            const cwDue = cw.srsState.dueAt <= Date.now();
-                            return (
-                              <div
-                                key={cw.id}
-                                className="px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                              >
-                                <div className="flex items-center flex-wrap gap-3 min-w-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => speakJapanese(cw.word)}
-                                    className="font-kanji font-bold text-sm text-teal-900 hover:text-teal-700 cursor-pointer flex items-center gap-1"
-                                    title="Nghe phát âm"
-                                  >
-                                    <span>{cw.word}</span>
-                                    <Volume2 className="w-3 h-3 text-slate-400" />
-                                  </button>
-                                  {cw.reading && (
-                                    <span className="font-mono text-slate-600">{cw.reading}</span>
-                                  )}
-                                  {cw.hanViet && (
-                                    <span className="font-semibold text-slate-800">{cw.hanViet}</span>
-                                  )}
-                                  <span className="text-slate-600">{cw.meaning}</span>
-                                </div>
-
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <span className="text-[11px] tabular-nums text-slate-400">
-                                    {cwDue
-                                      ? 'Đến hạn ôn'
-                                      : `Ôn sau ${formatIntervalLabel(cw.srsState.intervalMinutes)}`}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => deleteCompoundWord(item.id, cw.id)}
-                                    className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
-                                    title="Xóa từ ghép"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Inline Add Compound Word Form */}
-                      <form
-                        onSubmit={(e) => handleAddCompoundSubmit(e, item.id)}
-                        className="grid grid-cols-1 sm:grid-cols-12 gap-2"
-                      >
-                        <input
-                          type="text"
-                          value={getDraft(item.id).word}
-                          onChange={(e) => setDraft(item.id, { word: e.target.value })}
-                          placeholder="Từ ghép (vd: 日本)"
-                          className="sm:col-span-3 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-teal-600"
-                          required
-                        />
-                        <input
-                          type="text"
-                          value={getDraft(item.id).reading}
-                          onChange={(e) => setDraft(item.id, { reading: e.target.value })}
-                          placeholder="Cách đọc (vd: にほん)"
-                          className="sm:col-span-3 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-teal-600"
-                        />
-                        <input
-                          type="text"
-                          value={getDraft(item.id).hanViet}
-                          onChange={(e) => setDraft(item.id, { hanViet: e.target.value })}
-                          placeholder="Hán-Việt (vd: NHẬT BẢN)"
-                          className="sm:col-span-2 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-teal-600"
-                        />
-                        <input
-                          type="text"
-                          value={getDraft(item.id).meaning}
-                          onChange={(e) => setDraft(item.id, { meaning: e.target.value })}
-                          placeholder="Nghĩa tiếng Việt..."
-                          className="sm:col-span-3 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-teal-600"
-                          required
-                        />
-                        <button
-                          type="submit"
-                          className="sm:col-span-1 py-1.5 px-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center justify-center"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </form>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -577,6 +530,17 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
         folderId={selectedFolder.id}
         folderName={selectedFolder.name}
         onClose={() => setIsBatchImportOpen(false)}
+      />
+
+      <KanjiItemDetailModal
+        item={detailItem}
+        onClose={() => setDetailItemId(null)}
+        onOpenBatchCompoundImport={(itemId) => setCompoundImportItemId(itemId)}
+      />
+
+      <BatchImportCompoundModal
+        item={compoundImportItem}
+        onClose={() => setCompoundImportItemId(null)}
       />
     </div>
   );

@@ -299,3 +299,183 @@ export function parseMinimalJsonLesson(rawJson: string): ParseBatchResult {
     errors,
   };
 }
+
+export interface ParseCompoundWordsResult {
+  words: ParsedCompoundWordInput[];
+  errors: string[];
+}
+
+export const SAMPLE_COMPOUND_WORDS_TEXT = `日本:にほん:NHẬT BẢN:Nước Nhật Bản
+今日:きょう:KIM NHẬT:Hôm nay ; 毎日:まいにち:MỖI NHẬT:Mỗi ngày`;
+
+export const SAMPLE_COMPOUND_WORDS_JSON = {
+  compoundWords: [
+    {
+      word: '日本',
+      reading: 'にほん',
+      hanViet: 'NHẬT BẢN',
+      meaning: 'Nước Nhật Bản',
+    },
+    {
+      word: '今日',
+      reading: 'きょう',
+      hanViet: 'KIM NHẬT',
+      meaning: 'Hôm nay',
+    },
+  ],
+};
+
+export function buildCompoundWordsAiPrompt(kanji: string): string {
+  return `Hãy tạo danh sách 4-6 từ ghép thông dụng có chứa chữ Kanji "${kanji}".
+
+Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu trúc sau:
+{
+  "compoundWords": [
+    {
+      "word": "từ ghép tiếng Nhật",
+      "reading": "cách đọc hiragana",
+      "hanViet": "ÂM HÁN VIỆT IN HOA",
+      "meaning": "nghĩa tiếng Việt"
+    }
+  ]
+}`;
+}
+
+/**
+ * Phân tích cú pháp Text nhanh cho danh sách từ ghép của 1 chữ Kanji:
+ * Mỗi dòng hoặc phân cách bằng ";" có dạng:
+ * TừGhép:CáchĐọc:HánViệt:Nghĩa (hoặc rút gọn TừGhép:Nghĩa, TừGhép:CáchĐọc:Nghĩa)
+ */
+export function parseCompoundWordsText(rawText: string): ParseCompoundWordsResult {
+  const lines = rawText.split(/\r?\n/);
+  const words: ParsedCompoundWordInput[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  lines.forEach((rawLine, index) => {
+    let line = rawLine.trim();
+    if (!line || line.startsWith('#')) return;
+
+    const lineNum = index + 1;
+    const pipeIndex = line.indexOf('|');
+    if (pipeIndex !== -1) {
+      line = line.slice(pipeIndex + 1).trim();
+    }
+    if (!line) return;
+
+    const segments = line
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    for (const seg of segments) {
+      const parts = seg.split(':').map((p) => p.trim());
+      const word = parts[0] || '';
+      if (!word) continue;
+
+      if (parts.length === 1) {
+        errors.push(`Dòng ${lineNum}: Từ ghép "${word}" thiếu nghĩa (cần dấu ":").`);
+        continue;
+      }
+
+      if (seen.has(word)) continue;
+      seen.add(word);
+
+      if (parts.length === 2) {
+        words.push({
+          word,
+          reading: '',
+          hanViet: '',
+          meaning: parts[1],
+        });
+      } else if (parts.length === 3) {
+        words.push({
+          word,
+          reading: parts[1],
+          hanViet: '',
+          meaning: parts[2],
+        });
+      } else {
+        words.push({
+          word,
+          reading: parts[1],
+          hanViet: parts[2].toUpperCase(),
+          meaning: parts.slice(3).join(':').trim(),
+        });
+      }
+    }
+  });
+
+  return { words, errors };
+}
+
+/**
+ * Phân tích JSON cho danh sách từ ghép của 1 chữ Kanji.
+ * Hỗ trợ: { "compoundWords": [...] }, mảng [...], hoặc { "items": [{ "compoundWords": [...] }] }
+ */
+export function parseCompoundWordsJson(rawJson: string): ParseCompoundWordsResult {
+  const trimmed = rawJson.trim();
+  if (!trimmed) return { words: [], errors: [] };
+
+  let cleaned = trimmed;
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  let data: unknown;
+  try {
+    data = JSON.parse(cleaned);
+  } catch {
+    return {
+      words: [],
+      errors: ['Nội dung JSON không hợp lệ. Vui lòng kiểm tra lại dấu ngoặc và dấu phẩy.'],
+    };
+  }
+
+  let rawList: unknown[] = [];
+  if (Array.isArray(data)) {
+    rawList = data;
+  } else if (data && typeof data === 'object' && Array.isArray((data as any).compoundWords)) {
+    rawList = (data as any).compoundWords;
+  } else if (data && typeof data === 'object' && Array.isArray((data as any).items)) {
+    rawList = (data as any).items.flatMap((it: any) =>
+      Array.isArray(it?.compoundWords) ? it.compoundWords : []
+    );
+  } else {
+    return {
+      words: [],
+      errors: ['JSON phải là mảng [...] hoặc đối tượng có trường "compoundWords": [...].'],
+    };
+  }
+
+  const words: ParsedCompoundWordInput[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+
+  rawList.forEach((entry, idx) => {
+    if (!entry || typeof entry !== 'object') {
+      errors.push(`Mục #${idx + 1}: Không phải đối tượng JSON hợp lệ.`);
+      return;
+    }
+    const obj = entry as Record<string, unknown>;
+    const word = typeof obj.word === 'string' ? obj.word.trim() : '';
+    const meaning = typeof obj.meaning === 'string' ? obj.meaning.trim() : '';
+    if (!word || !meaning) {
+      errors.push(`Mục #${idx + 1}: Thiếu trường "word" hoặc "meaning".`);
+      return;
+    }
+    if (seen.has(word)) return;
+    seen.add(word);
+
+    words.push({
+      word,
+      reading: typeof obj.reading === 'string' ? obj.reading.trim() : '',
+      hanViet:
+        typeof obj.hanViet === 'string' ? obj.hanViet.trim().toUpperCase() : '',
+      meaning,
+    });
+  });
+
+  return { words, errors };
+}

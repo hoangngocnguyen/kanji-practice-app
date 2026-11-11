@@ -18,7 +18,10 @@ import {
 import { extractUniqueKanji } from '../utils/kanji';
 import { getKanjiInfo } from '../data/kanjiDictionary';
 import { getFullKanjiDetail } from '../utils/kanjiApi';
-import { ParsedLessonItemInput } from '../utils/batchLessonParser';
+import {
+  ParsedCompoundWordInput,
+  ParsedLessonItemInput,
+} from '../utils/batchLessonParser';
 import {
   fetchDecksFromCloud,
   getCurrentSupabaseUser,
@@ -205,6 +208,10 @@ interface DeckContextValue {
     kanjiItemId: string,
     payload: { word: string; reading: string; hanViet: string; meaning: string }
   ) => void;
+  batchAddCompoundWords: (
+    kanjiItemId: string,
+    words: ParsedCompoundWordInput[]
+  ) => number;
   updateCompoundWord: (
     kanjiItemId: string,
     wordId: string,
@@ -712,6 +719,48 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
+  const batchAddCompoundWords = useCallback(
+    (kanjiItemId: string, words: ParsedCompoundWordInput[]): number => {
+      if (words.length === 0) return 0;
+      const targetItem = items.find((it) => it.id === kanjiItemId);
+      if (!targetItem) return 0;
+
+      const existingWords = new Set(
+        (targetItem.compoundWords || []).map((cw) => cw.word.trim())
+      );
+      const now = Date.now();
+      const newCards: CompoundWordCard[] = [];
+
+      for (const w of words) {
+        const cleanWord = w.word.trim();
+        const cleanMeaning = w.meaning.trim();
+        if (!cleanWord || !cleanMeaning || existingWords.has(cleanWord)) continue;
+        existingWords.add(cleanWord);
+        newCards.push({
+          id: genId(),
+          word: cleanWord,
+          reading: w.reading.trim(),
+          hanViet: w.hanViet.trim().toUpperCase(),
+          meaning: cleanMeaning,
+          srsState: createInitialSrsState(now),
+        });
+      }
+
+      if (newCards.length === 0) return 0;
+
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === kanjiItemId
+            ? { ...it, compoundWords: [...it.compoundWords, ...newCards] }
+            : it
+        )
+      );
+
+      return newCards.length;
+    },
+    [items]
+  );
+
   const updateCompoundWord = useCallback(
     (
       kanjiItemId: string,
@@ -1210,6 +1259,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateKanjiItem,
         deleteKanjiItem,
         addCompoundWord,
+        batchAddCompoundWords,
         updateCompoundWord,
         deleteCompoundWord,
         gradeFlashcard,

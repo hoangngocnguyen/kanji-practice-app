@@ -98,17 +98,6 @@ export const DeckDetailView: React.FC = () => {
     );
   }
 
-  if (reviewSession) {
-    return (
-      <FlashcardSrsSession
-        folderId={reviewSession.folderId}
-        initialMode={reviewSession.mode}
-        onlyDue={reviewSession.onlyDue}
-        onExit={() => setReviewSession(null)}
-      />
-    );
-  }
-
   return (
     <div className="max-w-6xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
@@ -135,6 +124,15 @@ export const DeckDetailView: React.FC = () => {
         shareFolderId={shareModalFolderId}
         onClose={() => setShareModalFolderId(null)}
       />
+
+      {reviewSession && (
+        <FlashcardSrsSession
+          folderId={reviewSession.folderId}
+          initialMode={reviewSession.mode}
+          onlyDue={reviewSession.onlyDue}
+          onExit={() => setReviewSession(null)}
+        />
+      )}
     </div>
   );
 };

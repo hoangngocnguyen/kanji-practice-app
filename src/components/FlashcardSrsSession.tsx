@@ -12,6 +12,7 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
@@ -118,13 +119,31 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     [currentCard, currentIndex, queue, gradeFlashcard, requeuedIds]
   );
 
-  // Keyboard shortcuts: Space/Enter to flip, Left/Right to switch cards, 1/2/3 to rate
+  // Lock background scroll while flashcard review modal is open
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  // Keyboard shortcuts: Space/Enter to flip, Left/Right to switch cards, 1/2/3 to rate, Esc to close
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (showConfig) {
+          setShowConfig(false);
+        } else {
+          onExit();
+        }
         return;
       }
       if (e.code === 'Space' || e.code === 'Enter') {
@@ -144,26 +163,37 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentCard, isFlipped, handleRate, handlePrevCard, handleNextCard]);
+  }, [currentCard, isFlipped, handleRate, handlePrevCard, handleNextCard, showConfig, onExit]);
 
   return (
-    <div className="max-w-5xl mx-auto min-h-[calc(100dvh-7.5rem)] flex flex-col justify-between gap-3">
-      {/* 1. Compact Top Control Bar + Progress */}
-      <div className="space-y-2 shrink-0 w-full max-w-3xl mx-auto">
-        <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 sm:px-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              type="button"
-              onClick={onExit}
-              className="w-9 h-9 flex items-center justify-center text-slate-600 hover:text-teal-800 hover:bg-teal-50 border border-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
-              title="Quay lại bảng Kanji"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="min-w-0">
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[170px] sm:max-w-[280px]">
-                {folder?.name || 'Bài học'}
-              </h2>
+    <div
+      onClick={onExit}
+      className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-5 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Phiên ôn tập Flashcard"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-4xl h-full max-h-[96dvh] sm:max-h-[90dvh] bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl p-3 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 overflow-hidden"
+      >
+        {/* 1. Compact Top Control Bar + Progress */}
+        <div className="space-y-2 shrink-0 w-full max-w-3xl mx-auto">
+          <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 sm:px-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={onExit}
+                className="w-9 h-9 flex items-center justify-center text-slate-600 hover:text-teal-800 hover:bg-teal-50 border border-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+                title="Đóng phiên ôn tập (Esc)"
+                aria-label="Đóng phiên ôn tập"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="min-w-0">
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[140px] sm:max-w-[280px]">
+                  {folder?.name || 'Bài học'}
+                </h2>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 tabular-nums">
                 <span>
                   Thẻ {queue.length > 0 ? currentIndex + 1 : 0} / {queue.length}
@@ -341,7 +371,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3.5 sm:gap-4 py-1">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 sm:gap-4 py-1">
           {/* Card + Desktop Left/Right Arrows */}
           <div className="w-full flex items-center justify-center gap-3 sm:gap-5">
             {/* Desktop Left Arrow */}
@@ -359,7 +389,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
             {/* Fixed-Height Responsive Card (Front & Back identical dimensions) */}
             <div
               onClick={() => setIsFlipped((f) => !f)}
-              className="w-full max-w-[480px] md:max-w-[600px] lg:max-w-[680px] h-[270px] sm:h-[320px] lg:h-[360px] bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 active:scale-[0.995] overflow-y-auto"
+              className="w-full max-w-[480px] md:max-w-[580px] lg:max-w-[640px] h-[250px] sm:h-[310px] lg:h-[340px] bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 active:scale-[0.995] overflow-y-auto"
             >
               {/* Card Metadata Header */}
               <div className="flex items-center justify-between text-xs text-slate-500 shrink-0">
@@ -640,6 +670,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
