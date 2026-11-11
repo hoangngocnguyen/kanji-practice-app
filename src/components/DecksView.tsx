@@ -15,6 +15,24 @@ export const DecksView: React.FC = () => {
     onlyDue: boolean;
   } | null>(null);
 
+  const [isTreeCollapsed, setIsTreeCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('kanji_deck_tree_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleTreeCollapse = () => {
+    setIsTreeCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('kanji_deck_tree_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [cloudModalState, setCloudModalState] = useState<{
     isOpen: boolean;
@@ -68,8 +86,17 @@ export const DecksView: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        <div className="lg:col-span-4 xl:col-span-3">
+        {/* Sticky Sidebar Container */}
+        <div
+          className={`sticky top-20 transition-all duration-200 z-10 ${
+            isTreeCollapsed
+              ? 'lg:col-span-1 xl:col-span-1'
+              : 'lg:col-span-4 xl:col-span-3'
+          }`}
+        >
           <FolderTreeSidebar
+            isCollapsed={isTreeCollapsed}
+            onToggleCollapse={handleToggleTreeCollapse}
             onOpenImportModal={() => setIsImportOpen(true)}
             onOpenCloudModal={() =>
               setCloudModalState({ isOpen: true, shareFolderId: null })
@@ -78,7 +105,14 @@ export const DecksView: React.FC = () => {
           />
         </div>
 
-        <div className="lg:col-span-8 xl:col-span-9 min-w-0">
+        {/* Dynamic Width Content Table */}
+        <div
+          className={`min-w-0 transition-all duration-200 ${
+            isTreeCollapsed
+              ? 'lg:col-span-11 xl:col-span-11'
+              : 'lg:col-span-8 xl:col-span-9'
+          }`}
+        >
           <FolderKanjiTable
             onStartReview={handleStartReview}
             onExportFolder={handleExportFolder}

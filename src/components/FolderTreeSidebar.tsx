@@ -5,6 +5,7 @@ import {
   FolderPlus,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Pencil,
   Trash2,
   Download,
@@ -13,17 +14,23 @@ import {
   Cloud,
   Check,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { StudyFolder } from '../types/deck';
 
 interface FolderTreeSidebarProps {
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
   onOpenImportModal: () => void;
   onOpenCloudModal: () => void;
   onExportFolder: (folderId: string) => void;
 }
 
 export const FolderTreeSidebar: React.FC<FolderTreeSidebarProps> = ({
+  isCollapsed,
+  onToggleCollapse,
   onOpenImportModal,
   onOpenCloudModal,
   onExportFolder,
@@ -101,7 +108,7 @@ export const FolderTreeSidebar: React.FC<FolderTreeSidebarProps> = ({
     return (
       <div key={folder.id} className="select-none">
         <div
-          className={`group flex items-center gap-1.5 px-2 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
+          className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs transition-colors cursor-pointer ${
             isSelected
               ? 'bg-teal-50 text-teal-900 font-semibold border border-teal-200/90'
               : 'text-slate-700 hover:bg-slate-100/80 border border-transparent'
@@ -286,25 +293,160 @@ export const FolderTreeSidebar: React.FC<FolderTreeSidebarProps> = ({
   };
 
   const rootFolders = folders
-    .filter((f) => f.parentId === null)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId) || null;
+  const selectedFolderDueCount = selectedFolder
+    ? getDueCountForFolderRecursive(selectedFolder.id)
+    : 0;
+  const selectedFolderTotalKanji = selectedFolder
+    ? getItemsForFolderRecursive(selectedFolder.id).length
+    : 0;
 
-  return (
-    <aside className="bg-white rounded-2xl border border-slate-200/90 p-4 flex flex-col justify-between space-y-4">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900">Thư mục bài học</h2>
-            <p className="text-[11px] text-slate-500">Chọn cha để ôn gộp tất cả bài con</p>
+  // Compact collapsed view
+  if (isCollapsed) {
+    return (
+      <aside className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
+        {/* Mobile / Stacked View (< lg): Horizontal Banner collapsing bottom-to-top */}
+        <div className="lg:hidden p-3 flex items-center justify-between gap-3">
+          <div
+            className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
+            onClick={onToggleCollapse}
+          >
+            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 border border-teal-200/80 flex items-center justify-center shrink-0">
+              <FolderOpen className="w-4 h-4 text-teal-700" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-slate-900 truncate">
+                {selectedFolder?.name || 'Thư mục bài học'}
+              </div>
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5 tabular-nums">
+                {selectedFolderDueCount > 0 ? (
+                  <span className="text-teal-700 font-bold">{selectedFolderDueCount} thẻ đến hạn</span>
+                ) : (
+                  <span>{selectedFolderTotalKanji} chữ Kanji</span>
+                )}
+                <span>• Bấm để mở bài</span>
+              </div>
+            </div>
           </div>
+
           <button
             type="button"
-            onClick={() => handleStartCreate(null)}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            onClick={onToggleCollapse}
+            className="px-3 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer flex items-center gap-1 shrink-0"
+            title="Mở rộng danh mục thư mục"
           >
-            <FolderPlus className="w-3.5 h-3.5" />
-            <span>Thư mục mới</span>
+            <ChevronDown className="w-4 h-4" />
+            <span>Đổi bài</span>
           </button>
+        </div>
+
+        {/* Desktop View (lg:flex): Compact Vertical Icon Column */}
+        <div className="hidden lg:flex p-2 flex-col items-center justify-between space-y-3 w-13 sm:w-14 shrink-0 mx-auto">
+          <div className="flex flex-col items-center gap-2 w-full">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="w-9 h-9 text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
+              title="Mở rộng danh mục thư mục"
+            >
+              <PanelLeftOpen className="w-4 h-4 text-teal-700" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onToggleCollapse();
+                handleStartCreate(null);
+              }}
+              className="w-9 h-9 text-slate-600 hover:text-teal-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
+              title="Tạo thư mục mới"
+            >
+              <FolderPlus className="w-4 h-4" />
+            </button>
+
+            <div className="w-full border-t border-slate-100 pt-2 flex flex-col items-center gap-2 max-h-[calc(100vh-14rem)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {rootFolders.map((folder) => {
+                const dueCount = getDueCountForFolderRecursive(folder.id);
+                const isSelected = selectedFolderId === folder.id;
+                return (
+                  <button
+                    key={folder.id}
+                    type="button"
+                    onClick={() => setSelectedFolderId(folder.id)}
+                    className={`relative w-9 h-9 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                      isSelected
+                        ? 'bg-teal-700 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title={`${folder.name}${dueCount > 0 ? ` (${dueCount} thẻ đến hạn)` : ''}`}
+                  >
+                    <Folder className="w-4 h-4" />
+                    {dueCount > 0 && (
+                      <span className="absolute top-0 right-0 translate-x-1 -translate-y-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center font-mono tabular-nums ring-2 ring-white">
+                        {dueCount > 9 ? '9+' : dueCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="w-full border-t border-slate-100 pt-2 flex flex-col items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onOpenImportModal}
+              className="w-9 h-9 text-slate-600 hover:text-teal-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
+              title="Nhập thư mục từ file (.json)"
+            >
+              <Upload className="w-4 h-4 text-teal-700" />
+            </button>
+
+            {supabaseEnabled && (
+              <button
+                type="button"
+                onClick={onOpenCloudModal}
+                className="w-9 h-9 text-slate-600 hover:text-teal-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0"
+                title="Đồng bộ Supabase Cloud"
+              >
+                <Cloud className={`w-4 h-4 ${cloudUser ? 'text-emerald-600' : 'text-slate-400'}`} />
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="bg-white rounded-2xl border border-slate-200/90 p-3.5 flex flex-col justify-between space-y-3 shadow-2xs">
+      <div className="space-y-2.5">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">Thư mục bài học</h2>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => handleStartCreate(null)}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/90 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+              title="Tạo thư mục mới"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>Thư mục mới</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              title="Thu gọn khung thư mục"
+            >
+              <ChevronUp className="w-4 h-4 lg:hidden" />
+              <PanelLeftClose className="w-4 h-4 hidden lg:block" />
+            </button>
+          </div>
         </div>
 
         {/* Inline create root folder form */}
@@ -316,11 +458,11 @@ export const FolderTreeSidebar: React.FC<FolderTreeSidebarProps> = ({
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="Tên thư mục gốc (vd: N3)..."
               autoFocus
-              className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-slate-50 border border-teal-400 rounded-lg focus:outline-none focus:bg-white"
+              className="flex-1 min-w-0 px-2.5 py-1 text-xs bg-slate-50 border border-teal-400 rounded-lg focus:outline-none focus:bg-white"
             />
             <button
               type="submit"
-              className="px-2.5 py-1.5 bg-teal-700 text-white text-xs font-semibold rounded-lg cursor-pointer hover:bg-teal-800 shrink-0"
+              className="px-2 py-1 bg-teal-700 text-white text-xs font-semibold rounded-lg cursor-pointer hover:bg-teal-800 shrink-0"
             >
               Lưu
             </button>
@@ -329,17 +471,17 @@ export const FolderTreeSidebar: React.FC<FolderTreeSidebarProps> = ({
               onClick={() => setCreatingParentId(undefined)}
               className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </form>
         )}
 
-        {/* Folder tree list */}
-        <div className="space-y-0.5 max-h-[460px] overflow-y-auto pr-1">
+        {/* Folder tree list with max height for sticky view */}
+        <div className="space-y-0.5 max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
           {rootFolders.length > 0 ? (
             rootFolders.map((folder) => renderFolderNode(folder, 0))
           ) : (
-            <div className="py-8 text-center text-xs text-slate-400">
+            <div className="py-6 text-center text-xs text-slate-400">
               Chưa có thư mục nào. Hãy bấm "Thư mục mới" để bắt đầu.
             </div>
           )}
