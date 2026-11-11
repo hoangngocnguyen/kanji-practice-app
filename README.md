@@ -22,8 +22,8 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
 - **🌐 Định tuyến React Router Đa trang Chuẩn mực (F5 Không mất trang)**:
   - `/` hoặc `/input`: **Nhập văn bản** - Giao diện nhập liệu tinh gọn, bo góc mềm mại, tích hợp bộ gõ Kanji IME và bộ chuyển đổi cỡ chữ.
   - `/kanji`: **Nét viết Kanji** - Bảng tra nét vẽ, hoạt ảnh SVG động, thanh chọn nhanh Kanji Quick Bar 1-chạm, chế độ lưới kẻ ô mễ và modal luyện viết tay.
-  - `/decks`: **Quản lý Thư mục Bài học** - Tổ chức thư mục phân cấp cha–con không giới hạn, tìm kiếm nhanh, Menu 3 chấm (`⋮`) hỗ trợ thêm thư mục con, đổi tên, di chuyển thư mục (chống lặp vòng), cảnh báo trùng tên và Xuất/Nhập `.json` (Gộp hoặc Tạo bản sao).
-  - `/decks/:folderId`: **Chi tiết Bài học & Ôn tập SRS** - Nhập nhanh danh sách Kanji tạo bảng học, thêm từ ghép cho từng chữ Kanji, hiển thị Breadcrumb và ôn tập **Flashcard kép + SRS chuẩn Anki** (3 mức Khó / Tốt / Dễ tùy chỉnh thời gian lặp lại, hỗ trợ phím tắt `Space` và `1`/`2`/`3`).
+  - `/decks`: **Quản lý Thư mục Bài học (Trải nghiệm kiểu Google Drive)** - Tổ chức thư mục phân cấp cha–con không giới hạn, tìm kiếm nhanh, chọn 1 lần & nhấn đúp/`Enter` để mở (chạm 1 lần trên Mobile), bấm `F2` đổi tên trực tiếp trên dòng, chuột phải mở Context Menu, kéo-thả (Drag & Drop) di chuyển thư mục, điều hướng bàn phím (`↑↓←→`, `Del`), Menu 3 chấm (`⋮`) và Xuất/Nhập `.json` (Gộp hoặc Tạo bản sao).
+  - `/decks/:folderId`: **Chi tiết Bài học, Nhập hàng loạt & Ôn tập Flashcard SRS** - Nhập nhanh danh sách Kanji hoặc dùng **Nhập hàng loạt** trực tiếp vào bài học bằng **Cú pháp Text nhanh** (`Kanji | TừGhép:CáchĐọc:HánViệt:Nghĩa`) và **JSON tối giản (AI)** (chỉ cần `kanji` + `compoundWords`, hệ thống tự tra nghĩa/âm đọc Kanji, kèm nút tải file JSON mẫu & sao chép Prompt cho AI, gộp thông minh không trùng lặp). Ôn tập **Flashcard kép + SRS chuẩn Anki** với thẻ căn giữa kích thước cố định, bố cục 2 cột tối ưu không gian, nút chuyển thẻ trái/phải (`←`/`→`) và phím tắt `Space`, `1`/`2`/`3`.
   - `/share/:slug`: **Xem & Ôn bộ bài chia sẻ công khai** - Mở liên kết chia sẻ từ bạn bè/cộng đồng để ôn thử Flashcard ngay hoặc lưu về thư mục cá nhân (kích hoạt khi cấu hình Supabase).
   - `/romaji`: **Phiên âm Romaji** - Trang chuyên biệt hiển thị các cặp dòng song song `[JP]` & `[ROMAJI]` chuẩn Hepburn, phân tách từ ghép rõ ràng, kèm tính năng phát âm và sao chép.
   - `/translate`: **Dịch câu song ngữ** - Trang dịch thuật chuyên biệt Nhật - Việt với công nghệ Google Dịch & Gemini AI.
@@ -45,6 +45,7 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
   - **Dọn sạch mô tả và mẫu thừa**: Xóa các mô tả dài dòng và các nút mẫu có sẵn gây rối ở ô nhập liệu và modal quét OCR.
   - **Tách bạch tính năng**: Mỗi trang tập trung 100% vào nghiệp vụ riêng, không chèn lẫn nút của tính năng khác vào nhau.
   - **Không còn Toast phiền hà**: Lược bỏ các thông báo popup không cần thiết cho các thao tác gõ chữ thông thường.
+  - **Footer tối giản bám sát đáy trang**: Loại bỏ banner bản quyền chiếm diện tích lớn, thay bằng thanh Footer gọn nhẹ dính sát đáy màn hình với liên kết mở hộp thoại *Nguồn dữ liệu & Bản quyền*.
 
 ---
 
@@ -58,8 +59,8 @@ Version **v3.1.0** introduces a complete architectural overhaul to **React Route
 - **🌐 React Router Deep-linking (F5 Persistent Navigation)**:
   - `/` / `/input`: Minimalist, focused Japanese text input area with IME support.
   - `/kanji`: Dedicated stroke order list, SVG animation, practice modal, and horizontal Quick Bar.
-  - `/decks`: **Hierarchical Study Folders** — Manage nested parent/child folders with search, 3-dot action menu (create subfolder, rename, move folder with cycle guard, duplicate prevention), and JSON Export/Import (Smart Merge or Copy).
-  - `/decks/:folderId`: **Folder Detail & Anki-style SRS Flashcards** — Paste Kanji lists to generate study tables, attach per-Kanji compound word cards, and review with dual Flashcards (Kanji + Compound Words) using customizable 3-level SRS intervals (Hard / Good / Easy).
+  - `/decks`: **Hierarchical Study Folders (Google Drive-style UX)** — Manage nested parent/child folders with search, single-click select & double-click/`Enter` to open (single-tap on mobile touchscreens), `F2` inline rename, right-click context menu, drag-and-drop folder moving with cycle guard, keyboard navigation (`↑↓←→`, `Del`), and JSON Export/Import (Smart Merge or Copy).
+  - `/decks/:folderId`: **Folder Detail, Batch Import & Responsive SRS Flashcards** — Batch-import Kanji and compound words directly into a lesson via **Quick Text Syntax** or **Minimalist AI-friendly JSON** (only `kanji` and `compoundWords` required—Kanji meanings/readings are auto-looked-up, with Sample JSON download & AI Prompt copy, plus smart merge). Review with fixed-height centered dual Flashcards featuring a 2-column back layout, left/right navigation arrows, and customizable 3-level SRS intervals (`Space`, `1`/`2`/`3`).
   - `/share/:slug`: **Public Shared Deck Viewer** — Practice or clone shared community decks (when Supabase is configured).
   - `/romaji`: Dedicated Hepburn Romaji transliteration reading view with side-by-side line pairs.
   - `/translate`: Focused Japanese-Vietnamese translation powered by Google Translate & Gemini AI.
@@ -69,7 +70,7 @@ Version **v3.1.0** introduces a complete architectural overhaul to **React Route
   - `/guide`: Dedicated full-page user guide.
 - **✨ UI Decluttering & Header Breadcrumbs**:
   - Header displays current page context instead of repeating the application brand.
-  - Removed redundant sample presets, cluttering banners, and noisy toasts on routine actions.
+  - Removed redundant sample presets, cluttering banners, bulky footer license cards (replaced with a compact sticky footer bar), and noisy toasts on routine actions.
 
 ---
 

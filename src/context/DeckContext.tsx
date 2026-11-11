@@ -33,6 +33,7 @@ import {
 const STORAGE_FOLDERS_KEY = 'kanji_decks_folders_v1';
 const STORAGE_ITEMS_KEY = 'kanji_decks_items_v1';
 const STORAGE_SRS_CONFIG_KEY = 'kanji_decks_srs_config_v1';
+const STORAGE_STARTER_SEEDED_KEY = 'kanji_decks_starter_seeded_v1';
 
 const genId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -243,26 +244,52 @@ interface DeckContextValue {
 const DeckContext = createContext<DeckContextValue | undefined>(undefined);
 
 export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [folders, setFolders] = useState<StudyFolder[]>(() => {
+  const [initialStarter] = useState<{
+    folders: StudyFolder[];
+    items: FolderKanjiItem[];
+  } | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_FOLDERS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      const savedFolders = localStorage.getItem(STORAGE_FOLDERS_KEY);
+      const alreadySeeded = localStorage.getItem(STORAGE_STARTER_SEEDED_KEY) === '1';
+
+      // If user already has saved folders (including empty array []) or starter was already seeded once, do not recreate starter data
+      if (savedFolders !== null || alreadySeeded) {
+        if (!alreadySeeded) {
+          localStorage.setItem(STORAGE_STARTER_SEEDED_KEY, '1');
+        }
+        return null;
       }
-    } catch {}
-    return createStarterData().folders;
+
+      const starter = createStarterData();
+      localStorage.setItem(STORAGE_STARTER_SEEDED_KEY, '1');
+      return starter;
+    } catch {
+      return null;
+    }
   });
 
-  const [items, setItems] = useState<FolderKanjiItem[]>(() => {
+  const [folders, setFolders] = useState<StudyFolder[]>(() => {
+    if (initialStarter) return initialStarter.folders;
     try {
-      const saved = localStorage.getItem(STORAGE_ITEMS_KEY);
-      if (saved) {
+      const saved = localStorage.getItem(STORAGE_FOLDERS_KEY);
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return createStarterData().items;
+    return [];
+  });
+
+  const [items, setItems] = useState<FolderKanjiItem[]>(() => {
+    if (initialStarter) return initialStarter.items;
+    try {
+      const saved = localStorage.getItem(STORAGE_ITEMS_KEY);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
   });
 
   const [srsConfig, setSrsConfigState] = useState<SrsConfig>(() => {

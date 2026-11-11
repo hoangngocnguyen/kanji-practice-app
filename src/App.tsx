@@ -106,31 +106,33 @@ function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0 w-full min-h-screen">
         <Header onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
 
-        <main className="w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6">
-          <Routes>
-            <Route path="/" element={<InputSection />} />
-            <Route path="/input" element={<InputSection />} />
-            <Route path="/kanji" element={<KanjiStrokesView />} />
-            <Route path="/decks" element={<DecksView />} />
-            <Route path="/decks/:folderId" element={<DeckDetailView />} />
-            <Route path="/share/:slug" element={<PublicShareView />} />
-            <Route path="/romaji" element={<RomajiReaderView />} />
-            <Route path="/translate" element={<TranslationView />} />
-            <Route path="/converter" element={<RomajiConverterView />} />
-            <Route
-              path="/radicals"
-              element={<RadicalExplorer onSelectKanji={handleSelectRecentKanji} />}
-            />
-            <Route path="/compare" element={<KanjiCompareView />} />
-            <Route path="/print" element={<KanjiPrintView />} />
-            <Route path="/extension" element={<ExtensionDownloadView />} />
-            <Route path="/history" element={<RecentlyViewedKanji />} />
-            <Route
-              path="/guide"
-              element={<UserGuideView onOpenScanner={() => setIsScannerOpen(true)} />}
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+        <main className="flex-1 flex flex-col w-full px-4 sm:px-6 lg:px-8 pt-5 sm:pt-6 pb-0">
+          <div className="flex-1 space-y-6">
+            <Routes>
+              <Route path="/" element={<InputSection />} />
+              <Route path="/input" element={<InputSection />} />
+              <Route path="/kanji" element={<KanjiStrokesView />} />
+              <Route path="/decks" element={<DecksView />} />
+              <Route path="/decks/:folderId" element={<DeckDetailView />} />
+              <Route path="/share/:slug" element={<PublicShareView />} />
+              <Route path="/romaji" element={<RomajiReaderView />} />
+              <Route path="/translate" element={<TranslationView />} />
+              <Route path="/converter" element={<RomajiConverterView />} />
+              <Route
+                path="/radicals"
+                element={<RadicalExplorer onSelectKanji={handleSelectRecentKanji} />}
+              />
+              <Route path="/compare" element={<KanjiCompareView />} />
+              <Route path="/print" element={<KanjiPrintView />} />
+              <Route path="/extension" element={<ExtensionDownloadView />} />
+              <Route path="/history" element={<RecentlyViewedKanji />} />
+              <Route
+                path="/guide"
+                element={<UserGuideView onOpenScanner={() => setIsScannerOpen(true)} />}
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
 
           {/* Footer & License Attribution */}
           <Footer onOpenLicenseModal={() => setIsLicenseOpen(true)} />
