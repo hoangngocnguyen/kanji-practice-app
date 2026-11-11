@@ -22,6 +22,9 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
 - **🌐 Định tuyến React Router Đa trang Chuẩn mực (F5 Không mất trang)**:
   - `/` hoặc `/input`: **Nhập văn bản** - Giao diện nhập liệu tinh gọn, bo góc mềm mại, tích hợp bộ gõ Kanji IME và bộ chuyển đổi cỡ chữ.
   - `/kanji`: **Nét viết Kanji** - Bảng tra nét vẽ, hoạt ảnh SVG động, thanh chọn nhanh Kanji Quick Bar 1-chạm, chế độ lưới kẻ ô mễ và modal luyện viết tay.
+  - `/decks`: **Quản lý Thư mục Bài học** - Tổ chức thư mục phân cấp cha–con không giới hạn, tìm kiếm nhanh, Menu 3 chấm (`⋮`) hỗ trợ thêm thư mục con, đổi tên, di chuyển thư mục (chống lặp vòng), cảnh báo trùng tên và Xuất/Nhập `.json` (Gộp hoặc Tạo bản sao).
+  - `/decks/:folderId`: **Chi tiết Bài học & Ôn tập SRS** - Nhập nhanh danh sách Kanji tạo bảng học, thêm từ ghép cho từng chữ Kanji, hiển thị Breadcrumb và ôn tập **Flashcard kép + SRS chuẩn Anki** (3 mức Khó / Tốt / Dễ tùy chỉnh thời gian lặp lại, hỗ trợ phím tắt `Space` và `1`/`2`/`3`).
+  - `/share/:slug`: **Xem & Ôn bộ bài chia sẻ công khai** - Mở liên kết chia sẻ từ bạn bè/cộng đồng để ôn thử Flashcard ngay hoặc lưu về thư mục cá nhân (kích hoạt khi cấu hình Supabase).
   - `/romaji`: **Phiên âm Romaji** - Trang chuyên biệt hiển thị các cặp dòng song song `[JP]` & `[ROMAJI]` chuẩn Hepburn, phân tách từ ghép rõ ràng, kèm tính năng phát âm và sao chép.
   - `/translate`: **Dịch câu song ngữ** - Trang dịch thuật chuyên biệt Nhật - Việt với công nghệ Google Dịch & Gemini AI.
   - `/converter`: **Chuyển đổi Romaji ⇄ Kana có Hoàn tác (Undo/Redo)** - Trang chuyển đổi độc lập 2 ngăn Input - Output với tính năng Hoàn tác / Làm lại nhiều bước, tránh nhầm lẫn khi chỉnh sửa văn bản.
@@ -55,6 +58,9 @@ Version **v3.1.0** introduces a complete architectural overhaul to **React Route
 - **🌐 React Router Deep-linking (F5 Persistent Navigation)**:
   - `/` / `/input`: Minimalist, focused Japanese text input area with IME support.
   - `/kanji`: Dedicated stroke order list, SVG animation, practice modal, and horizontal Quick Bar.
+  - `/decks`: **Hierarchical Study Folders** — Manage nested parent/child folders with search, 3-dot action menu (create subfolder, rename, move folder with cycle guard, duplicate prevention), and JSON Export/Import (Smart Merge or Copy).
+  - `/decks/:folderId`: **Folder Detail & Anki-style SRS Flashcards** — Paste Kanji lists to generate study tables, attach per-Kanji compound word cards, and review with dual Flashcards (Kanji + Compound Words) using customizable 3-level SRS intervals (Hard / Good / Easy).
+  - `/share/:slug`: **Public Shared Deck Viewer** — Practice or clone shared community decks (when Supabase is configured).
   - `/romaji`: Dedicated Hepburn Romaji transliteration reading view with side-by-side line pairs.
   - `/translate`: Focused Japanese-Vietnamese translation powered by Google Translate & Gemini AI.
   - `/converter`: Dedicated Romaji ⇄ Kana converter featuring a dual-panel layout and full multi-step Undo/Redo history stack.
@@ -72,7 +78,8 @@ Version **v3.1.0** introduces a complete architectural overhaul to **React Route
 - **Frontend Framework:** React 19, TypeScript 5.8, Vite 8
 - **Routing:** React Router DOM v7 (HTML5 History API with full deep-linking & F5 persistence)
 - **UI & Styling:** Tailwind CSS v4, Lucide React Icons
-- **State Management:** React Context API (`KanjiContext`) with persistent LocalStorage caching
+- **State Management:** React Context API (`KanjiContext`, `DeckContext`) with Offline-first `localStorage` persistence
+- **Optional Cloud Sync & Sharing:** Supabase (`@supabase/supabase-js` Auth & PostgreSQL RLS via `docs/supabase_decks_schema.sql`)
 - **Graphics & Vector Animation:** KanjiVG SVG Vector Paths, HTML5 Canvas API, `requestAnimationFrame`
 - **OCR Engine:** Tesseract.js (Client-side WebAssembly OCR)
 - **Speech Synthesis:** Web Speech Synthesis API (`ja-JP`)
@@ -96,6 +103,10 @@ npm run dev
 # Production Build
 npm run build
 ```
+
+> **Lưu ý cấu hình tùy chọn (`.env`)**:
+> - `GEMINI_API_KEY`: Dùng cho tính năng dịch song ngữ AI.
+> - `VITE_SUPABASE_URL` & `VITE_SUPABASE_ANON_KEY`: Tùy chọn — ứng dụng mặc định chạy **100% Offline-first** với `localStorage`; khi khai báo thêm 2 biến này (và chạy `docs/supabase_decks_schema.sql` trên Supabase), tính năng đồng bộ tài khoản Cloud và chia sẻ liên kết công khai `/share/:slug` sẽ tự động kích hoạt.
 
 ---
 

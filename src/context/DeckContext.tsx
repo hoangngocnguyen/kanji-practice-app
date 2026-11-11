@@ -174,8 +174,21 @@ interface DeckContextValue {
   getDueCountForFolderRecursive: (folderId: string) => number;
 
   // Folder CRUD
-  createFolder: (name: string, parentId: string | null, description?: string) => StudyFolder;
-  renameFolder: (id: string, name: string, description?: string) => void;
+  isDuplicateFolderName: (name: string, parentId: string | null, excludeId?: string) => boolean;
+  createFolder: (
+    name: string,
+    parentId: string | null,
+    description?: string
+  ) => { ok: boolean; error?: string; folder?: StudyFolder };
+  renameFolder: (
+    id: string,
+    name: string,
+    description?: string
+  ) => { ok: boolean; error?: string };
+  moveFolder: (
+    folderId: string,
+    targetParentId: string | null
+  ) => { ok: boolean; error?: string };
   deleteFolder: (id: string) => void;
 
   // Kanji & Compound Word CRUD
@@ -198,10 +211,15 @@ interface DeckContextValue {
 
   // JSON Export / Import
   buildExportBundle: (folderId: string) => KanjiDeckExportBundle | null;
+  detectImportConflicts: (
+    bundle: KanjiDeckExportBundle,
+    targetParentId: string | null
+  ) => string[];
   importDeckBundle: (
     bundle: KanjiDeckExportBundle,
     targetParentId: string | null,
-    resetSrs: boolean
+    resetSrs: boolean,
+    conflictMode?: 'merge' | 'copy'
   ) => { importedFolders: number; importedKanji: number; rootFolderId: string };
 
   // Supabase Cloud & Share
@@ -408,14 +426,42 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   // Folder CRUD
+  const isDuplicateFolderName = useCallback(
+    (name: string, parentId: string | null, excludeId?: string): boolean => {
+      const normalized = name.trim().toLowerCase();
+      if (!normalized) return false;
+      return folders.some(
+        (f) =>
+          f.parentId === parentId &&
+          f.id !== excludeId &&
+          f.name.trim().toLowerCase() === normalized
+      );
+    },
+    [folders]
+  );
+
   const createFolder = useCallback(
-    (name: string, parentId: string | null, description = ''): StudyFolder => {
+    (
+      name: string,
+      parentId: string | null,
+      description = ''
+    ): { ok: boolean; error?: string; folder?: StudyFolder } => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return { ok: false, error: 'Tên thư mục không được để trống.' };
+      }
+      if (isDuplicateFolderName(trimmed, parentId)) {
+        return {
+          ok: false,
+          error: `Đã tồn tại thư mục "${trimmed}" trong cùng cấp này.`,
+        };
+      }
       const now = Date.now();
       const siblings = folders.filter((f) => f.parentId === parentId);
       const newFolder: StudyFolder = {
         id: genId(),
         parentId,
-        name: name.trim() || 'Thư mục mới',
+        name: trimmed,
         description: description.trim() || undefined,
         sortOrder: siblings.length,
         createdAt: now,
@@ -423,25 +469,93 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       setFolders((prev) => [...prev, newFolder]);
       setSelectedFolderId(newFolder.id);
-      return newFolder;
+      return { ok: true, folder: newFolder };
     },
-    [folders]
+    [folders, isDuplicateFolderName]
   );
 
-  const renameFolder = useCallback((id: string, name: string, description?: string) => {
-    setFolders((prev) =>
-      prev.map((f) =>
-        f.id === id
-          ? {
-              ...f,
-              name: name.trim() || f.name,
-              description: description !== undefined ? description.trim() : f.description,
-              updatedAt: Date.now(),
-            }
-          : f
-      )
-    );
-  }, []);
+  const renameFolder = useCallback(
+    (
+      id: string,
+      name: string,
+      description?: string
+    ): { ok: boolean; error?: string } => {
+      const target = folders.find((f) => f.id === id);
+      if (!target) return { ok: false, error: 'Không tìm thấy thư mục.' };
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return { ok: false, error: 'Tên thư mục không được để trống.' };
+      }
+      if (isDuplicateFolderName(trimmed, target.parentId, id)) {
+        return {
+          ok: false,
+          error: `Đã tồn tại thư mục "${trimmed}" trong cùng cấp này.`,
+        };
+      }
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === id
+            ? {
+                ...f,
+                name: trimmed,
+                description:
+                  description !== undefined ? description.trim() : f.description,
+                updatedAt: Date.now(),
+              }
+            : f
+        )
+      );
+      return { ok: true };
+    },
+    [folders, isDuplicateFolderName]
+  );
+
+  const moveFolder = useCallback(
+    (
+      folderId: string,
+      targetParentId: string | null
+    ): { ok: boolean; error?: string } => {
+      const target = folders.find((f) => f.id === folderId);
+      if (!target) return { ok: false, error: 'Không tìm thấy thư mục cần di chuyển.' };
+      if (target.parentId === targetParentId) return { ok: true };
+
+      if (targetParentId !== null) {
+        const descendants = new Set(getDescendantFolderIds(folderId));
+        if (descendants.has(targetParentId)) {
+          return {
+            ok: false,
+            error: 'Không thể di chuyển thư mục vào chính nó hoặc thư mục con của nó.',
+          };
+        }
+      }
+
+      if (isDuplicateFolderName(target.name, targetParentId, folderId)) {
+        return {
+          ok: false,
+          error: `Thư mục đích đã có thư mục trùng tên "${target.name}".`,
+        };
+      }
+
+      const newSiblingsCount = folders.filter(
+        (f) => f.parentId === targetParentId
+      ).length;
+
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === folderId
+            ? {
+                ...f,
+                parentId: targetParentId,
+                sortOrder: newSiblingsCount,
+                updatedAt: Date.now(),
+              }
+            : f
+        )
+      );
+      return { ok: true };
+    },
+    [folders, getDescendantFolderIds, isDuplicateFolderName]
+  );
 
   const deleteFolder = useCallback(
     (id: string) => {
@@ -643,61 +757,188 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [folders, items, getDescendantFolderIds]
   );
 
+  const detectImportConflicts = useCallback(
+    (bundle: KanjiDeckExportBundle, targetParentId: string | null): string[] => {
+      const rootBundleFolder =
+        bundle.folders.find((f) => f.id === bundle.rootFolderId) || bundle.folders[0];
+      if (!rootBundleFolder) return [];
+
+      const conflicts: string[] = [];
+      const rootMatch = folders.find(
+        (f) =>
+          f.parentId === targetParentId &&
+          f.name.trim().toLowerCase() === rootBundleFolder.name.trim().toLowerCase()
+      );
+      if (rootMatch) {
+        conflicts.push(rootMatch.name);
+      }
+      return conflicts;
+    },
+    [folders]
+  );
+
   const importDeckBundle = useCallback(
     (
       bundle: KanjiDeckExportBundle,
       targetParentId: string | null,
-      resetSrs: boolean
+      resetSrs: boolean,
+      conflictMode: 'merge' | 'copy' = 'copy'
     ) => {
       const now = Date.now();
       const folderIdMap = new Map<string, string>();
-      bundle.folders.forEach((f) => folderIdMap.set(f.id, genId()));
+      const reusedFolderIds = new Set<string>();
+      const createdFolders: StudyFolder[] = [];
 
-      const newFolders: StudyFolder[] = bundle.folders.map((f) => {
-        const isRootOfBundle = f.id === bundle.rootFolderId;
-        const mappedParent = isRootOfBundle
-          ? targetParentId
-          : f.parentId && folderIdMap.has(f.parentId)
-          ? folderIdMap.get(f.parentId)!
-          : targetParentId;
+      const rootIdInBundle =
+        bundle.folders.find((f) => f.id === bundle.rootFolderId)?.id ||
+        bundle.folders[0]?.id;
 
-        return {
-          ...f,
-          id: folderIdMap.get(f.id)!,
-          parentId: mappedParent,
-          isPublic: false,
-          shareSlug: undefined,
-          createdAt: now,
-          updatedAt: now,
-        };
+      // Sort bundle folders top-down from root so parent mappings resolve in order
+      const orderedBundleFolders: StudyFolder[] = [];
+      const visited = new Set<string>();
+      if (rootIdInBundle) {
+        const queue = [rootIdInBundle];
+        while (queue.length > 0) {
+          const cid = queue.shift()!;
+          if (visited.has(cid)) continue;
+          const found = bundle.folders.find((f) => f.id === cid);
+          if (found) {
+            visited.add(cid);
+            orderedBundleFolders.push(found);
+            bundle.folders
+              .filter((child) => child.parentId === cid)
+              .forEach((child) => queue.push(child.id));
+          }
+        }
+      }
+      bundle.folders.forEach((f) => {
+        if (!visited.has(f.id)) orderedBundleFolders.push(f);
       });
 
-      const newItems: FolderKanjiItem[] = bundle.items.map((it) => ({
-        ...it,
-        id: genId(),
-        folderId: folderIdMap.get(it.folderId) || folderIdMap.get(bundle.rootFolderId)!,
-        srsState: resetSrs ? createInitialSrsState(now) : it.srsState,
-        compoundWords: (it.compoundWords || []).map((cw) => ({
-          ...cw,
-          id: genId(),
-          srsState: resetSrs ? createInitialSrsState(now) : cw.srsState,
-        })),
-        createdAt: now,
-      }));
+      const allKnownFolders = [...folders];
 
-      setFolders((prev) => [...prev, ...newFolders]);
-      setItems((prev) => [...prev, ...newItems]);
+      for (const bf of orderedBundleFolders) {
+        const isRoot = bf.id === rootIdInBundle;
+        const resolvedParentId = isRoot
+          ? targetParentId
+          : bf.parentId && folderIdMap.has(bf.parentId)
+          ? folderIdMap.get(bf.parentId)!
+          : targetParentId;
 
-      const newRootId = folderIdMap.get(bundle.rootFolderId) || newFolders[0]?.id || '';
-      if (newRootId) setSelectedFolderId(newRootId);
+        const existingMatch = allKnownFolders.find(
+          (ef) =>
+            ef.parentId === resolvedParentId &&
+            ef.name.trim().toLowerCase() === bf.name.trim().toLowerCase()
+        );
+
+        if (conflictMode === 'merge' && existingMatch) {
+          folderIdMap.set(bf.id, existingMatch.id);
+          reusedFolderIds.add(existingMatch.id);
+        } else {
+          let finalName = bf.name.trim() || 'Thư mục nhập';
+          if (existingMatch) {
+            let suffixIndex = 1;
+            let candidate = `${finalName} (Bản sao)`;
+            while (
+              allKnownFolders.some(
+                (ef) =>
+                  ef.parentId === resolvedParentId &&
+                  ef.name.trim().toLowerCase() === candidate.toLowerCase()
+              )
+            ) {
+              suffixIndex += 1;
+              candidate = `${finalName} (Bản sao ${suffixIndex})`;
+            }
+            finalName = candidate;
+          }
+
+          const newFolder: StudyFolder = {
+            ...bf,
+            id: genId(),
+            name: finalName,
+            parentId: resolvedParentId,
+            isPublic: false,
+            shareSlug: undefined,
+            createdAt: now,
+            updatedAt: now,
+          };
+          folderIdMap.set(bf.id, newFolder.id);
+          createdFolders.push(newFolder);
+          allKnownFolders.push(newFolder);
+        }
+      }
+
+      const fallbackRootId =
+        (rootIdInBundle && folderIdMap.get(rootIdInBundle)) ||
+        createdFolders[0]?.id ||
+        '';
+
+      let addedKanjiCount = 0;
+
+      setItems((prevItems) => {
+        const nextItems = [...prevItems];
+
+        for (const rawItem of bundle.items) {
+          const targetFolderId =
+            folderIdMap.get(rawItem.folderId) || fallbackRootId;
+          if (!targetFolderId) continue;
+
+          const existingIdx = nextItems.findIndex(
+            (it) => it.folderId === targetFolderId && it.kanji === rawItem.kanji
+          );
+
+          if (existingIdx >= 0 && conflictMode === 'merge') {
+            // Merge new compound words into existing Kanji item
+            const existing = nextItems[existingIdx];
+            const existingWords = new Set(
+              (existing.compoundWords || []).map((cw) => cw.word.trim())
+            );
+            const extraWords = (rawItem.compoundWords || [])
+              .filter((cw) => !existingWords.has(cw.word.trim()))
+              .map((cw) => ({
+                ...cw,
+                id: genId(),
+                srsState: resetSrs ? createInitialSrsState(now) : cw.srsState,
+              }));
+            if (extraWords.length > 0) {
+              nextItems[existingIdx] = {
+                ...existing,
+                compoundWords: [...(existing.compoundWords || []), ...extraWords],
+              };
+            }
+          } else if (existingIdx < 0 || conflictMode === 'copy') {
+            nextItems.push({
+              ...rawItem,
+              id: genId(),
+              folderId: targetFolderId,
+              srsState: resetSrs ? createInitialSrsState(now) : rawItem.srsState,
+              compoundWords: (rawItem.compoundWords || []).map((cw) => ({
+                ...cw,
+                id: genId(),
+                srsState: resetSrs ? createInitialSrsState(now) : cw.srsState,
+              })),
+              createdAt: now,
+            });
+            addedKanjiCount += 1;
+          }
+        }
+
+        return nextItems;
+      });
+
+      if (createdFolders.length > 0) {
+        setFolders((prev) => [...prev, ...createdFolders]);
+      }
+
+      if (fallbackRootId) setSelectedFolderId(fallbackRootId);
 
       return {
-        importedFolders: newFolders.length,
-        importedKanji: newItems.length,
-        rootFolderId: newRootId,
+        importedFolders: createdFolders.length,
+        importedKanji: addedKanjiCount || bundle.items.length,
+        rootFolderId: fallbackRootId,
       };
     },
-    []
+    [folders]
   );
 
   // Supabase Cloud Sync & Share
@@ -791,8 +1032,10 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         getItemsForFolderRecursive,
         getReviewCardsForFolder,
         getDueCountForFolderRecursive,
+        isDuplicateFolderName,
         createFolder,
         renameFolder,
+        moveFolder,
         deleteFolder,
         addKanjiListToFolder,
         updateKanjiItem,
@@ -802,6 +1045,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteCompoundWord,
         gradeFlashcard,
         buildExportBundle,
+        detectImportConflicts,
         importDeckBundle,
         supabaseEnabled,
         cloudUser,

@@ -24,12 +24,14 @@ interface FolderKanjiTableProps {
   onStartReview: (mode: ReviewFilterMode, onlyDue: boolean) => void;
   onExportFolder: (folderId: string) => void;
   onOpenShareModal: (folderId: string) => void;
+  onSelectFolder?: (folderId: string) => void;
 }
 
 export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   onStartReview,
   onExportFolder,
   onOpenShareModal,
+  onSelectFolder,
 }) => {
   const {
     folders,
@@ -43,6 +45,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     deleteKanjiItem,
     addCompoundWord,
     deleteCompoundWord,
+    supabaseEnabled,
   } = useDecks();
 
   const { handleSelectRecentKanji } = useKanji();
@@ -155,7 +158,11 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-300" />}
                   <button
                     type="button"
-                    onClick={() => setSelectedFolderId(b.id)}
+                    onClick={() =>
+                      onSelectFolder
+                        ? onSelectFolder(b.id)
+                        : setSelectedFolderId(b.id)
+                    }
                     className={`hover:text-teal-700 transition-colors cursor-pointer truncate max-w-[180px] ${
                       idx === breadcrumbs.length - 1 ? 'font-bold text-slate-900' : ''
                     }`}
@@ -198,22 +205,24 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               <span>Xuất JSON</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => onOpenShareModal(selectedFolder.id)}
-              className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-                selectedFolder.isPublic
-                  ? 'bg-teal-50 text-teal-800 border-teal-300'
-                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
-              }`}
-            >
-              {selectedFolder.isPublic ? (
-                <Globe className="w-3.5 h-3.5 text-teal-700" />
-              ) : (
-                <Share2 className="w-3.5 h-3.5 text-slate-500" />
-              )}
-              <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
-            </button>
+            {supabaseEnabled && (
+              <button
+                type="button"
+                onClick={() => onOpenShareModal(selectedFolder.id)}
+                className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                  selectedFolder.isPublic
+                    ? 'bg-teal-50 text-teal-800 border-teal-300'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+                }`}
+              >
+                {selectedFolder.isPublic ? (
+                  <Globe className="w-3.5 h-3.5 text-teal-700" />
+                ) : (
+                  <Share2 className="w-3.5 h-3.5 text-slate-500" />
+                )}
+                <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
+              </button>
+            )}
 
             <button
               type="button"

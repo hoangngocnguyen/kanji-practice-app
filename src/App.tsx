@@ -13,6 +13,7 @@ import { AppSidebar } from './components/AppSidebar';
 import { InputSection } from './components/InputSection';
 import { KanjiStrokesView } from './components/KanjiStrokesView';
 import { DecksView } from './components/DecksView';
+import { DeckDetailView } from './components/DeckDetailView';
 import { PublicShareView } from './components/PublicShareView';
 import { RomajiReaderView } from './components/RomajiReaderView';
 import { TranslationView } from './components/TranslationView';
@@ -111,6 +112,7 @@ function AppLayout() {
             <Route path="/input" element={<InputSection />} />
             <Route path="/kanji" element={<KanjiStrokesView />} />
             <Route path="/decks" element={<DecksView />} />
+            <Route path="/decks/:folderId" element={<DeckDetailView />} />
             <Route path="/share/:slug" element={<PublicShareView />} />
             <Route path="/romaji" element={<RomajiReaderView />} />
             <Route path="/translate" element={<TranslationView />} />

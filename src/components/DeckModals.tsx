@@ -10,9 +10,13 @@ import {
   LogOut,
   AlertCircle,
   ExternalLink,
+  FolderPlus,
+  FolderInput,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
-import { KanjiDeckExportBundle } from '../types/deck';
+import { KanjiDeckExportBundle, StudyFolder } from '../types/deck';
 import { signInWithSupabase, signUpWithSupabase } from '../utils/supabaseClient';
 
 interface JsonImportModalProps {
@@ -21,14 +25,17 @@ interface JsonImportModalProps {
 }
 
 export const JsonImportModal: React.FC<JsonImportModalProps> = ({ isOpen, onClose }) => {
-  const { folders, importDeckBundle } = useDecks();
+  const { folders, detectImportConflicts, importDeckBundle } = useDecks();
   const [bundle, setBundle] = useState<KanjiDeckExportBundle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [targetParentId, setTargetParentId] = useState<string>('');
   const [resetSrs, setResetSrs] = useState<boolean>(true);
+  const [conflictMode, setConflictMode] = useState<'merge' | 'copy'>('merge');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const conflicts = bundle ? detectImportConflicts(bundle, targetParentId || null) : [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
@@ -61,9 +68,16 @@ export const JsonImportModal: React.FC<JsonImportModalProps> = ({ isOpen, onClos
 
   const handleImport = () => {
     if (!bundle) return;
-    const res = importDeckBundle(bundle, targetParentId || null, resetSrs);
+    const res = importDeckBundle(
+      bundle,
+      targetParentId || null,
+      resetSrs,
+      conflicts.length > 0 ? conflictMode : 'copy'
+    );
     setSuccessMsg(
-      `Đã nhập thành công ${res.importedFolders} thư mục và ${res.importedKanji} chữ Kanji!`
+      res.importedFolders > 0
+        ? `Đã nhập ${res.importedFolders} thư mục và ${res.importedKanji} chữ Kanji!`
+        : `Đã gộp thêm ${res.importedKanji} chữ Kanji vào thư mục có sẵn!`
     );
     setTimeout(() => {
       setBundle(null);
@@ -140,6 +154,37 @@ export const JsonImportModal: React.FC<JsonImportModalProps> = ({ isOpen, onClos
                   ))}
                 </select>
               </label>
+
+              {conflicts.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 space-y-2">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Phát hiện trùng tên thư mục: "{conflicts[0]}"</span>
+                  </div>
+                  <div className="space-y-1.5 pl-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="import-conflict-mode"
+                        checked={conflictMode === 'merge'}
+                        onChange={() => setConflictMode('merge')}
+                        className="text-teal-700"
+                      />
+                      <span>Gộp vào thư mục có sẵn (chỉ thêm Kanji/từ ghép mới)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="import-conflict-mode"
+                        checked={conflictMode === 'copy'}
+                        onChange={() => setConflictMode('copy')}
+                        className="text-teal-700"
+                      />
+                      <span>Tạo thư mục mới với hậu tố (Bản sao)</span>
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <label className="flex items-center gap-2 pt-1 cursor-pointer">
                 <input
@@ -471,6 +516,350 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+interface FolderFormModalProps {
+  isOpen: boolean;
+  mode: 'create' | 'rename';
+  parentId: string | null;
+  folder?: StudyFolder | null;
+  onClose: () => void;
+}
+
+export const FolderFormModal: React.FC<FolderFormModalProps> = ({
+  isOpen,
+  mode,
+  parentId,
+  folder,
+  onClose,
+}) => {
+  const { folders, isDuplicateFolderName, createFolder, renameFolder } = useDecks();
+  const [name, setName] = useState(mode === 'rename' && folder ? folder.name : '');
+  const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setName(mode === 'rename' && folder ? folder.name : '');
+      setError(null);
+    }
+  }, [isOpen, mode, folder]);
+
+  if (!isOpen) return null;
+
+  const targetParentId = mode === 'rename' && folder ? folder.parentId : parentId;
+  const parentFolder = targetParentId
+    ? folders.find((f) => f.id === targetParentId)
+    : null;
+  const isLiveDuplicate = isDuplicateFolderName(
+    name,
+    targetParentId,
+    mode === 'rename' && folder ? folder.id : undefined
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mode === 'create') {
+      const res = createFolder(name, parentId);
+      if (!res.ok) {
+        setError(res.error || 'Không thể tạo thư mục.');
+        return;
+      }
+    } else if (folder) {
+      const res = renameFolder(folder.id, name);
+      if (!res.ok) {
+        setError(res.error || 'Không thể đổi tên thư mục.');
+        return;
+      }
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            {mode === 'create' ? (
+              <FolderPlus className="w-4 h-4 text-teal-700" />
+            ) : (
+              <Pencil className="w-4 h-4 text-teal-700" />
+            )}
+            <span>
+              {mode === 'create'
+                ? parentFolder
+                  ? `Tạo thư mục con trong "${parentFolder.name}"`
+                  : 'Tạo thư mục mới'
+                : 'Đổi tên thư mục'}
+            </span>
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-2 text-xs">
+          <label className="block space-y-1.5">
+            <span className="font-semibold text-slate-700 block">Tên thư mục</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError(null);
+              }}
+              placeholder="Ví dụ: JLPT N3, Bài 5 - Gia đình..."
+              autoFocus
+              className="w-full px-3 py-2.5 text-sm bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700"
+            />
+          </label>
+
+          {(isLiveDuplicate || error) && (
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>
+                {error || `Đã tồn tại thư mục "${name.trim()}" trong cùng cấp này.`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={!name.trim() || isLiveDuplicate}
+            className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl cursor-pointer disabled:cursor-not-allowed"
+          >
+            {mode === 'create' ? 'Tạo thư mục' : 'Lưu thay đổi'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+interface MoveFolderModalProps {
+  isOpen: boolean;
+  folder: StudyFolder | null;
+  onClose: () => void;
+}
+
+export const MoveFolderModal: React.FC<MoveFolderModalProps> = ({
+  isOpen,
+  folder,
+  onClose,
+}) => {
+  const { folders, getDescendantFolderIds, moveFolder } = useDecks();
+  const [selectedTarget, setSelectedTarget] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isOpen && folder) {
+      setSelectedTarget(folder.parentId ?? '');
+      setError(null);
+    }
+  }, [isOpen, folder]);
+
+  if (!isOpen || !folder) return null;
+
+  const excludedIds = new Set(getDescendantFolderIds(folder.id));
+
+  // Build flat indented list of valid destination folders
+  const buildTargetOptions = (
+    parentId: string | null = null,
+    depth = 0
+  ): { id: string; label: string; depth: number }[] => {
+    const children = folders
+      .filter((f) => f.parentId === parentId && !excludedIds.has(f.id))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const out: { id: string; label: string; depth: number }[] = [];
+    for (const c of children) {
+      out.push({ id: c.id, label: c.name, depth });
+      out.push(...buildTargetOptions(c.id, depth + 1));
+    }
+    return out;
+  };
+
+  const options = buildTargetOptions(null, 0);
+
+  const handleConfirmMove = () => {
+    const targetParentId = selectedTarget === '' ? null : selectedTarget;
+    const res = moveFolder(folder.id, targetParentId);
+    if (!res.ok) {
+      setError(res.error || 'Không thể di chuyển thư mục.');
+      return;
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <FolderInput className="w-4 h-4 text-teal-700" />
+            <span className="truncate">Di chuyển "{folder.name}"</span>
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-2 text-xs">
+          <p className="text-slate-500">Chọn thư mục đích mới:</p>
+          <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+            <label className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+              <input
+                type="radio"
+                name="move-target"
+                checked={selectedTarget === ''}
+                onChange={() => {
+                  setSelectedTarget('');
+                  setError(null);
+                }}
+                className="text-teal-700"
+              />
+              <span className="font-semibold text-slate-800">
+                Thư mục gốc (Ngoài cùng)
+              </span>
+            </label>
+
+            {options.map((opt) => (
+              <label
+                key={opt.id}
+                className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 cursor-pointer"
+                style={{ paddingLeft: `${opt.depth * 16 + 12}px` }}
+              >
+                <input
+                  type="radio"
+                  name="move-target"
+                  checked={selectedTarget === opt.id}
+                  onChange={() => {
+                    setSelectedTarget(opt.id);
+                    setError(null);
+                  }}
+                  className="text-teal-700"
+                />
+                <span className="text-slate-700 truncate">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {error && (
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmMove}
+            className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl cursor-pointer"
+          >
+            Di chuyển đến đây
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface DeleteFolderConfirmModalProps {
+  isOpen: boolean;
+  folder: StudyFolder | null;
+  onClose: () => void;
+  onDeleted?: () => void;
+}
+
+export const DeleteFolderConfirmModal: React.FC<DeleteFolderConfirmModalProps> = ({
+  isOpen,
+  folder,
+  onClose,
+  onDeleted,
+}) => {
+  const { getDescendantFolderIds, getItemsForFolderRecursive, deleteFolder } = useDecks();
+
+  if (!isOpen || !folder) return null;
+
+  const subCount = Math.max(0, getDescendantFolderIds(folder.id).length - 1);
+  const kanjiCount = getItemsForFolderRecursive(folder.id).length;
+
+  const handleConfirm = () => {
+    deleteFolder(folder.id);
+    onClose();
+    if (onDeleted) onDeleted();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-sm w-full p-5 border border-slate-200 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-rose-700 flex items-center gap-2">
+            <Trash2 className="w-4 h-4" />
+            <span>Xác nhận xóa thư mục</span>
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Bạn có chắc muốn xóa thư mục <strong className="text-slate-900">"{folder.name}"</strong>
+          {subCount > 0 ? ` cùng ${subCount} thư mục con` : ''}
+          {kanjiCount > 0 ? ` và ${kanjiCount} chữ Kanji bên trong` : ''}? Hành động này không thể hoàn tác.
+        </p>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl cursor-pointer"
+          >
+            Xóa vĩnh viễn
+          </button>
+        </div>
       </div>
     </div>
   );
