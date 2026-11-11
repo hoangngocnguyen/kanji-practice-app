@@ -357,25 +357,25 @@ export const FolderTreeSidebar: React.FC<FolderTreeSidebarProps> = ({
           <span>Nhập thư mục từ file (.json)</span>
         </button>
 
-        <button
-          type="button"
-          onClick={onOpenCloudModal}
-          className="w-full py-2 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors flex items-center justify-between gap-2 cursor-pointer"
-        >
-          <span className="flex items-center gap-2 truncate">
-            <Cloud className={`w-3.5 h-3.5 shrink-0 ${cloudUser ? 'text-emerald-600' : 'text-slate-400'}`} />
-            <span className="truncate">
-              {cloudUser
-                ? cloudUser.email?.split('@')[0]
-                : supabaseEnabled
-                ? 'Đăng nhập & Đồng bộ'
-                : 'Lưu trữ Cloud (Supabase)'}
+        {supabaseEnabled && (
+          <button
+            type="button"
+            onClick={onOpenCloudModal}
+            className="w-full py-2 px-3 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors flex items-center justify-between gap-2 cursor-pointer"
+          >
+            <span className="flex items-center gap-2 truncate">
+              <Cloud className={`w-3.5 h-3.5 shrink-0 ${cloudUser ? 'text-emerald-600' : 'text-slate-400'}`} />
+              <span className="truncate">
+                {cloudUser
+                  ? cloudUser.email?.split('@')[0]
+                  : 'Đăng nhập & Đồng bộ'}
+              </span>
             </span>
-          </span>
-          <span className="text-[11px] font-medium text-teal-700 shrink-0">
-            {cloudUser ? 'Đã kết nối' : 'Cài đặt'}
-          </span>
-        </button>
+            <span className="text-[11px] font-medium text-teal-700 shrink-0">
+              {cloudUser ? 'Đã kết nối' : 'Cài đặt'}
+            </span>
+          </button>
+        )}
       </div>
     </aside>
   );
