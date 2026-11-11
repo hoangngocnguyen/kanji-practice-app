@@ -7,10 +7,13 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ArrowUp } from 'lucide-react';
 import { KanjiProvider, useKanji } from './context/KanjiContext';
+import { DeckProvider } from './context/DeckContext';
 import { Header } from './components/Header';
 import { AppSidebar } from './components/AppSidebar';
 import { InputSection } from './components/InputSection';
 import { KanjiStrokesView } from './components/KanjiStrokesView';
+import { DecksView } from './components/DecksView';
+import { PublicShareView } from './components/PublicShareView';
 import { RomajiReaderView } from './components/RomajiReaderView';
 import { TranslationView } from './components/TranslationView';
 import { RomajiConverterView } from './components/RomajiConverterView';
@@ -107,6 +110,8 @@ function AppLayout() {
             <Route path="/" element={<InputSection />} />
             <Route path="/input" element={<InputSection />} />
             <Route path="/kanji" element={<KanjiStrokesView />} />
+            <Route path="/decks" element={<DecksView />} />
+            <Route path="/share/:slug" element={<PublicShareView />} />
             <Route path="/romaji" element={<RomajiReaderView />} />
             <Route path="/translate" element={<TranslationView />} />
             <Route path="/converter" element={<RomajiConverterView />} />
@@ -194,7 +199,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <KanjiProvider>
-        <AppLayout />
+        <DeckProvider>
+          <AppLayout />
+        </DeckProvider>
       </KanjiProvider>
     </BrowserRouter>
   );

@@ -1,172 +1,120 @@
-# Thuật Toán Bóc Tách Bộ Thủ KanjiVG & Phân Rã Cấu Trúc Ngữ Nghĩa 2 Cấp Độ
+# Hệ Thống Ôn Tập Kanji Theo Thư Mục, Flashcard & SRS Chuẩn Anki
 
-Kế hoạch tái cấu trúc toàn diện thuật toán phân tích cú pháp KanjiVG XML nhằm nhận diện chính xác 100% Bộ thủ chính (`kvg:radical="general"`), bóc tách cấu trúc 2 tầng (thành phần trực tiếp cấp 1 và chi tiết cấp 2), đồng thời kết hợp đếm số thẻ `<path>` thực tế cho đồ họa và lấy số nét chuẩn 214 Bộ thủ Khang Hy cho thông tin hiển thị.
+Nâng cấp nền tảng Luyện Kanji với phân hệ **Ôn tập theo bài & thư mục phân cấp**, **Flashcard kép (Kanji & Từ ghép)** kết hợp **thuật toán lặp lại ngắt quãng (SRS)** 3 mức (Khó / Tốt / Dễ), hỗ trợ **xuất/nhập tệp JSON** và **đồng bộ, chia sẻ thư mục cộng đồng qua Supabase** theo kiến trúc Offline-first.
 
-## User Review & Critical Decisions
+---
+
+### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Dưới đây là các quyết định kỹ thuật đã được thống nhất trực tiếp cùng người dùng trong Phase 1:
+> Các quyết định cốt lõi đã được thống nhất và sẽ làm kim chỉ nam cho quá trình triển khai:
 
-- **Cấp độ bóc tách thành phần**: Phân tách **2 cấp độ**: Cấp 1 trực tiếp (thành phần cha trực tiếp tạo nên chữ, ví dụ `見` = `目` [Kanmuri] + `儿` [Ashi]; `待` = `彳` [Hen] + `寺` [Tsukuri]) và mở rộng cấp 2 chi tiết (phân rã sâu hơn các cụm phức hợp, ví dụ `寺` = `土` + `寸`).
-- **Phương pháp tính số nét**: Kết hợp lưỡng hợp (Dual Approach):
-  1. *Để hiển thị thông tin*: Lấy số nét tiêu chuẩn định nghĩa sẵn từ 214 Bộ thủ Khang Hy / từ điển Hán-Việt (`comp.strokeCount`).
-  2. *Để xử lý đồ họa / vẽ hoạt ảnh*: Đếm số thẻ `<path>` thực tế (`pathCount`, `strokeIndices`) nằm bên trong thẻ `<g>` của thành phần đó trong file SVG để phục vụ tô màu hoặc chạy hiệu ứng vẽ tương ứng.
-- **Hiển thị Bộ thủ chính (`kvg:radical="general"`)**: Gắn huy hiệu nổi bật (`★ BỘ THỦ CHÍNH`) ngay trên thẻ bộ phận tương ứng, giúp người học phân biệt rõ ràng giữa thành phần ngữ nghĩa chính và các thành phần biểu âm/tượng hình phụ.
-
----
-
-## 1. Overview & Core Concept
-
-### Vấn đề hiện tại
-- Thuật toán `parseKanjiVgSvgXml` cũ duyệt phẳng tất cả các thẻ `<g>` mà không phân biệt thứ bậc cha - con (DOM depth).
-- Bị rò rỉ dữ liệu từ mảng `examples` trong danh sách 214 bộ thủ (như chữ `見` nằm trong ví dụ của bộ `目`, dẫn đến fallback chỉ nhận mỗi bộ `目` mà bỏ sót bộ `儿`).
-- Chưa tận dụng triệt để thuộc tính cốt lõi của KanjiVG: `kvg:radical="general"`, `kvg:position` (top, bottom, left, right, surround...), `kvg:part` (các nét bị phân tách thành nhiều phần), và các thẻ `<path>` con.
-
-### Giải pháp mới
-Xây dựng parser cây cú pháp ngữ nghĩa (Semantic Tree Parser) đọc trực tiếp cấu trúc XML của KanjiVG:
-1. **Xác định Root & Radical**:
-   - Nếu thẻ `<g>` gốc của chữ có `kvg:radical="general"`, chữ đó chính là một trong 214 Bộ thủ (như `見`, `門`, `馬`). Khi đó toàn bộ chữ là bộ thủ chính, các nhánh con thể hiện cấu tạo tạo hình (ví dụ `見` cấu tạo từ `目` ở trên + `儿` ở dưới).
-   - Nếu thẻ con bên dưới có `kvg:radical="general"`, thẻ con đó được gán cờ `isPrimaryRadical = true` (ví dụ `彳` trong `待`, `扌` trong `持`, `牜` trong `特`).
-2. **Cấu trúc 2 cấp độ phân rã**:
-   - **Cấp 1 (Direct Components)**: Các thẻ `<g kvg:element>` là con trực tiếp dưới root (hoặc cấp độ phân chia vị trí trực tiếp cao nhất).
-   - **Cấp 2 (Sub Components)**: Các thẻ `<g kvg:element>` nằm sâu bên trong cụm phức hợp, cho phép bấm nút "Mở rộng chi tiết" để xem cách cấu thành.
-3. **Trích xuất nét vẽ đồ họa**:
-   - Lưu trữ danh sách chỉ số nét (`pathIndices: number[]`) và số thẻ path thực tế (`actualPathCount: number`) cho từng bộ phận để hỗ trợ hiệu ứng highlight nét trên SVG khi rê chuột hoặc bấm chọn.
+- **Kiến trúc lưu trữ Offline-first + Supabase**: Toàn bộ dữ liệu thư mục, từ vựng và tiến độ ôn tập hoạt động mượt mà ngoại tuyến qua `localStorage` mà không bắt buộc đăng nhập; tự động mở khóa tính năng đăng nhập, đồng bộ đám mây và chia sẻ link cộng đồng khi phát hiện cấu hình Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+- **Cơ chế Flashcard kép (Dual-Card Deck)**:
+  - *Thẻ Kanji*: Mặt trước hiển thị chữ Kanji đứng độc lập; Mặt sau hiển thị âm Hán-Việt, On/Kun, ý nghĩa, bộ thủ và hoạt ảnh thứ tự nét vẽ.
+  - *Thẻ Từ ghép*: Mỗi từ ghép nhập vào bảng Kanji tự động sinh ra một thẻ ôn tập độc lập (Mặt trước: Từ ghép Kanji; Mặt sau: Cách đọc Kana/Romaji + âm Hán-Việt + Nghĩa tiếng Việt).
+- **Thuật toán lặp lại ngắt quãng (SRS) chuẩn Anki tùy chỉnh**: 3 mức đánh giá **Khó** (mặc định 10 phút), **Tốt** (mặc định 1 ngày), **Dễ** (mặc định 4 ngày) với hệ số nhân Ease Factor tăng dần theo từng lần ôn và cho phép người dùng tùy chỉnh mốc thời gian.
+- **Định dạng Xuất/Nhập tệp**: Sử dụng định dạng **JSON (`.json`)** chuẩn hóa, bảo toàn toàn bộ cây thư mục cha–con, bảng Kanji, danh sách từ ghép và siêu dữ liệu (kèm tùy chọn giữ hoặc đặt lại tiến độ SRS khi bạn bè import).
 
 ---
 
-## 2. User Experience & Visual Design
+### 1. Overview & Core Concept
 
-### 2.1. Trải nghiệm người dùng
-1. **Nhận diện trực giác cấp 1**:
-   - Trên mỗi thẻ so sánh hoặc modal chi tiết, hiển thị công thức trực tiếp cấp 1:
-     - `見` = `目` (Phía trên - Kanmuri) + `儿` (Phía dưới - Ashi)
-     - `待` = `彳` (Bên trái - Hen ★) + `寺` (Bên phải - Tsukuri)
-2. **Huy hiệu Bộ thủ chính (`★ BỘ THỦ CHÍNH`)**:
-   - Component mang thuộc tính `kvg:radical="general"` sẽ được viền vàng hổ phách (`border-amber-400 bg-amber-50/70`) kèm nhãn `★ Bộ thủ chính`.
-3. **Mở rộng cấp 2 linh hoạt (Collapsible Detail)**:
-   - Nếu thành phần có cấu trúc con (như `寺` gồm `土` + `寸`), hiển thị nút bấm tinh tế `↳ Cấu tạo sâu hơn (+2 nét nhỏ)` cho phép người dùng mở rộng/thu gọn mà không làm rối mắt giao diện so sánh.
-4. **Tương tác trực quan đồ họa (SVG Path Highlighting)**:
-   - Khi hover vào thẻ bộ thủ (ví dụ `目`), các đường nét tương ứng của `目` trên khung vẽ Kanji SVG sẽ được sáng đèn / đổi màu viền, dựa trên danh sách `<path>` thực tế đã đếm được.
-
-### 2.2. Visual Identity & Color System
-- Tuân thủ nghiêm ngặt **60-30-10** và quy chuẩn Typography không dùng thẻ pill xơ cứng:
-  - **Vị trí Bên trái (Hen)**: Nền cyan dịu `bg-cyan-50/70 border-cyan-200 text-cyan-900`.
-  - **Vị trí Bên phải (Tsukuri)**: Nền indigo thanh lịch `bg-indigo-50/70 border-indigo-200 text-indigo-900`.
-  - **Vị trí Phía trên (Kanmuri)**: Nền amber nhã nhặn `bg-amber-50/70 border-amber-200 text-amber-900`.
-  - **Vị trí Phía dưới (Ashi)**: Nền emerald dịu mắt `bg-emerald-50/70 border-emerald-200 text-emerald-900`.
-  - **Vị trí Bao quanh (Kamae/Tare/Nyo)**: Nền rose mềm mại `bg-rose-50/70 border-rose-200 text-rose-900`.
-  - **Huy hiệu Bộ thủ chính**: Viền hổ phách sắc nét `ring-1 ring-amber-400 bg-amber-100/80 text-amber-950 font-bold`.
+- **What It Does**: Cung cấp một không gian học tập có cấu trúc bài bản ngay trong ứng dụng: người học tự tổ chức cây thư mục theo giáo trình/chủ đề (ví dụ: *Minna no Nihongo → Bài 1, Bài 2* hoặc *JLPT N3 → Tuần 1*), nhập danh sách Kanji để tạo bảng học, thêm từ ghép cho từng chữ, rồi ôn tập tập trung từng bài hoặc ôn gộp toàn bộ thư mục cha thông qua Flashcard SRS.
+- **Target Audience / Persona**: Người học tiếng Nhật tự học hoặc theo lớp giáo trình muốn tự xây dựng bộ thẻ bài học cá nhân, ghi nhớ cả mặt chữ Kanji lẫn từ vựng ghép đi kèm, và chia sẻ bộ bài với bạn bè hoặc cộng đồng.
+- **Key Value**: Chuyển từ tra cứu đơn lẻ sang **quy trình khép kín (Tổ chức bài học → Học bảng Kanji & Từ ghép → Ôn tập SRS dài hạn → Chia sẻ)**, không lo mất dữ liệu khi offline và sẵn sàng mở rộng đa thiết bị khi kết nối Supabase.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+### 2. User Experience & Visual Design
 
-### Quyết định 1: Phân tách Cây 2 tầng thay vì làm phẳng danh sách
-- **Cách làm**: Thay vì đưa tất cả các phần tử nhặt được vào một mảng phẳng (khiến chữ `待` bị nhặt thành `[彳, 寺, 土, 寸]` làm người học tưởng chữ có 4 bộ phận đứng cạnh nhau), thuật toán mới cấu trúc:
-  - `directComponents`: `[ 彳 (3 nét), 寺 (6 nét) ]`
-  - `subComponents`: `寺` chứa `[ 土 (3 nét), 寸 (3 nét) ]`
-- **Lý do**: Đây là bản chất tự nhiên của chữ khối tượng hình (chữ hội ý / hình thanh). Người học nhìn vào thấy ngay 2 vế đối xứng trái - phải hoặc trên - dưới trước, sau đó mới đi sâu vào chi tiết nếu cần.
+- **Key User Flows**:
+  1. **Quản lý cây thư mục & Bài học (`/decks` - Ôn tập Kanji)**:
+     - Cột trái hiển thị cây thư mục phân cấp (tạo thư mục gốc/thư mục con, đổi tên, xóa, xem số thẻ đến hạn ôn `due count`).
+     - Nhấp vào bất kỳ thư mục nào: nếu là thư mục cha, hệ thống tự động gom toàn bộ Kanji và từ ghép của các thư mục con bên trong để thống kê và ôn tập gộp.
+     - Vùng chính hiển thị **Bảng Kanji của bài**: cho phép dán/nhập nhanh danh sách Kanji (tự động trích xuất và điền sẵn Hán-Việt, On/Kun, nghĩa, số nét từ từ điển sẵn có), bấm vào từng dòng Kanji để thêm/sửa/xóa các **Từ ghép** (Từ vựng, Hiragana, Hán-Việt, Nghĩa).
+  2. **Phiên ôn tập Flashcard SRS**:
+     - Nút **Ôn tập ngay** mở giao diện tập trung (Split/Stage layout): thanh tiến độ phía trên (`Số thẻ còn lại / Tổng thẻ đến hạn`), bộ lọc chế độ ôn (*Ôn cả Kanji & Từ ghép*, *Chỉ Kanji*, hoặc *Chỉ Từ ghép*).
+     - Hiệu ứng lật thẻ 3D mượt mà (`transform` + `opacity` ≤ 200ms); nút nghe phát âm tiếng Nhật trực tiếp trên thẻ.
+     - Sau khi lật mặt sau, 3 nút đánh giá **Khó / Tốt / Dễ** hiển thị chính xác thời gian hẹn ôn lại tiếp theo (ví dụ: `10 phút`, `1 ngày`, `4 ngày`).
+     - Màn hình tổng kết sau khi hoàn thành phiên ôn (số thẻ đã thuộc, thời gian ôn tiếp theo).
+  3. **Xuất / Nhập File JSON & Chia sẻ Cộng đồng**:
+     - Nút **Xuất File (.json)** trên từng thư mục để tải xuống trọn vẹn thư mục đó (bao gồm mọi thư mục con bên trong).
+     - Nút **Nhập File (.json)** cho phép kéo-thả hoặc chọn tệp để import thành thư mục mới hoặc gộp vào thư mục hiện có, kèm hộp thoại xem trước nội dung trước khi lưu.
+     - Khi cấu hình Supabase sẵn sàng: có thêm mục **Tài khoản & Đồng bộ** và nút **Chia sẻ công khai** tạo mã/đường dẫn chia sẻ (ví dụ `/share/:slug`) để người khác xem trước, ôn tập thử ngay hoặc **Lưu bản sao về thư mục cá nhân**.
 
-### Quyết định 2: Tách biệt số nét hiển thị và số nét đồ họa
-- **Cách làm**:
-  - `displayStrokes`: Lấy từ bộ từ điển 214 Bộ thủ (`RADICALS_LIST`) để người dùng ôn thi JLPT / Hán ngữ tiêu chuẩn.
-  - `graphicPathCount`: Đếm thực tế số thẻ `<path>` bên trong cụm `<g>` của SVG KanjiVG để phục vụ vòng lặp vẽ SVG, highlight từng nét một cách chính xác tuyệt đối.
+- **Visual Identity & Theme**:
+  - *Aesthetic Direction*: Kế thừa phong cách sáng sủa, tinh gọn, tập trung vào việc đọc và ghi nhớ của ứng dụng Luyện Kanji hiện tại (Editorial Educational Workspace).
+  - *Color Palette & Mood*: Tuân thủ tỷ lệ **60-30-10**: 60% nền trắng/xám nhạt trung tính (`--background: #F8FAFC`), 30% bề mặt thẻ trắng sạch với đường viền mảnh (`1px solid #E2E8F0`), 10% màu nhấn chủ đạo **Teal (`#0F766E`)** cho hành động chính; sử dụng màu ngữ nghĩa đi kèm nhãn chữ rõ ràng cho 3 mức SRS: **Khó** (Coral/Rose `#DC2626` + nhãn), **Tốt** (Azure/Blue `#0284C7` + nhãn), **Dễ** (Emerald `#059669` + nhãn).
+  - *Typography & Hierarchy*: Giữ cặp font hiện tại của dự án cho chữ Latinh và font Kanji sắc nét cho mặt trước Flashcard (cỡ chữ lớn `clamp(3rem, 6vw, 4.5rem)`), số đếm thẻ và khoảng thời gian sử dụng `tabular-nums` để căn thẳng hàng.
+  - *Component Styling & Layout*: Bố cục 2 vùng rõ ràng trên màn hình desktop (Sidebar cây thư mục 30% + Vùng bảng Kanji / Sân khấu Flashcard 70%), tránh lồng thẻ trong thẻ quá 1 cấp, dùng khoảng trắng và đường kẻ mảnh thay vì viền trái dày.
+
+- **Interactive Feedback & Motion**:
+  - Hiệu ứng lật thẻ 3D CSS `rotateY(180deg)` mượt mà, hỗ trợ phím tắt bàn phím (`Space` để lật thẻ, `1 / 2 / 3` cho Khó / Tốt / Dễ).
+  - Trạng thái rỗng (Empty State) rõ ràng khi thư mục chưa có Kanji hoặc khi đã hoàn thành hết thẻ cần ôn trong ngày (kèm nút "Ôn tập lại tất cả" nếu muốn luyện thêm).
 
 ---
 
-## 4. Technical Architecture & Data Strategy
+### 3. Key Product Decisions & Trade-Offs
 
-### 4.1. Cấu trúc dữ liệu mở rộng cho `RadicalComponent` & `KanjiDecomposition`
+- **Decision 1: Kiến trúc lưu trữ Offline-first kết hợp đồng bộ Supabase tùy chọn**
+  - *Chosen Approach*: Lưu trữ cục bộ toàn bộ cây thư mục, bảng Kanji, từ ghép và trạng thái SRS trong `localStorage` qua một tầng dịch vụ trừu tượng (`StorageAdapter`), đồng thời cung cấp `SupabaseSyncAdapter` kích hoạt tự động khi có biến môi trường `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY`.
+  - *Why*: Người dùng có thể sử dụng ngay lập tức mọi tính năng tạo bài, học, ôn tập và xuất/nhập JSON mà không gặp rào cản đăng nhập hay lỗi khi chưa cấu hình DB; khi triển khai Supabase, chỉ cần điền `.env` là mở khóa Auth, đồng bộ đa thiết bị và kho chia sẻ cộng đồng an toàn qua Row Level Security (RLS).
+  - *Alternatives Considered*: Bắt buộc kết nối server/Supabase ngay từ đầu — bị loại vì làm gián đoạn trải nghiệm dùng thử ngoại tuyến.
 
-```typescript
-export interface RadicalComponent {
-  radical: string;              // Ký tự bộ thủ / thành phần (ví dụ '目', '儿', '彳')
-  hanViet?: string;             // Âm Hán Việt ('MỤC', 'NHI', 'XÍCH')
-  meaning?: string;             // Ý nghĩa ngữ nghĩa ('Con mắt', 'Người đứng')
-  strokeCount: number;          // Số nét chuẩn Khang Hy để hiển thị
-  actualPathCount: number;      // Số nét <path> thực tế đếm từ SVG (cho đồ họa)
-  pathIndices?: number[];       // Danh sách thứ tự nét (1-indexed) để highlight
-  positionType?: RadicalPositionType; // 'hen' | 'tsukuri' | 'kanmuri' | 'ashi' ...
-  positionName?: string;        // 'Phía trên (Kanmuri)', 'Phía dưới (Ashi)' ...
-  isPrimaryRadical?: boolean;   // true nếu chứa kvg:radical="general"
-  subComponents?: RadicalComponent[]; // Thành phần cấp 2 nếu có
-}
+- **Decision 2: Tách biệt lịch trình SRS cho Thẻ Kanji và từng Thẻ Từ ghép**
+  - *Chosen Approach*: Mỗi chữ Kanji trong bài có trạng thái SRS riêng, và mỗi từ ghép gắn với Kanji đó cũng là một thẻ ôn độc lập với lịch trình SRS riêng.
+  - *Why*: Người học có thể nhớ mặt chữ Kanji nhưng lại quên cách đọc một từ ghép khó (hoặc ngược lại). Việc tách thẻ giúp thuật toán Anki lặp lại đúng những từ ghép còn yếu mà không bắt ôn lại cả chữ Kanji đã thuộc.
+  - *Alternatives Considered*: Gộp từ ghép vào chung mặt sau của thẻ Kanji — bị loại theo xác nhận của người dùng để đảm bảo độ sâu ghi nhớ từ vựng.
 
-export interface KanjiDecomposition {
-  kanji: string;
-  hanViet: string;
-  primaryRadical: string;       // Tên bộ thủ chính xác định qua kvg:radical
-  isSelfRadical: boolean;       // true nếu cả chữ chính là một bộ thủ độc lập
-  directComponents: RadicalComponent[]; // Cấp 1: Các thành phần tạo nên chữ
-  allLeafComponents?: RadicalComponent[]; // Danh sách phẳng các bộ phận cơ bản nhất
-  mnemonicStory?: string;
-}
-```
+- **Decision 3: Thuật toán Anki SM-2 rút gọn với 3 nút bấm (Khó / Tốt / Dễ)**
+  - *Chosen Approach*: Sử dụng biến thể SM-2 với 3 mức đánh giá rõ ràng, có bảng cài đặt khoảng thời gian khởi tạo (mặc định: Khó `10m`, Tốt `1d`, Dễ `4d`) và tính toán `nextReviewAt`, `intervalMinutes`, `easeFactor`, `repetitions`.
+  - *Why*: Giữ giao diện đơn giản hơn Anki truyền thống (3 nút thay vì 4) nhưng vẫn giữ đúng bản chất giãn cách thời gian tăng dần theo trí nhớ dài hạn và cho phép tùy chỉnh mốc phút/ngày theo nhịp học cá nhân.
 
-### 4.2. Sơ đồ xử lý Parser KanjiVG XML
+---
+
+### 4. Technical Architecture & Data Strategy *(Technical Reference)*
+
+- **Architecture & Component Diagram**:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                 KanjiVG SVG Input (XML Text)                │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Parse XML DOM & Chuẩn hóa Namespace                      │
-│    - Sử dụng DOMParser an toàn với tiền tố kvg: và xmlns   │
-│    - Đọc root <g id="kvg:0898b" kvg:element="..." kvg:rad>  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 2. Nhận diện Bộ thủ chính (kvg:radical="general")           │
-│    - Nếu root có kvg:radical="general" -> isSelfRadical     │
-│    - Nếu thẻ con có kvg:radical -> Đánh dấu isPrimary       │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 3. Phân tách Cấp 1 (Direct Children) & Cấp 2 (Nested)       │
-│    - Quét các thẻ <g kvg:element> trực tiếp dưới root       │
-│    - Đọc kvg:position (top, bottom, left, right...)         │
-│    - Đệ quy nhẹ lấy subComponents cấp 2                     │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 4. Đo lường Nét: Dual Mapping                               │
-│    - Đếm thẻ <path> con -> actualPathCount & pathIndices    │
-│    - Tra cứu 214 Radicals Database -> strokeCount chuẩn     │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 5. Kết hợp Từ điển Hán-Việt & Ngữ nghĩa Component           │
-│    - Gắn Âm Hán-Việt & Ý nghĩa giải thích chi tiết          │
-│    - Trả về cấu trúc KanjiDecomposition chuẩn hóa           │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         UI Views & Components                           │
+│  ┌────────────────────┐  ┌──────────────────────┐  ┌─────────────────┐  │
+│  │  FolderTreeSidebar │  │  FolderKanjiTable &  │  │  FlashcardSrs   │  │
+│  │  (Phân cấp cha-con)│  │  CompoundWordsEditor │  │  ReviewSession  │  │
+│  └─────────┬──────────┘  └──────────┬───────────┘  └────────┬────────┘  │
+│            │                        │                       │           │
+│  ┌─────────▼────────────────────────▼───────────────────────▼────────┐  │
+│  │               Decks & SRS Context / State Manager                 │  │
+│  │  • Quản lý cây thư mục & gom thẻ đệ quy từ thư mục cha            │  │
+│  │  • Tính toán lịch ôn SRS (Anki 3 mức: Khó / Tốt / Dễ)             │  │
+│  │  • Export / Import JSON Validator & Merger                        │  │
+│  └─────────┬───────────────────────────────────────────────┬─────────┘  │
+└────────────┼───────────────────────────────────────────────┼────────────┘
+             │                                               │
+             ▼                                               ▼
+┌──────────────────────────┐                   ┌──────────────────────────┐
+│  LocalStorage Persistence│                   │  Supabase Client (Optional│
+│  (Luôn hoạt động 100%)   │◄── Sync Engine ──►│  Auth + Postgres + RLS)  │
+└──────────────────────────┘                   └──────────────────────────┘
+                                                             │
+                                               ┌─────────────▼────────────┐
+                                               │  Public Shared Decks     │
+                                               │  (/share/:slug -> Clone) │
+                                               └──────────────────────────┘
 ```
 
-### 4.3. Các bước triển khai cụ thể
+- **Data Model & State**:
+  - **Folder (`StudyFolder`)**: `id`, `parentId` (null nếu là thư mục gốc), `name`, `description`, `sortOrder`, `isPublic`, `shareSlug`, `createdAt`, `updatedAt`.
+  - **Kanji Entry (`FolderKanjiItem`)**: `id`, `folderId`, `kanji`, `hanViet`, `onReadings`, `kunReadings`, `meanings`, `srsState` (`dueAt`, `intervalMinutes`, `easeFactor`, `repetitions`, `lastRating`), `compoundWords[]`.
+  - **Compound Word (`CompoundWordCard`)**: `id`, `word`, `reading` (Hiragana/Katakana), `hanViet`, `meaning`, `srsState` (độc lập với thẻ Kanji).
+  - **SRS Settings (`SrsConfig`)**: `hardMinutes` (mặc định 10), `goodDays` (mặc định 1), `easyDays` (mặc định 4).
+  - **JSON Export Bundle (`KanjiDeckExportBundle`)**: `schemaVersion`, `exportedAt`, `rootFolder`, `folders[]` (toàn bộ cây con), `items[]` (Kanji + từ ghép).
 
-1. **Cập nhật Types (`src/types/radical.ts`)**:
-   - Bổ sung `isPrimaryRadical?: boolean`, `actualPathCount?: number`, `pathIndices?: number[]`, `subComponents?: RadicalComponent[]`, `isSelfRadical?: boolean`, `directComponents: RadicalComponent[]`.
-2. **Nâng cấp Parser (`src/utils/kanjiSubElementParser.ts`)**:
-   - Viết lại hàm `parseKanjiVgSvgXml` với thuật toán phân tầng đệ quy 2 cấp độ.
-   - Nhận diện chính xác `kvg:radical="general"` (cả ở root node lẫn child nodes).
-   - Đếm số lượng và thu thập index các thẻ `<path>` thuộc về từng `<g>`.
-   - Bổ sung định nghĩa ý nghĩa và âm Hán Việt cho các bộ thường gặp như `儿` (NHI - Người đứng, con cái), `見` (KIẾN - Nhìn thấy), v.v.
-3. **Cập nhật Giao diện So Sánh (`src/components/KanjiCompareView.tsx`)**:
-   - Hiển thị công thức cấp 1 rõ ràng: `chữ = bộ_1 + bộ_2`.
-   - Gắn huy hiệu `★ BỘ THỦ CHÍNH` cho component mang `isPrimaryRadical`.
-   - Nút mở rộng/thu gọn cấp 2 cho các component có `subComponents`.
-   - Cung cấp visual stroke path preview khi tương tác.
-4. **Cập nhật Cây Phân Nhánh (`src/components/KanjiRadicalTree.tsx`)**:
-   - Hỗ trợ hiển thị 2 cấp độ phân tầng trực quan với nhánh cây SVG chuẩn xác.
-5. **Kiểm thử xác thực**:
-   - Kiểm tra kỹ các trường hợp kinh điển:
-     - `見` -> `目` (trên) + `儿` (dưới), bộ thủ chính là `見` (hoặc `目` theo quy ước).
-     - `待`, `持`, `特` -> tách vế trái (`彳`, `扌`, `牜` - có huy hiệu Bộ thủ chính) và vế phải `寺` (mở rộng được thành `土` + `寸`).
-     - Chữ 3 thành phần như `樹`, `微`, `徴`.
-     - Xác thực TypeScript (`compile_applet`) và Linter (`lint_applet`).
+- **Interactive Component & State Mapping**:
+  - **Cây thư mục**: Tạo thư mục gốc/con, đổi tên inline, xóa (có xác nhận), click chọn thư mục để nạp toàn bộ item thuộc thư mục đó và mọi thư mục con đệ quy.
+  - **Bảng Kanji & Từ ghép**: Ô nhập nhanh chuỗi Kanji -> tự động tách ký tự Hán duy nhất và tra từ điển nội bộ để điền sẵn Hán-Việt/âm/nghĩa -> cho phép chỉnh sửa trực tiếp; mỗi hàng Kanji mở rộng được danh sách từ ghép để thêm/sửa/xóa cặp *(Từ ghép | Cách đọc | Hán-Việt | Nghĩa)*.
+  - **Phiên ôn Flashcard SRS**: Lọc danh sách thẻ đến hạn (`dueAt <= now`) từ thư mục đang chọn (bao gồm cây con); thao tác lật thẻ cập nhật `srsState` và đẩy lại vào hàng đợi (nếu chọn *Khó* trong phiên, thẻ có thể được xếp lại để ôn lại cuối phiên hoặc sau X phút).
+  - **Xuất / Nhập & Chia sẻ Supabase**: Đọc/ghi tệp `.json` qua Blob/FileReader; nếu có Supabase Auth, cung cấp modal Đăng nhập/Đăng ký, nút "Đồng bộ lên Cloud", và công tắc "Chia sẻ công khai" sinh đường dẫn `/share/:slug` cho phép người dùng khác xem và nhấn "Lưu vào thư mục của tôi".
+- **Database Schema (Supabase SQL Migration Reference)**: Cung cấp sẵn tệp hướng dẫn SQL (`folders`, `folder_kanji_items`, `compound_words`, `public_shares`) kèm chính sách RLS chuẩn (chủ sở hữu toàn quyền đọc/ghi; mọi người được phép đọc các thư mục đánh dấu `is_public = true`) để người dùng dán vào Supabase SQL Editor khi triển khai.

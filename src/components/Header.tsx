@@ -24,6 +24,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           title: 'Nét viết Kanji',
           subtitle: `${extractedKanjiList.length} chữ Kanji trích xuất · Hoạt ảnh thứ tự nét vẽ SVG`,
         };
+      case '/decks':
+        return {
+          title: 'Ôn tập Kanji theo bài',
+          subtitle: 'Thư mục phân cấp, từ ghép & Flashcard SRS chuẩn Anki',
+        };
       case '/romaji':
         return {
           title: 'Phiên âm Romaji',

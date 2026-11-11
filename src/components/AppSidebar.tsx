@@ -16,9 +16,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Menu,
-  Columns3
+  Columns3,
+  FolderKanban
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
+import { useDecks } from '../context/DeckContext';
 
 interface AppSidebarProps {
   isCollapsed: boolean;
@@ -39,6 +41,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     setIsPrintModalOpen,
     setIsSettingsOpen
   } = useKanji();
+  const { folders, getDueCountForFolderRecursive } = useDecks();
+  const totalDueCount = folders
+    .filter((f) => f.parentId === null)
+    .reduce((sum, f) => sum + getDueCountForFolderRecursive(f.id), 0);
 
   const effectiveCollapsed = isMobileOpen ? false : isCollapsed;
 
@@ -56,6 +62,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       icon: PenTool,
       badge: extractedKanjiList.length > 0 ? extractedKanjiList.length : null,
       desc: 'Bảng nét & hoạt ảnh SVG động',
+    },
+    {
+      to: '/decks',
+      label: 'Ôn tập theo bài',
+      icon: FolderKanban,
+      badge: totalDueCount > 0 ? totalDueCount : null,
+      desc: 'Thư mục bài học, từ ghép & Flashcard SRS',
     },
     {
       to: '/compare',

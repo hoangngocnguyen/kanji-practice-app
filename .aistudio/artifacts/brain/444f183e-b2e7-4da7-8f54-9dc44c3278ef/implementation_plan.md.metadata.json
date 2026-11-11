@@ -1,6 +1,6 @@
 {
-  "summary":  "Kế hoạch cải tiến thuật toán bóc tách bộ thủ KanjiVG XML 2 cấp độ: nhận diện chính xác kvg:radical=\"general\" làm Bộ thủ chính, bóc tách cấp 1 trực tiếp (như 見 = 目 ở trên + 儿 ở dưới) và mở rộng chi tiết cấp 2, đếm số thẻ path thực tế phục vụ đồ họa đồng thời lấy số nét chuẩn 214 Khang Hy để hiển thị.",
-  "updatedAt":  "2026-11-09T16:32:44.495507772Z",
+  "summary":  "Kế hoạch nâng cấp hệ thống Ôn tập Kanji theo thư mục phân cấp, Flashcard kép (Kanji & Từ ghép), Ôn tập ngắt quãng SRS chuẩn Anki (Khó/Tốt/Dễ), Xuất/Nhập JSON và Đồng bộ/Chia sẻ cộng đồng qua Supabase (Offline-first).",
+  "updatedAt":  "2026-11-11T07:06:49.254151859Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
