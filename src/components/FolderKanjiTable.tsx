@@ -13,12 +13,14 @@ import {
   Check,
   X,
   Share2,
+  ListPlus,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
 import { FolderKanjiItem, ReviewFilterMode } from '../types/deck';
 import { speakJapanese } from '../utils/speech';
 import { formatIntervalLabel } from '../utils/srsAlgorithm';
+import { BatchImportLessonModal } from './BatchImportLessonModal';
 
 interface FolderKanjiTableProps {
   onStartReview: (mode: ReviewFilterMode, onlyDue: boolean) => void;
@@ -52,6 +54,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
   const [kanjiInput, setKanjiInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
   const [expandedItemIds, setExpandedItemIds] = useState<Record<string, boolean>>({});
   const [editingKanjiId, setEditingKanjiId] = useState<string | null>(null);
   const [editHv, setEditHv] = useState('');
@@ -258,6 +261,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>{isAdding ? 'Đang thêm...' : 'Thêm vào bảng'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsBatchImportOpen(true)}
+            className="h-10 px-3.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            title="Nhập hàng loạt Kanji kèm từ ghép bằng Text hoặc JSON"
+          >
+            <ListPlus className="w-4 h-4 text-teal-700" />
+            <span>Nhập hàng loạt</span>
           </button>
         </form>
       </div>
@@ -559,6 +571,13 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
           </div>
         )}
       </div>
+
+      <BatchImportLessonModal
+        isOpen={isBatchImportOpen}
+        folderId={selectedFolder.id}
+        folderName={selectedFolder.name}
+        onClose={() => setIsBatchImportOpen(false)}
+      />
     </div>
   );
 };

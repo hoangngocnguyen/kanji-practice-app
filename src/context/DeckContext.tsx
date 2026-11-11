@@ -18,6 +18,7 @@ import {
 import { extractUniqueKanji } from '../utils/kanji';
 import { getKanjiInfo } from '../data/kanjiDictionary';
 import { getFullKanjiDetail } from '../utils/kanjiApi';
+import { ParsedLessonItemInput } from '../utils/batchLessonParser';
 import {
   fetchDecksFromCloud,
   getCurrentSupabaseUser,
@@ -193,6 +194,10 @@ interface DeckContextValue {
 
   // Kanji & Compound Word CRUD
   addKanjiListToFolder: (folderId: string, rawText: string) => Promise<number>;
+  batchImportItemsToFolder: (
+    folderId: string,
+    parsedItems: ParsedLessonItemInput[]
+  ) => Promise<{ addedKanji: number; mergedKanji: number; addedCompoundWords: number }>;
   updateKanjiItem: (itemId: string, patch: Partial<FolderKanjiItem>) => void;
   deleteKanjiItem: (itemId: string) => void;
   addCompoundWord: (
@@ -712,6 +717,142 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }, []);
 
+  const batchImportItemsToFolder = useCallback(
+    async (folderId: string, parsedItems: ParsedLessonItemInput[]) => {
+      if (parsedItems.length === 0) {
+        return { addedKanji: 0, mergedKanji: 0, addedCompoundWords: 0 };
+      }
+
+      const now = Date.now();
+      let addedKanji = 0;
+      let mergedKanji = 0;
+      let addedCompoundWords = 0;
+      const newlyCreatedItems: FolderKanjiItem[] = [];
+
+      setItems((prev) => {
+        const next = [...prev];
+
+        for (const parsed of parsedItems) {
+          const existingIdx = next.findIndex(
+            (it) => it.folderId === folderId && it.kanji === parsed.kanji
+          );
+
+          if (existingIdx >= 0) {
+            const existing = next[existingIdx];
+            const existingWords = new Set(
+              (existing.compoundWords || []).map((cw) => cw.word.trim())
+            );
+            const extraWords: CompoundWordCard[] = parsed.compoundWords
+              .filter((cw) => !existingWords.has(cw.word.trim()))
+              .map((cw) => {
+                existingWords.add(cw.word.trim());
+                return {
+                  id: genId(),
+                  word: cw.word.trim(),
+                  reading: cw.reading.trim(),
+                  hanViet: cw.hanViet.trim().toUpperCase(),
+                  meaning: cw.meaning.trim(),
+                  srsState: createInitialSrsState(now),
+                };
+              });
+
+            if (extraWords.length > 0) {
+              mergedKanji += 1;
+              addedCompoundWords += extraWords.length;
+              next[existingIdx] = {
+                ...existing,
+                compoundWords: [...(existing.compoundWords || []), ...extraWords],
+              };
+            }
+          } else {
+            const localInfo = getKanjiInfo(parsed.kanji);
+            const seenWords = new Set<string>();
+            const compoundWords: CompoundWordCard[] = [];
+            for (const cw of parsed.compoundWords) {
+              const w = cw.word.trim();
+              if (!w || seenWords.has(w)) continue;
+              seenWords.add(w);
+              compoundWords.push({
+                id: genId(),
+                word: w,
+                reading: cw.reading.trim(),
+                hanViet: cw.hanViet.trim().toUpperCase(),
+                meaning: cw.meaning.trim(),
+                srsState: createInitialSrsState(now),
+              });
+            }
+
+            const created: FolderKanjiItem = {
+              id: genId(),
+              folderId,
+              kanji: parsed.kanji,
+              hanViet: parsed.hanViet || localInfo?.hanViet || '',
+              onReadings: localInfo?.on || [],
+              kunReadings: localInfo?.kun || [],
+              meanings:
+                parsed.meanings && parsed.meanings.length > 0
+                  ? parsed.meanings
+                  : localInfo?.meanings || [],
+              strokeCount: localInfo?.strokeCount,
+              srsState: createInitialSrsState(now),
+              compoundWords,
+              createdAt: now,
+            };
+
+            next.push(created);
+            newlyCreatedItems.push(created);
+            addedKanji += 1;
+            addedCompoundWords += compoundWords.length;
+          }
+        }
+
+        return next;
+      });
+
+      // Enrich newly created Kanji items asynchronously
+      newlyCreatedItems.forEach((created) => {
+        getFullKanjiDetail(created.kanji)
+          .then((detail) => {
+            if (!detail) return;
+            setItems((prev) =>
+              prev.map((it) =>
+                it.id === created.id
+                  ? {
+                      ...it,
+                      hanViet: it.hanViet || detail.hanViet || '',
+                      onReadings:
+                        detail.on &&
+                        detail.on.length > 0 &&
+                        !detail.on[0].includes('Tra Mazii')
+                          ? detail.on
+                          : it.onReadings,
+                      kunReadings:
+                        detail.kun &&
+                        detail.kun.length > 0 &&
+                        !detail.kun[0].includes('Tra Mazii')
+                          ? detail.kun
+                          : it.kunReadings,
+                      meanings:
+                        detail.meanings &&
+                        detail.meanings.length > 0 &&
+                        !detail.meanings[0].includes('Tra Mazii') &&
+                        !detail.meanings[0].includes('Bấm "Xem nét')
+                          ? detail.meanings
+                          : it.meanings,
+                      strokeCount: detail.strokeCount || it.strokeCount,
+                    }
+                  : it
+              )
+            );
+          })
+          .catch(() => {});
+      });
+
+      return { addedKanji, mergedKanji, addedCompoundWords };
+    },
+    []
+  );
+
   // SRS Grading
   const gradeFlashcard = useCallback(
     (card: FlashcardReviewItem, rating: SrsRating) => {
@@ -1038,6 +1179,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         moveFolder,
         deleteFolder,
         addKanjiListToFolder,
+        batchImportItemsToFolder,
         updateKanjiItem,
         deleteKanjiItem,
         addCompoundWord,

@@ -147,10 +147,10 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   }, [currentCard, isFlipped, handleRate, handlePrevCard, handleNextCard]);
 
   return (
-    <div className="max-w-3xl mx-auto min-h-[calc(100dvh-7.5rem)] flex flex-col justify-between gap-3">
+    <div className="max-w-5xl mx-auto min-h-[calc(100dvh-7.5rem)] flex flex-col justify-between gap-3">
       {/* 1. Compact Top Control Bar + Progress */}
-      <div className="space-y-2 shrink-0">
-        <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2.5 sm:px-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="space-y-2 shrink-0 w-full max-w-3xl mx-auto">
+        <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 sm:px-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
@@ -161,7 +161,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="min-w-0">
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[180px] sm:max-w-[260px]">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[170px] sm:max-w-[280px]">
                 {folder?.name || 'Bài học'}
               </h2>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 tabular-nums">
@@ -187,7 +187,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => handleModeChange(tab.id)}
-                  className={`px-2 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                     filterMode === tab.id
                       ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
@@ -290,10 +290,10 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
         </div>
       </div>
 
-      {/* 2. Centered Card Stage */}
+      {/* 2. Centered Card + Action Group */}
       {!currentCard ? (
         <div className="flex-1 flex items-center justify-center py-4">
-          <div className="w-full max-w-[460px] bg-white rounded-2xl border border-slate-200/90 p-7 sm:p-8 text-center space-y-4 shadow-sm">
+          <div className="w-full max-w-[520px] bg-white rounded-2xl border border-slate-200/90 p-7 sm:p-8 text-center space-y-4 shadow-sm">
             <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
               <CheckCircle2 className="w-7 h-7" />
             </div>
@@ -341,8 +341,9 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
           </div>
         </div>
       ) : (
-        <>
-          <div className="flex-1 flex items-center justify-center gap-3 sm:gap-5 py-1">
+        <div className="flex-1 flex flex-col items-center justify-center gap-3.5 sm:gap-4 py-1">
+          {/* Card + Desktop Left/Right Arrows */}
+          <div className="w-full flex items-center justify-center gap-3 sm:gap-5">
             {/* Desktop Left Arrow */}
             <button
               type="button"
@@ -355,10 +356,10 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               <ChevronLeft className="w-5 h-5" />
             </button>
 
-            {/* Centered Flashcard (Card Proportion: max-w-[460px]) */}
+            {/* Fixed-Height Responsive Card (Front & Back identical dimensions) */}
             <div
               onClick={() => setIsFlipped((f) => !f)}
-              className="w-full max-w-[460px] bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[260px] sm:min-h-[300px] max-h-[calc(100dvh-16rem)] p-4 sm:p-6 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 active:scale-[0.995] overflow-y-auto"
+              className="w-full max-w-[480px] md:max-w-[600px] lg:max-w-[680px] h-[270px] sm:h-[320px] lg:h-[360px] bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 active:scale-[0.995] overflow-y-auto"
             >
               {/* Card Metadata Header */}
               <div className="flex items-center justify-between text-xs text-slate-500 shrink-0">
@@ -388,116 +389,129 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
 
               {/* Card Center Content */}
               {!isFlipped ? (
-                <div className="py-6 sm:py-8 text-center space-y-3 my-auto">
-                  <div className="font-kanji font-black text-5xl sm:text-6xl text-slate-900 tracking-wide">
+                <div className="text-center space-y-3 my-auto">
+                  <div className="font-kanji font-black text-6xl sm:text-7xl lg:text-8xl text-slate-900 tracking-wide leading-none">
                     {currentCard.cardType === 'kanji' ? currentCard.kanji : currentCard.word}
                   </div>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-xs text-slate-400">
                     Chạm vào thẻ hoặc nhấn Space để lật
                   </p>
                 </div>
               ) : (
-                <div className="py-2 space-y-3 my-auto animate-in fade-in duration-150">
+                <div className="my-auto animate-in fade-in duration-150">
                   {currentCard.cardType === 'kanji' ? (
-                    <>
-                      <div className="text-center space-y-0.5 border-b border-slate-100 pb-2.5">
-                        <div className="font-kanji font-black text-3xl text-teal-900">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-5 items-center">
+                      {/* Left Column: Kanji + Han-Viet + Stroke Button */}
+                      <div className="sm:col-span-5 flex sm:flex-col items-center sm:justify-center gap-3 sm:gap-2 sm:border-r sm:border-slate-100 sm:pr-4">
+                        <div className="font-kanji font-black text-5xl sm:text-6xl lg:text-7xl text-teal-900 leading-none shrink-0">
                           {currentCard.kanji}
                         </div>
-                        <div className="text-sm font-bold text-slate-900">
-                          {currentCard.hanViet || 'Chưa có âm Hán-Việt'}
+                        <div className="flex flex-col sm:items-center gap-1.5 min-w-0">
+                          <div className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                            {currentCard.hanViet || 'Chưa có Hán-Việt'}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectRecentKanji(currentCard.kanji);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-teal-800 hover:bg-teal-50 border border-teal-200 rounded-lg transition-colors cursor-pointer w-fit"
+                          >
+                            <PenTool className="w-3 h-3" />
+                            <span>Xem nét viết</span>
+                          </button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                          <span className="text-[10px] font-semibold text-slate-500 block">
-                            Âm On
-                          </span>
-                          <span className="font-mono font-bold text-slate-900 text-xs">
-                            {currentCard.onReadings.length > 0
-                              ? currentCard.onReadings.slice(0, 3).join(', ')
-                              : '—'}
-                          </span>
+                      {/* Right Column: On/Kun + Meaning */}
+                      <div className="sm:col-span-7 space-y-2 sm:space-y-2.5">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-semibold text-slate-500 block">
+                              Âm On
+                            </span>
+                            <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm break-words">
+                              {currentCard.onReadings.length > 0
+                                ? currentCard.onReadings.slice(0, 3).join(', ')
+                                : '—'}
+                            </span>
+                          </div>
+                          <div className="p-2 sm:p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-semibold text-slate-500 block">
+                              Âm Kun
+                            </span>
+                            <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm break-words">
+                              {currentCard.kunReadings.length > 0
+                                ? currentCard.kunReadings.slice(0, 3).join(', ')
+                                : '—'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                          <span className="text-[10px] font-semibold text-slate-500 block">
-                            Âm Kun
+
+                        <div className="p-2.5 sm:p-3.5 rounded-xl bg-teal-50/60 border border-teal-100">
+                          <span className="text-[10px] font-semibold text-teal-800 block mb-0.5">
+                            Ý nghĩa
                           </span>
-                          <span className="font-mono font-bold text-slate-900 text-xs">
-                            {currentCard.kunReadings.length > 0
-                              ? currentCard.kunReadings.slice(0, 3).join(', ')
-                              : '—'}
-                          </span>
+                          <p className="text-xs sm:text-sm lg:text-base font-semibold text-slate-900 line-clamp-3">
+                            {currentCard.meanings.length > 0
+                              ? currentCard.meanings.join(', ')
+                              : 'Chưa cập nhật nghĩa'}
+                          </p>
                         </div>
                       </div>
-
-                      <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-100 text-center">
-                        <p className="text-xs sm:text-sm font-semibold text-slate-900">
-                          {currentCard.meanings.length > 0
-                            ? currentCard.meanings.join(', ')
-                            : 'Chưa cập nhật nghĩa'}
-                        </p>
-                      </div>
-
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectRecentKanji(currentCard.kanji);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-teal-800 hover:bg-teal-50 border border-teal-200 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <PenTool className="w-3 h-3" />
-                          <span>Xem nét viết & Bộ thủ</span>
-                        </button>
-                      </div>
-                    </>
+                    </div>
                   ) : (
-                    <>
-                      <div className="text-center space-y-1 border-b border-slate-100 pb-2.5">
-                        <div className="font-kanji font-black text-3xl text-teal-900">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-5 items-center">
+                      {/* Left Column: Compound Word + Reading + Han-Viet */}
+                      <div className="sm:col-span-6 text-center sm:border-r sm:border-slate-100 sm:pr-4 space-y-1">
+                        <div className="font-kanji font-black text-4xl sm:text-5xl lg:text-6xl text-teal-900 leading-tight">
                           {currentCard.word}
                         </div>
                         {currentCard.reading && (
-                          <div className="font-mono text-sm font-bold text-slate-700">
+                          <div className="font-mono text-sm sm:text-base font-bold text-slate-700">
                             {currentCard.reading}
                           </div>
                         )}
                         {currentCard.wordHanViet && (
-                          <div className="text-xs font-bold text-teal-700">
+                          <div className="text-xs sm:text-sm font-bold text-teal-700">
                             {currentCard.wordHanViet}
                           </div>
                         )}
                       </div>
 
-                      <div className="p-3 rounded-xl bg-teal-50/60 border border-teal-100 text-center">
-                        <p className="text-sm font-bold text-slate-900">
-                          {currentCard.wordMeaning}
-                        </p>
-                      </div>
+                      {/* Right Column: Meaning + Root Kanji */}
+                      <div className="sm:col-span-6 space-y-2.5">
+                        <div className="p-3 sm:p-4 rounded-xl bg-teal-50/60 border border-teal-100 text-center sm:text-left">
+                          <span className="text-[10px] font-semibold text-teal-800 block mb-0.5">
+                            Nghĩa tiếng Việt
+                          </span>
+                          <p className="text-sm sm:text-base lg:text-lg font-bold text-slate-900">
+                            {currentCard.wordMeaning}
+                          </p>
+                        </div>
 
-                      <div className="text-center text-[11px] text-slate-500">
-                        Chữ gốc:{' '}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectRecentKanji(currentCard.kanji);
-                          }}
-                          className="font-kanji font-bold text-teal-800 hover:underline cursor-pointer"
-                        >
-                          {currentCard.kanji} ({currentCard.hanViet})
-                        </button>
+                        <div className="text-center sm:text-left text-xs text-slate-500">
+                          Chữ gốc:{' '}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectRecentKanji(currentCard.kanji);
+                            }}
+                            className="font-kanji font-bold text-teal-800 hover:underline cursor-pointer"
+                          >
+                            {currentCard.kanji} ({currentCard.hanViet})
+                          </button>
+                        </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Card Footer Hint */}
-              <div className="flex items-center justify-center text-[11px] text-slate-400 pt-1 shrink-0">
+              <div className="flex items-center justify-center text-[11px] text-slate-400 shrink-0">
                 {isFlipped ? (
                   <span>Chọn mức đánh giá bên dưới (1 · 2 · 3)</span>
                 ) : (
@@ -522,8 +536,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
             </button>
           </div>
 
-          {/* 3. Bottom Thumb-Zone Action Bar (max-w-[460px] aligned with Card) */}
-          <div className="w-full max-w-[460px] mx-auto space-y-2 shrink-0 pb-1">
+          {/* 3. Bottom Thumb-Zone Action Bar (aligned with Card width) */}
+          <div className="w-full max-w-[480px] md:max-w-[600px] lg:max-w-[680px] mx-auto space-y-2 shrink-0">
             {!isFlipped ? (
               <div className="flex items-center gap-2">
                 <button
@@ -556,17 +570,17 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => handleRate('hard')}
                     className="min-h-[48px] py-2 px-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-900 transition-colors cursor-pointer flex flex-col items-center justify-center"
                   >
-                    <span className="flex items-center gap-1 text-xs font-bold">
+                    <span className="flex items-center gap-1 text-xs sm:text-sm font-bold">
                       <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                       <span>1. Khó</span>
                     </span>
-                    <span className="text-[10px] font-mono tabular-nums text-rose-700">
+                    <span className="text-[10px] sm:text-[11px] font-mono tabular-nums text-rose-700">
                       {intervals.hard}
                     </span>
                   </button>
@@ -576,11 +590,11 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     onClick={() => handleRate('good')}
                     className="min-h-[48px] py-2 px-2 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-900 transition-colors cursor-pointer flex flex-col items-center justify-center"
                   >
-                    <span className="flex items-center gap-1 text-xs font-bold">
+                    <span className="flex items-center gap-1 text-xs sm:text-sm font-bold">
                       <ThumbsUp className="w-3.5 h-3.5 text-sky-600" />
                       <span>2. Tốt</span>
                     </span>
-                    <span className="text-[10px] font-mono tabular-nums text-sky-700">
+                    <span className="text-[10px] sm:text-[11px] font-mono tabular-nums text-sky-700">
                       {intervals.good}
                     </span>
                   </button>
@@ -590,11 +604,11 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     onClick={() => handleRate('easy')}
                     className="min-h-[48px] py-2 px-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 transition-colors cursor-pointer flex flex-col items-center justify-center"
                   >
-                    <span className="flex items-center gap-1 text-xs font-bold">
+                    <span className="flex items-center gap-1 text-xs sm:text-sm font-bold">
                       <Zap className="w-3.5 h-3.5 text-emerald-600" />
                       <span>3. Dễ</span>
                     </span>
-                    <span className="text-[10px] font-mono tabular-nums text-emerald-700">
+                    <span className="text-[10px] sm:text-[11px] font-mono tabular-nums text-emerald-700">
                       {intervals.easy}
                     </span>
                   </button>
@@ -606,7 +620,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     type="button"
                     onClick={handlePrevCard}
                     disabled={currentIndex <= 0}
-                    className="flex-1 h-10 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 disabled:opacity-30 flex items-center justify-center gap-1"
+                    className="flex-1 h-9 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 disabled:opacity-30 flex items-center justify-center gap-1"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     <span>Thẻ trước</span>
@@ -615,7 +629,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     type="button"
                     onClick={handleNextCard}
                     disabled={currentIndex >= queue.length - 1}
-                    className="flex-1 h-10 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 disabled:opacity-30 flex items-center justify-center gap-1"
+                    className="flex-1 h-9 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-600 disabled:opacity-30 flex items-center justify-center gap-1"
                   >
                     <span>Thẻ sau</span>
                     <ChevronRight className="w-4 h-4" />
@@ -624,7 +638,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
