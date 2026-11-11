@@ -37,6 +37,7 @@ export const DecksView: React.FC = () => {
     getDueCountForFolderRecursive,
     getItemsForFolderRecursive,
     buildExportBundle,
+    buildFullExportBundle,
     renameFolder,
     moveFolder,
     supabaseEnabled,
@@ -289,6 +290,26 @@ export const DecksView: React.FC = () => {
     },
     [buildExportBundle, folders]
   );
+
+  const handleExportAllFolders = useCallback(() => {
+    const bundle = buildFullExportBundle();
+    if (!bundle) {
+      showToast('error', 'Chưa có thư mục nào để xuất.');
+      return;
+    }
+
+    const json = JSON.stringify(bundle, null, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `luyen-kanji-toan-bo-thu-muc.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('success', `Đã xuất toàn bộ ${bundle.folders.length} thư mục.`);
+  }, [buildFullExportBundle, showToast]);
 
   // Global keyboard shortcuts for Google Drive-like navigation
   const anyModalOpen =
@@ -843,6 +864,17 @@ export const DecksView: React.FC = () => {
           >
             <Upload className="w-3.5 h-3.5 text-teal-700" />
             <span>Nhập JSON</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportAllFolders}
+            disabled={folders.length === 0}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+            title="Xuất toàn bộ cây thư mục và thẻ Kanji ra 1 file JSON"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Xuất toàn bộ</span>
           </button>
 
           <button

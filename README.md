@@ -1,7 +1,7 @@
-# ⛩️ Luyện Kanji - Japanese Kanji Learning & Stroke Order Platform (v3.1.0)
-### *(Học Chữ Hán, Tra Cứu Nét Viết, Bộ Thủ, Romaji & Dịch Thuật Nhật - Việt)*
+# ⛩️ Luyện Kanji - Japanese Kanji Learning & Stroke Order Platform (v3.2.0)
+### *(Học Chữ Hán, Bộ Thẻ Flashcard SRS, Tra Cứu Nét Viết, Bộ Thủ, Romaji & Dịch Thuật Nhật - Việt)*
 
-[![Version](https://img.shields.io/badge/version-v3.1.0-teal.svg)](https://luyenkanji.vercel.app)
+[![Version](https://img.shields.io/badge/version-v3.2.0-teal.svg)](https://luyenkanji.vercel.app)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
 [![React Router](https://img.shields.io/badge/React_Router-v7-ca4245.svg)](https://reactrouter.com)
 [![Vite](https://img.shields.io/badge/Vite-8-purple.svg)](https://vitejs.dev)
@@ -13,17 +13,19 @@
 
 ## 🇻🇳 Tiếng Việt (Vietnamese)
 
-### 📢 Bản phát hành mới: Luyện Kanji v3.1.0 (Phân tách Bộ thủ Đa cấp Đa tầng)
+### 📢 Bản phát hành mới: Luyện Kanji v3.2.0 (Quản lý Bộ thẻ kiểu Google Drive, Nhập hàng loạt & Flashcard SRS Tập trung)
 
-Bản cập nhật **v3.1.0** nâng cấp thuật toán bóc tách bộ thủ KanjiVG lên mức độ chuyên sâu: hiển thị cấu trúc phân tầng (Cấp 1, 2, 3), hỗ trợ nút bấm toggle mở rộng/thu gọn các nhánh thành phần con trực quan, và gắn huy hiệu ★ Bộ thủ chính chuẩn xác cho 214 Bộ thủ Khang Hy. Cải thiện giao diện so sánh Kanji đồng bộ chiều cao ngang hàng.
-
-Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng dụng sang hệ thống **React Router DOM đa trang chuẩn mực**, loại bỏ hoàn toàn các thành phần lặp lại và mang lại trải nghiệm mượt mà, tối giản:
+Bản cập nhật **v3.2.0** nâng cấp toàn diện hệ thống quản lý bộ thẻ học Kanji và ôn tập SRS:
+- **Trải nghiệm thư mục chuẩn Google Drive**: Click chọn 1 lần, nhấn đúp/`Enter` để mở (chạm 1 lần trên Mobile), bấm `F2` đổi tên trực tiếp trên dòng, chuột phải mở Context Menu, kéo-thả di chuyển thư mục và điều hướng bàn phím (`↑↓←→`, `Del`).
+- **Tạo cả cấu trúc thư mục & Sao lưu toàn bộ**: Tạo nhanh hàng loạt thư mục cha–con chỉ trong 1 lần nhập (thụt đầu dòng hoặc đường dẫn `/`), kèm nút **Xuất toàn bộ** cây thư mục ra 1 file `.json`.
+- **Nhập hàng loạt & Modal Chi tiết Kanji**: Hỗ trợ nhập Kanji kèm từ ghép bằng Cú pháp Text nhanh hoặc JSON tối giản cho AI (tự tra nghĩa/âm đọc Kanji), kèm Modal **Xem chi tiết** cho phép sửa/thêm/nhập hàng loạt từ ghép ngay bên trong.
+- **Modal Ôn tập Flashcard SRS Tập trung**: Khóa cuộn nền, căn giữa màn hình, bố cục 2 cột tối ưu, nút chuyển thẻ trái/phải và phím tắt `Space`, `←`/`→`, `1`/`2`/`3`.
 
 - **🌐 Định tuyến React Router Đa trang Chuẩn mực (F5 Không mất trang)**:
   - `/` hoặc `/input`: **Nhập văn bản** - Giao diện nhập liệu tinh gọn, bo góc mềm mại, tích hợp bộ gõ Kanji IME và bộ chuyển đổi cỡ chữ.
   - `/kanji`: **Nét viết Kanji** - Bảng tra nét vẽ, hoạt ảnh SVG động, thanh chọn nhanh Kanji Quick Bar 1-chạm, chế độ lưới kẻ ô mễ và modal luyện viết tay.
-  - `/decks`: **Quản lý Thư mục Bài học (Trải nghiệm kiểu Google Drive)** - Tổ chức thư mục phân cấp cha–con không giới hạn, tìm kiếm nhanh, chọn 1 lần & nhấn đúp/`Enter` để mở (chạm 1 lần trên Mobile), bấm `F2` đổi tên trực tiếp trên dòng, chuột phải mở Context Menu, kéo-thả (Drag & Drop) di chuyển thư mục, điều hướng bàn phím (`↑↓←→`, `Del`), Menu 3 chấm (`⋮`) và Xuất/Nhập `.json` (Gộp hoặc Tạo bản sao).
-  - `/decks/:folderId`: **Chi tiết Bài học, Nhập hàng loạt & Ôn tập Flashcard SRS** - Nhập nhanh danh sách Kanji hoặc dùng **Nhập hàng loạt** trực tiếp vào bài học bằng **Cú pháp Text nhanh** (`Kanji | TừGhép:CáchĐọc:HánViệt:Nghĩa`) và **JSON tối giản (AI)** (chỉ cần `kanji` + `compoundWords`, hệ thống tự tra nghĩa/âm đọc Kanji, kèm nút tải file JSON mẫu & sao chép Prompt cho AI, gộp thông minh không trùng lặp). Ôn tập **Flashcard kép + SRS chuẩn Anki** với thẻ căn giữa kích thước cố định, bố cục 2 cột tối ưu không gian, nút chuyển thẻ trái/phải (`←`/`→`) và phím tắt `Space`, `1`/`2`/`3`.
+  - `/decks`: **Quản lý Thư mục Bài học (Trải nghiệm kiểu Google Drive)** - Tổ chức thư mục phân cấp cha–con không giới hạn, tạo cả cấu trúc thư mục 1 lần, tìm kiếm nhanh, chọn 1 lần & nhấn đúp/`Enter` để mở (chạm 1 lần trên Mobile), bấm `F2` đổi tên trực tiếp, chuột phải mở Context Menu, kéo-thả (Drag & Drop) di chuyển thư mục, điều hướng bàn phím (`↑↓←→`, `Del`), **Xuất toàn bộ** & Nhập `.json` (Gộp hoặc Tạo bản sao).
+  - `/decks/:folderId`: **Chi tiết Bài học, Nhập hàng loạt & Ôn tập Flashcard SRS** - Nhập hàng loạt Kanji & từ ghép bằng **Cú pháp Text nhanh** hoặc **JSON tối giản (AI)**, mở Modal **Xem chi tiết** để sửa/thêm/nhập hàng loạt từ ghép, nút phát âm ngay cạnh chữ Kanji, và ôn tập **Flashcard kép + SRS chuẩn Anki** trong Modal tập trung toàn màn hình.
   - `/share/:slug`: **Xem & Ôn bộ bài chia sẻ công khai** - Mở liên kết chia sẻ từ bạn bè/cộng đồng để ôn thử Flashcard ngay hoặc lưu về thư mục cá nhân (kích hoạt khi cấu hình Supabase).
   - `/romaji`: **Phiên âm Romaji** - Trang chuyên biệt hiển thị các cặp dòng song song `[JP]` & `[ROMAJI]` chuẩn Hepburn, phân tách từ ghép rõ ràng, kèm tính năng phát âm và sao chép.
   - `/translate`: **Dịch câu song ngữ** - Trang dịch thuật chuyên biệt Nhật - Việt với công nghệ Google Dịch & Gemini AI.
@@ -51,16 +53,14 @@ Bản cập nhật **v3.1.0** tái cấu trúc toàn diện kiến trúc ứng d
 
 ## 🌐 English
 
-### 📢 Release: Luyện Kanji v3.1.0 (Multi-level Radical Decomposition)
+### 📢 Release: Luyện Kanji v3.2.0 (Google Drive-style Decks, Batch Import & Focused SRS Modal)
 
-Version **v3.1.0** upgrades the KanjiVG radical decomposition algorithm to provide deep, multi-level structural insights: it displays hierarchical component structures (Levels 1, 2, & 3), introduces toggle buttons for interactive expansion/collapse of sub-component branches, and accurately marks ★ Primary Radicals for all 214 Kangxi radicals. It also refines the Kanji comparison interface with standardized, row-aligned card heights.
-
-Version **v3.1.0** introduces a complete architectural overhaul to **React Router DOM SPA**:
+Version **v3.2.0** transforms deck management and SRS review into a fast, distraction-free study workflow:
 - **🌐 React Router Deep-linking (F5 Persistent Navigation)**:
   - `/` / `/input`: Minimalist, focused Japanese text input area with IME support.
   - `/kanji`: Dedicated stroke order list, SVG animation, practice modal, and horizontal Quick Bar.
-  - `/decks`: **Hierarchical Study Folders (Google Drive-style UX)** — Manage nested parent/child folders with search, single-click select & double-click/`Enter` to open (single-tap on mobile touchscreens), `F2` inline rename, right-click context menu, drag-and-drop folder moving with cycle guard, keyboard navigation (`↑↓←→`, `Del`), and JSON Export/Import (Smart Merge or Copy).
-  - `/decks/:folderId`: **Folder Detail, Batch Import & Responsive SRS Flashcards** — Batch-import Kanji and compound words directly into a lesson via **Quick Text Syntax** or **Minimalist AI-friendly JSON** (only `kanji` and `compoundWords` required—Kanji meanings/readings are auto-looked-up, with Sample JSON download & AI Prompt copy, plus smart merge). Review with fixed-height centered dual Flashcards featuring a 2-column back layout, left/right navigation arrows, and customizable 3-level SRS intervals (`Space`, `1`/`2`/`3`).
+  - `/decks`: **Hierarchical Study Folders (Google Drive-style UX)** — Manage nested parent/child folders, bulk-create entire folder trees (indentation or `/` paths), **Export All** folders in one JSON, single-click select & double-click/`Enter` to open (single-tap on mobile), `F2` inline rename, right-click context menu, drag-and-drop moving with cycle guard, keyboard navigation (`↑↓←→`, `Del`), and smart JSON Merge/Copy import.
+  - `/decks/:folderId`: **Folder Detail, Batch Import & Focused SRS Modal** — Batch-import Kanji and compound words via **Quick Text Syntax** or **Minimalist AI-friendly JSON**, open the wide **Kanji Detail Modal** to edit/add/batch-import compound words, and review inside a **full-viewport focused Flashcard SRS Modal** (scroll-locked, centered fixed-height 2-column cards, `Space`, `←`/`→`, `1`/`2`/`3`).
   - `/share/:slug`: **Public Shared Deck Viewer** — Practice or clone shared community decks (when Supabase is configured).
   - `/romaji`: Dedicated Hepburn Romaji transliteration reading view with side-by-side line pairs.
   - `/translate`: Focused Japanese-Vietnamese translation powered by Google Translate & Gemini AI.

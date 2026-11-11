@@ -159,6 +159,11 @@ function createStarterData(): { folders: StudyFolder[]; items: FolderKanjiItem[]
   return { folders, items };
 }
 
+export interface FolderTreeNodeInput {
+  name: string;
+  children: FolderTreeNodeInput[];
+}
+
 interface DeckContextValue {
   folders: StudyFolder[];
   items: FolderKanjiItem[];
@@ -185,6 +190,10 @@ interface DeckContextValue {
     parentId: string | null,
     description?: string
   ) => { ok: boolean; error?: string; folder?: StudyFolder };
+  createFolderTree: (
+    parentId: string | null,
+    nodes: FolderTreeNodeInput[]
+  ) => { createdCount: number; skippedCount: number };
   renameFolder: (
     id: string,
     name: string,
@@ -224,6 +233,7 @@ interface DeckContextValue {
 
   // JSON Export / Import
   buildExportBundle: (folderId: string) => KanjiDeckExportBundle | null;
+  buildFullExportBundle: () => KanjiDeckExportBundle | null;
   detectImportConflicts: (
     bundle: KanjiDeckExportBundle,
     targetParentId: string | null
@@ -511,6 +521,68 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { ok: true, folder: newFolder };
     },
     [folders, isDuplicateFolderName]
+  );
+
+  const createFolderTree = useCallback(
+    (
+      parentId: string | null,
+      nodes: FolderTreeNodeInput[]
+    ): { createdCount: number; skippedCount: number } => {
+      if (nodes.length === 0) return { createdCount: 0, skippedCount: 0 };
+
+      const now = Date.now();
+      const allKnown = [...folders];
+      const created: StudyFolder[] = [];
+      let skippedCount = 0;
+
+      const walk = (nodeList: FolderTreeNodeInput[], currentParentId: string | null) => {
+        for (const node of nodeList) {
+          const cleanName = node.name.trim();
+          if (!cleanName) continue;
+
+          const existing = allKnown.find(
+            (f) =>
+              f.parentId === currentParentId &&
+              f.name.trim().toLowerCase() === cleanName.toLowerCase()
+          );
+
+          let targetId: string;
+          if (existing) {
+            targetId = existing.id;
+            skippedCount += 1;
+          } else {
+            const siblingsCount = allKnown.filter(
+              (f) => f.parentId === currentParentId
+            ).length;
+            const newFolder: StudyFolder = {
+              id: genId(),
+              parentId: currentParentId,
+              name: cleanName,
+              sortOrder: siblingsCount,
+              createdAt: now,
+              updatedAt: now,
+            };
+            allKnown.push(newFolder);
+            created.push(newFolder);
+            targetId = newFolder.id;
+          }
+
+          if (node.children.length > 0) {
+            walk(node.children, targetId);
+          }
+        }
+      };
+
+      walk(nodes, parentId);
+
+      if (created.length > 0) {
+        setFolders((prev) => [...prev, ...created]);
+        setSelectedFolderId(created[0].id);
+      }
+
+      return { createdCount: created.length, skippedCount };
+    },
+    [folders]
   );
 
   const renameFolder = useCallback(
@@ -974,8 +1046,34 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [folders, items, getDescendantFolderIds]
   );
 
+  const buildFullExportBundle = useCallback((): KanjiDeckExportBundle | null => {
+    if (folders.length === 0) return null;
+    return {
+      schemaVersion: 1,
+      appName: 'LuyenKanji',
+      exportedAt: Date.now(),
+      rootFolderId: '__ALL__',
+      folders,
+      items,
+    };
+  }, [folders, items]);
+
   const detectImportConflicts = useCallback(
     (bundle: KanjiDeckExportBundle, targetParentId: string | null): string[] => {
+      if (bundle.rootFolderId === '__ALL__') {
+        const rootFoldersInBundle = bundle.folders.filter((f) => f.parentId === null);
+        const conflicts: string[] = [];
+        for (const rf of rootFoldersInBundle) {
+          const match = folders.find(
+            (f) =>
+              f.parentId === targetParentId &&
+              f.name.trim().toLowerCase() === rf.name.trim().toLowerCase()
+          );
+          if (match) conflicts.push(match.name);
+        }
+        return conflicts;
+      }
+
       const rootBundleFolder =
         bundle.folders.find((f) => f.id === bundle.rootFolderId) || bundle.folders[0];
       if (!rootBundleFolder) return [];
@@ -1005,27 +1103,32 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const folderIdMap = new Map<string, string>();
       const reusedFolderIds = new Set<string>();
       const createdFolders: StudyFolder[] = [];
+      const isFullAllBundle = bundle.rootFolderId === '__ALL__';
 
-      const rootIdInBundle =
-        bundle.folders.find((f) => f.id === bundle.rootFolderId)?.id ||
-        bundle.folders[0]?.id;
+      const rootIdInBundle = isFullAllBundle
+        ? null
+        : bundle.folders.find((f) => f.id === bundle.rootFolderId)?.id ||
+          bundle.folders[0]?.id;
 
       // Sort bundle folders top-down from root so parent mappings resolve in order
       const orderedBundleFolders: StudyFolder[] = [];
       const visited = new Set<string>();
-      if (rootIdInBundle) {
-        const queue = [rootIdInBundle];
-        while (queue.length > 0) {
-          const cid = queue.shift()!;
-          if (visited.has(cid)) continue;
-          const found = bundle.folders.find((f) => f.id === cid);
-          if (found) {
-            visited.add(cid);
-            orderedBundleFolders.push(found);
-            bundle.folders
-              .filter((child) => child.parentId === cid)
-              .forEach((child) => queue.push(child.id));
-          }
+      const queue: string[] = isFullAllBundle
+        ? bundle.folders.filter((f) => f.parentId === null).map((f) => f.id)
+        : rootIdInBundle
+        ? [rootIdInBundle]
+        : [];
+
+      while (queue.length > 0) {
+        const cid = queue.shift()!;
+        if (visited.has(cid)) continue;
+        const found = bundle.folders.find((f) => f.id === cid);
+        if (found) {
+          visited.add(cid);
+          orderedBundleFolders.push(found);
+          bundle.folders
+            .filter((child) => child.parentId === cid)
+            .forEach((child) => queue.push(child.id));
         }
       }
       bundle.folders.forEach((f) => {
@@ -1035,7 +1138,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const allKnownFolders = [...folders];
 
       for (const bf of orderedBundleFolders) {
-        const isRoot = bf.id === rootIdInBundle;
+        const isRoot = isFullAllBundle ? bf.parentId === null : bf.id === rootIdInBundle;
         const resolvedParentId = isRoot
           ? targetParentId
           : bf.parentId && folderIdMap.has(bf.parentId)
@@ -1251,6 +1354,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         getDueCountForFolderRecursive,
         isDuplicateFolderName,
         createFolder,
+        createFolderTree,
         renameFolder,
         moveFolder,
         deleteFolder,
@@ -1264,6 +1368,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteCompoundWord,
         gradeFlashcard,
         buildExportBundle,
+        buildFullExportBundle,
         detectImportConflicts,
         importDeckBundle,
         supabaseEnabled,

@@ -14,8 +14,10 @@ import {
   FolderInput,
   Pencil,
   Trash2,
+  Folder,
+  ListTree,
 } from 'lucide-react';
-import { useDecks } from '../context/DeckContext';
+import { FolderTreeNodeInput, useDecks } from '../context/DeckContext';
 import { KanjiDeckExportBundle, StudyFolder } from '../types/deck';
 import { signInWithSupabase, signUpWithSupabase } from '../utils/supabaseClient';
 
@@ -132,7 +134,10 @@ export const JsonImportModal: React.FC<JsonImportModalProps> = ({ isOpen, onClos
           {bundle && (
             <div className="p-3 rounded-xl bg-teal-50/60 border border-teal-200 space-y-2">
               <div className="font-bold text-teal-950">
-                Bộ bài: {rootFolderInBundle?.name || 'Thư mục nhập'}
+                Bộ bài:{' '}
+                {bundle.rootFolderId === '__ALL__'
+                  ? `Toàn bộ thư mục (${bundle.folders.length} thư mục)`
+                  : rootFolderInBundle?.name || 'Thư mục nhập'}
               </div>
               <div className="text-slate-600 tabular-nums">
                 Gồm <strong>{bundle.folders.length}</strong> thư mục ·{' '}
@@ -521,6 +526,80 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
   );
 };
 
+const SAMPLE_FOLDER_TREE_TEXT = `JLPT N5
+  Bài 1 · Gia đình & Con người
+  Bài 2 · Thời gian & Số đếm
+  Bài 3 · Thiên nhiên
+JLPT N4
+  Bài 1 · Công việc
+  Bài 2 · Giao thông`;
+
+function parseFolderTreeText(raw: string): FolderTreeNodeInput[] {
+  const roots: FolderTreeNodeInput[] = [];
+  const stack: { indent: number; node: FolderTreeNodeInput }[] = [];
+
+  const insertPath = (segments: string[]) => {
+    let currentList = roots;
+    for (const seg of segments) {
+      const clean = seg.trim();
+      if (!clean) continue;
+      let existing = currentList.find(
+        (n) => n.name.toLowerCase() === clean.toLowerCase()
+      );
+      if (!existing) {
+        existing = { name: clean, children: [] };
+        currentList.push(existing);
+      }
+      currentList = existing.children;
+    }
+  };
+
+  const lines = raw.split(/\r?\n/);
+  for (const rawLine of lines) {
+    if (!rawLine.trim() || rawLine.trim().startsWith('#')) continue;
+
+    // Normalize tabs to 2 spaces for consistent indentation calculation
+    const expanded = rawLine.replace(/\t/g, '  ');
+    const leadingSpaces = expanded.match(/^(\s*)/)?.[1].length || 0;
+    const stripped = expanded
+      .trim()
+      .replace(/^(?:[-*•]+|[├└│─]+)\s*/, '')
+      .trim();
+
+    if (!stripped) continue;
+
+    // Support slash path syntax: "JLPT N5 / Bài 1 / Phần A"
+    if (stripped.includes('/') && leadingSpaces === 0) {
+      const segments = stripped.split('/').map((s) => s.trim()).filter(Boolean);
+      if (segments.length > 0) {
+        insertPath(segments);
+        stack.length = 0;
+      }
+      continue;
+    }
+
+    const newNode: FolderTreeNodeInput = { name: stripped, children: [] };
+
+    while (stack.length > 0 && stack[stack.length - 1].indent >= leadingSpaces) {
+      stack.pop();
+    }
+
+    if (stack.length === 0) {
+      roots.push(newNode);
+    } else {
+      stack[stack.length - 1].node.children.push(newNode);
+    }
+
+    stack.push({ indent: leadingSpaces, node: newNode });
+  }
+
+  return roots;
+}
+
+function countTreeNodes(nodes: FolderTreeNodeInput[]): number {
+  return nodes.reduce((sum, n) => sum + 1 + countTreeNodes(n.children), 0);
+}
+
 interface FolderFormModalProps {
   isOpen: boolean;
   mode: 'create' | 'rename';
@@ -536,16 +615,35 @@ export const FolderFormModal: React.FC<FolderFormModalProps> = ({
   folder,
   onClose,
 }) => {
-  const { folders, isDuplicateFolderName, createFolder, renameFolder } = useDecks();
+  const {
+    folders,
+    isDuplicateFolderName,
+    createFolder,
+    createFolderTree,
+    renameFolder,
+  } = useDecks();
+  const [createTab, setCreateTab] = useState<'single' | 'tree'>('single');
   const [name, setName] = useState(mode === 'rename' && folder ? folder.name : '');
+  const [treeText, setTreeText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (isOpen) {
+      setCreateTab('single');
       setName(mode === 'rename' && folder ? folder.name : '');
+      setTreeText('');
       setError(null);
     }
   }, [isOpen, mode, folder]);
+
+  const parsedTree = React.useMemo(
+    () => (createTab === 'tree' ? parseFolderTreeText(treeText) : []),
+    [createTab, treeText]
+  );
+  const totalTreeNodes = React.useMemo(
+    () => countTreeNodes(parsedTree),
+    [parsedTree]
+  );
 
   if (!isOpen) return null;
 
@@ -562,6 +660,12 @@ export const FolderFormModal: React.FC<FolderFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'create') {
+      if (createTab === 'tree') {
+        if (totalTreeNodes === 0) return;
+        createFolderTree(parentId, parsedTree);
+        onClose();
+        return;
+      }
       const res = createFolder(name, parentId);
       if (!res.ok) {
         setError(res.error || 'Không thể tạo thư mục.');
@@ -577,11 +681,27 @@ export const FolderFormModal: React.FC<FolderFormModalProps> = ({
     onClose();
   };
 
+  const renderTreePreview = (nodes: FolderTreeNodeInput[], depth = 0): React.ReactNode =>
+    nodes.map((node, idx) => (
+      <React.Fragment key={`${depth}-${idx}-${node.name}`}>
+        <div
+          className="flex items-center gap-1.5 py-1 text-xs text-slate-700"
+          style={{ paddingLeft: `${depth * 18 + 8}px` }}
+        >
+          <Folder className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+          <span className="truncate font-medium">{node.name}</span>
+        </div>
+        {node.children.length > 0 && renderTreePreview(node.children, depth + 1)}
+      </React.Fragment>
+    ));
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4"
+        className={`bg-white rounded-2xl w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4 transition-all ${
+          mode === 'create' && createTab === 'tree' ? 'max-w-lg' : 'max-w-md'
+        }`}
       >
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -607,31 +727,110 @@ export const FolderFormModal: React.FC<FolderFormModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-2 text-xs">
-          <label className="block space-y-1.5">
-            <span className="font-semibold text-slate-700 block">Tên thư mục</span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
+        {mode === 'create' && (
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setCreateTab('single');
                 setError(null);
               }}
-              placeholder="Ví dụ: JLPT N3, Bài 5 - Gia đình..."
-              autoFocus
-              className="w-full px-3 py-2.5 text-sm bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700"
-            />
-          </label>
+              className={`py-1.5 px-3 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                createTab === 'single'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FolderPlus className="w-3.5 h-3.5 text-teal-700" />
+              <span>Tạo 1 thư mục</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreateTab('tree');
+                setError(null);
+              }}
+              className={`py-1.5 px-3 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                createTab === 'tree'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ListTree className="w-3.5 h-3.5 text-teal-700" />
+              <span>Tạo cả cấu trúc</span>
+            </button>
+          </div>
+        )}
 
-          {(isLiveDuplicate || error) && (
-            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>
-                {error || `Đã tồn tại thư mục "${name.trim()}" trong cùng cấp này.`}
-              </span>
+        {mode === 'create' && createTab === 'tree' ? (
+          <div className="space-y-3 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2">
+              <div className="text-[11px] text-slate-600 space-y-0.5">
+                <div>
+                  Thụt đầu dòng (Space/Tab) để tạo thư mục con, hoặc dùng dấu{' '}
+                  <code className="font-mono font-semibold text-teal-800">/</code> (vd:{' '}
+                  <code className="font-mono">N5 / Bài 1</code>).
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTreeText(SAMPLE_FOLDER_TREE_TEXT)}
+                className="px-2.5 py-1 text-[11px] font-semibold text-teal-800 bg-white hover:bg-teal-50 border border-teal-200 rounded-lg cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
+              >
+                Chèn mẫu bộ khung
+              </button>
             </div>
-          )}
-        </div>
+
+            <textarea
+              value={treeText}
+              onChange={(e) => setTreeText(e.target.value)}
+              rows={6}
+              placeholder={SAMPLE_FOLDER_TREE_TEXT}
+              autoFocus
+              className="w-full p-3 text-xs font-mono bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 leading-relaxed"
+            />
+
+            {totalTreeNodes > 0 && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                  <span>Xem trước cây thư mục</span>
+                  <span className="text-teal-700 tabular-nums">
+                    {totalTreeNodes} thư mục
+                  </span>
+                </div>
+                <div className="max-h-36 overflow-y-auto py-1.5 px-1 bg-white">
+                  {renderTreePreview(parsedTree)}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2 text-xs">
+            <label className="block space-y-1.5">
+              <span className="font-semibold text-slate-700 block">Tên thư mục</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Ví dụ: JLPT N3, Bài 5 - Gia đình..."
+                autoFocus
+                className="w-full px-3 py-2.5 text-sm bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700"
+              />
+            </label>
+
+            {(isLiveDuplicate || error) && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>
+                  {error || `Đã tồn tại thư mục "${name.trim()}" trong cùng cấp này.`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-1">
           <button
@@ -643,10 +842,18 @@ export const FolderFormModal: React.FC<FolderFormModalProps> = ({
           </button>
           <button
             type="submit"
-            disabled={!name.trim() || isLiveDuplicate}
+            disabled={
+              mode === 'create' && createTab === 'tree'
+                ? totalTreeNodes === 0
+                : !name.trim() || isLiveDuplicate
+            }
             className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl cursor-pointer disabled:cursor-not-allowed"
           >
-            {mode === 'create' ? 'Tạo thư mục' : 'Lưu thay đổi'}
+            {mode === 'create'
+              ? createTab === 'tree'
+                ? `Tạo ${totalTreeNodes > 0 ? totalTreeNodes : ''} thư mục`
+                : 'Tạo thư mục'
+              : 'Lưu thay đổi'}
           </button>
         </div>
       </form>
