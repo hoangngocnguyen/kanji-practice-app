@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ensureUserProfile, requireAuth, setCorsHeaders } from '../_lib/auth';
+import { ensureUserProfile, requireAuth, setCorsHeaders } from '../_lib/auth.js';
 import {
   computeServerDeckHash,
   dbCardRowToKanjiItem,
   dbDeckRowToFolder,
-} from '../_lib/hash';
+} from '../_lib/hash.js';
 
 export default async function handler(req: VercelRequest | any, res: VercelResponse | any) {
   setCorsHeaders(res);

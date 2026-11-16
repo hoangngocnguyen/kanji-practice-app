@@ -1,5 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { getSupabaseAdmin, isServerSupabaseConfigured } from './supabaseAdmin';
+import { getSupabaseAdmin, isServerSupabaseConfigured } from './supabaseAdmin.js';
 
 export function setCorsHeaders(res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');

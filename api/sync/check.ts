@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ensureUserProfile, requireAuth, setCorsHeaders } from '../_lib/auth';
+import { ensureUserProfile, requireAuth, setCorsHeaders } from '../_lib/auth.js';
 
 export type SyncCheckDecision = 'up_to_date' | 'auto_push' | 'auto_pull' | 'conflict';
 

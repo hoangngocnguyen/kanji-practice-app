@@ -2,12 +2,12 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import translateHandler from './api/translate';
-import profileHandler from './api/profile';
-import syncCheckHandler from './api/sync/check';
-import syncMergeHandler from './api/sync/merge';
-import syncPushHandler from './api/sync/push';
-import syncPullHandler from './api/sync/pull';
+import translateHandler from './api/translate.js';
+import profileHandler from './api/profile.js';
+import syncCheckHandler from './api/sync/check.js';
+import syncMergeHandler from './api/sync/merge.js';
+import syncPushHandler from './api/sync/push.js';
+import syncPullHandler from './api/sync/pull.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
