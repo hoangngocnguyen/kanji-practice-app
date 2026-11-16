@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Play,
   Plus,
@@ -15,6 +15,7 @@ import {
   ListPlus,
   MoreVertical,
   Eye,
+  AlertTriangle,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
@@ -48,7 +49,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     addKanjiListToFolder,
     updateKanjiItem,
     deleteKanjiItem,
-    supabaseEnabled,
+    deleteKanjiItems,
   } = useDecks();
 
   const { handleSelectRecentKanji } = useKanji();
@@ -65,6 +66,41 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   const [editHv, setEditHv] = useState('');
   const [editMeanings, setEditMeanings] = useState('');
 
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const masterCheckboxRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId) || null;
+  const folderItems = useMemo(
+    () => (selectedFolder ? getItemsForFolderRecursive(selectedFolder.id) : []),
+    [selectedFolder, getItemsForFolderRecursive]
+  );
+
+  // Reset selection when switching folders
+  useEffect(() => {
+    setSelectedItemIds([]);
+    setIsBulkDeleteModalOpen(false);
+  }, [selectedFolderId]);
+
+  // Prune any selected IDs that no longer exist in folderItems
+  useEffect(() => {
+    const validIds = new Set(folderItems.map((it) => it.id));
+    setSelectedItemIds((prev) => {
+      const next = prev.filter((id) => validIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [folderItems]);
+
+  const selectedIdSet = useMemo(() => new Set(selectedItemIds), [selectedItemIds]);
+  const allSelected = folderItems.length > 0 && selectedItemIds.length === folderItems.length;
+  const someSelected = selectedItemIds.length > 0 && selectedItemIds.length < folderItems.length;
+
+  useEffect(() => {
+    if (masterCheckboxRef.current) {
+      masterCheckboxRef.current.indeterminate = someSelected;
+    }
+  }, [someSelected]);
+
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
       if (kanjiMenuRef.current && !kanjiMenuRef.current.contains(e.target as Node)) {
@@ -72,7 +108,10 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       }
     };
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenKanjiMenuId(null);
+      if (e.key === 'Escape') {
+        setOpenKanjiMenuId(null);
+        setIsBulkDeleteModalOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleOutside);
     document.addEventListener('keydown', handleEsc);
@@ -81,8 +120,6 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       document.removeEventListener('keydown', handleEsc);
     };
   }, []);
-
-  const selectedFolder = folders.find((f) => f.id === selectedFolderId) || null;
 
   if (!selectedFolder) {
     return (
@@ -97,9 +134,35 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   }
 
   const breadcrumbs = getFolderPath(selectedFolder.id);
-  const folderItems = getItemsForFolderRecursive(selectedFolder.id);
   const folderNameMap = new Map(folders.map((f) => [f.id, f.name]));
   const hasSubfolders = folders.some((f) => f.parentId === selectedFolder.id);
+
+  const selectedItemsList = folderItems.filter((it) => selectedIdSet.has(it.id));
+  const selectedCompoundCount = selectedItemsList.reduce(
+    (sum, it) => sum + (it.compoundWords?.length || 0),
+    0
+  );
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedItemIds([]);
+    } else {
+      setSelectedItemIds(folderItems.map((it) => it.id));
+    }
+  };
+
+  const toggleSelectItem = (itemId: string) => {
+    setSelectedItemIds((prev) =>
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedItemIds.length === 0) return;
+    deleteKanjiItems(selectedItemIds);
+    setSelectedItemIds([]);
+    setIsBulkDeleteModalOpen(false);
+  };
 
   const dueCards = getReviewCardsForFolder(selectedFolder.id, 'all', true);
   const totalCompoundWords = folderItems.reduce(
@@ -280,14 +343,94 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {/* Table Column Header */}
-            <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-50/90 text-[11px] font-semibold text-slate-500 border-b border-slate-200/80 rounded-t-2xl">
-              <div className="col-span-2">Kanji</div>
-              <div className="col-span-2">Hán-Việt</div>
-              <div className="col-span-2">Âm On / Kun</div>
-              <div className="col-span-3">Nghĩa</div>
-              <div className="col-span-2">Từ ghép &amp; SRS</div>
-              <div className="col-span-1 text-right">Thao tác</div>
+            {/* Bulk Selection Action Bar */}
+            {selectedItemIds.length > 0 && (
+              <div className="px-4 py-2.5 bg-rose-50/90 border-b border-rose-200 rounded-t-2xl flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center flex-wrap gap-2 text-xs text-rose-950 tabular-nums">
+                  <span>
+                    Đã chọn <strong>{selectedItemIds.length}</strong> / {folderItems.length} thẻ Kanji
+                  </span>
+                  {selectedCompoundCount > 0 && (
+                    <>
+                      <span aria-hidden="true" className="text-rose-300">·</span>
+                      <span className="text-rose-800">
+                        {selectedCompoundCount} từ ghép đi kèm
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {!allSelected && (
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      Chọn tất cả ({folderItems.length})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemIds([])}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    Bỏ chọn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa đã chọn ({selectedItemIds.length})</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Mobile Select-All Bar */}
+            {selectedItemIds.length === 0 && (
+              <div className="flex md:hidden items-center justify-between px-4 py-2.5 bg-slate-50/90 border-b border-slate-200/80 rounded-t-2xl text-xs">
+                <label className="inline-flex items-center gap-2.5 cursor-pointer select-none text-slate-700 font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                  />
+                  <span className="tabular-nums">Chọn tất cả ({folderItems.length} thẻ)</span>
+                </label>
+              </div>
+            )}
+
+            {/* Desktop Table Column Header */}
+            <div
+              className={`hidden md:flex items-center gap-3 px-4 py-2.5 bg-slate-50/90 text-[11px] font-semibold text-slate-500 border-b border-slate-200/80 ${
+                selectedItemIds.length === 0 ? 'rounded-t-2xl' : ''
+              }`}
+            >
+              <label
+                className="w-7 h-7 -ml-1.5 flex items-center justify-center rounded-lg hover:bg-slate-200/60 cursor-pointer shrink-0"
+                title={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả thẻ'}
+              >
+                <input
+                  ref={masterCheckboxRef}
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  aria-label="Chọn tất cả thẻ Kanji"
+                  className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                />
+              </label>
+              <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
+                <div className="col-span-2">Kanji</div>
+                <div className="col-span-2">Hán-Việt</div>
+                <div className="col-span-2">Âm On / Kun</div>
+                <div className="col-span-3">Nghĩa</div>
+                <div className="col-span-2">Từ ghép &amp; SRS</div>
+                <div className="col-span-1 text-right">Thao tác</div>
+              </div>
             </div>
 
             {folderItems.map((item) => {
@@ -295,30 +438,49 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               const cwCount = item.compoundWords?.length || 0;
               const belongFolderName =
                 item.folderId !== selectedFolder.id ? folderNameMap.get(item.folderId) : null;
+              const isSelected = selectedIdSet.has(item.id);
 
               return (
-                <div key={item.id} className="transition-colors hover:bg-slate-50/50">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 px-4 py-3 items-center">
-                    {/* Kanji Character + Pronunciation button right next to it */}
-                    <div className="md:col-span-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectRecentKanji(item.kanji)}
-                        className="w-11 h-11 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 flex items-center justify-center font-kanji text-2xl font-black text-slate-900 hover:text-teal-800 transition-colors cursor-pointer shrink-0"
-                        title="Xem nét viết & bộ thủ"
-                      >
-                        {item.kanji}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => speakJapanese(item.kanji)}
-                        className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
-                        title="Nghe phát âm"
-                        aria-label="Nghe phát âm"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                <div
+                  key={item.id}
+                  className={`transition-colors ${
+                    isSelected ? 'bg-teal-50/50 hover:bg-teal-50/70' : 'hover:bg-slate-50/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <label
+                      className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0"
+                      title={isSelected ? 'Bỏ chọn thẻ' : 'Chọn thẻ'}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectItem(item.id)}
+                        aria-label={`Chọn thẻ ${item.kanji}`}
+                        className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                      />
+                    </label>
+                    <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                      {/* Kanji Character + Pronunciation button right next to it */}
+                      <div className="md:col-span-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectRecentKanji(item.kanji)}
+                          className="w-11 h-11 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 flex items-center justify-center font-kanji text-2xl font-black text-slate-900 hover:text-teal-800 transition-colors cursor-pointer shrink-0"
+                          title="Xem nét viết & bộ thủ"
+                        >
+                          {item.kanji}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => speakJapanese(item.kanji)}
+                          className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                          title="Nghe phát âm"
+                          aria-label="Nghe phát âm"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
+                      </div>
 
                     {/* Hán Việt & Source folder if viewing parent */}
                     <div className="md:col-span-2 min-w-0">
@@ -515,6 +677,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                         </>
                       )}
                     </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -522,6 +685,77 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
           </div>
         )}
       </div>
+
+      {/* Bulk Delete Confirmation Modal */}
+      {isBulkDeleteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setIsBulkDeleteModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h3 className="text-base font-bold text-slate-900">
+                  Xác nhận xóa {selectedItemsList.length} thẻ Kanji
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Các thẻ đã chọn sẽ bị xóa khỏi bài học{' '}
+                  <strong className="text-slate-900">{selectedFolder.name}</strong>.
+                  {selectedCompoundCount > 0 && (
+                    <>
+                      {' '}
+                      Đồng thời <strong className="text-rose-700">{selectedCompoundCount} thẻ từ ghép</strong>{' '}
+                      đi kèm cũng sẽ bị xóa theo.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {selectedItemsList.length > 0 && (
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-wrap gap-1.5">
+                {selectedItemsList.slice(0, 14).map((it) => (
+                  <span
+                    key={it.id}
+                    className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-kanji text-base font-bold text-slate-900"
+                  >
+                    {it.kanji}
+                  </span>
+                ))}
+                {selectedItemsList.length > 14 && (
+                  <span className="px-2.5 h-8 rounded-lg bg-slate-200/70 flex items-center justify-center text-xs font-semibold text-slate-700 tabular-nums">
+                    +{selectedItemsList.length - 14}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa {selectedItemsList.length} thẻ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BatchImportLessonModal
         isOpen={isBatchImportOpen}

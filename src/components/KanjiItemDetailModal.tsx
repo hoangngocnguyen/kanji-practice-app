@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Volume2,
@@ -32,6 +32,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
     addCompoundWord,
     updateCompoundWord,
     deleteCompoundWord,
+    deleteCompoundWords,
   } = useDecks();
   const { handleSelectRecentKanji } = useKanji();
 
@@ -52,9 +53,53 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
   const [newHanViet, setNewHanViet] = useState('');
   const [newMeaning, setNewMeaning] = useState('');
 
+  const [selectedWordIds, setSelectedWordIds] = useState<string[]>([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  useEffect(() => {
+    setSelectedWordIds([]);
+    setConfirmBulkDelete(false);
+  }, [item?.id]);
+
+  useEffect(() => {
+    if (!item) return;
+    const validIds = new Set(item.compoundWords.map((cw) => cw.id));
+    setSelectedWordIds((prev) => {
+      const next = prev.filter((id) => validIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [item]);
+
+  const selectedWordIdSet = useMemo(() => new Set(selectedWordIds), [selectedWordIds]);
+
   if (!item) return null;
 
   const isDue = item.srsState.dueAt <= Date.now();
+  const allWordsSelected =
+    item.compoundWords.length > 0 && selectedWordIds.length === item.compoundWords.length;
+
+  const toggleSelectAllWords = () => {
+    setConfirmBulkDelete(false);
+    if (allWordsSelected) {
+      setSelectedWordIds([]);
+    } else {
+      setSelectedWordIds(item.compoundWords.map((cw) => cw.id));
+    }
+  };
+
+  const toggleSelectWord = (wordId: string) => {
+    setConfirmBulkDelete(false);
+    setSelectedWordIds((prev) =>
+      prev.includes(wordId) ? prev.filter((id) => id !== wordId) : [...prev, wordId]
+    );
+  };
+
+  const handleConfirmBulkDeleteWords = () => {
+    if (selectedWordIds.length === 0) return;
+    deleteCompoundWords(item.id, selectedWordIds);
+    setSelectedWordIds([]);
+    setConfirmBulkDelete(false);
+  };
 
   const startEditKanji = () => {
     setEditHv(item.hanViet || '');
@@ -306,9 +351,77 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
               </div>
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                {/* Compound Word Selection Header */}
+                <div
+                  className={`px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs ${
+                    selectedWordIds.length > 0
+                      ? 'bg-rose-50/85 border-b border-rose-200'
+                      : 'bg-slate-50/90'
+                  }`}
+                >
+                  <label className="inline-flex items-center gap-2.5 cursor-pointer select-none font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={allWordsSelected}
+                      onChange={toggleSelectAllWords}
+                      className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                    />
+                    <span className="tabular-nums">
+                      {selectedWordIds.length > 0
+                        ? `Đã chọn ${selectedWordIds.length} / ${item.compoundWords.length} từ ghép`
+                        : `Chọn tất cả (${item.compoundWords.length})`}
+                    </span>
+                  </label>
+
+                  {selectedWordIds.length > 0 && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {!confirmBulkDelete ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedWordIds([])}
+                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
+                          >
+                            Bỏ chọn
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmBulkDelete(true)}
+                            className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Xóa đã chọn ({selectedWordIds.length})</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs font-semibold text-rose-900 mr-1">
+                            Xóa {selectedWordIds.length} thẻ?
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmBulkDelete(false)}
+                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleConfirmBulkDeleteWords}
+                            className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer"
+                          >
+                            Xác nhận xóa
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {item.compoundWords.map((cw) => {
                   const cwDue = cw.srsState.dueAt <= Date.now();
                   const isEditingThis = editingCw?.wordId === cw.id;
+                  const isWordSelected = selectedWordIdSet.has(cw.id);
 
                   if (isEditingThis && editingCw) {
                     return (
@@ -394,9 +507,20 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                   return (
                     <div
                       key={cw.id}
-                      className="px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-slate-50/70 transition-colors"
+                      className={`px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-colors ${
+                        isWordSelected
+                          ? 'bg-teal-50/50 hover:bg-teal-50/70'
+                          : 'hover:bg-slate-50/70'
+                      }`}
                     >
                       <div className="flex items-center flex-wrap gap-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isWordSelected}
+                          onChange={() => toggleSelectWord(cw.id)}
+                          aria-label={`Chọn từ ghép ${cw.word}`}
+                          className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                        />
                         <button
                           type="button"
                           onClick={() => speakJapanese(cw.word)}

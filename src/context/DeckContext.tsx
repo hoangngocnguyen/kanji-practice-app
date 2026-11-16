@@ -229,6 +229,7 @@ interface DeckContextValue {
   ) => Promise<{ addedKanji: number; mergedKanji: number; addedCompoundWords: number }>;
   updateKanjiItem: (itemId: string, patch: Partial<FolderKanjiItem>) => void;
   deleteKanjiItem: (itemId: string) => void;
+  deleteKanjiItems: (itemIds: string[]) => void;
   addCompoundWord: (
     kanjiItemId: string,
     payload: { word: string; reading: string; hanViet: string; meaning: string }
@@ -243,6 +244,7 @@ interface DeckContextValue {
     patch: Partial<Omit<CompoundWordCard, 'id' | 'srsState'>>
   ) => void;
   deleteCompoundWord: (kanjiItemId: string, wordId: string) => void;
+  deleteCompoundWords: (kanjiItemId: string, wordIds: string[]) => void;
 
   // SRS Grading
   gradeFlashcard: (card: FlashcardReviewItem, rating: SrsRating) => void;
@@ -880,6 +882,17 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [markLocalMutation]
   );
 
+  const deleteKanjiItems = useCallback(
+    (itemIds: string[]) => {
+      const uniqueIds = Array.from(new Set(itemIds.filter(Boolean)));
+      if (uniqueIds.length === 0) return;
+      const idSet = new Set(uniqueIds);
+      setItems((prev) => prev.filter((it) => !idSet.has(it.id)));
+      markLocalMutation({ deletedItems: uniqueIds });
+    },
+    [markLocalMutation]
+  );
+
   const addCompoundWord = useCallback(
     (
       kanjiItemId: string,
@@ -978,6 +991,23 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         prev.map((it) =>
           it.id === kanjiItemId
             ? { ...it, compoundWords: it.compoundWords.filter((cw) => cw.id !== wordId) }
+            : it
+        )
+      );
+      markLocalMutation();
+    },
+    [markLocalMutation]
+  );
+
+  const deleteCompoundWords = useCallback(
+    (kanjiItemId: string, wordIds: string[]) => {
+      const uniqueIds = Array.from(new Set(wordIds.filter(Boolean)));
+      if (uniqueIds.length === 0) return;
+      const idSet = new Set(uniqueIds);
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === kanjiItemId
+            ? { ...it, compoundWords: it.compoundWords.filter((cw) => !idSet.has(cw.id)) }
             : it
         )
       );
@@ -1830,10 +1860,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         batchImportItemsToFolder,
         updateKanjiItem,
         deleteKanjiItem,
+        deleteKanjiItems,
         addCompoundWord,
         batchAddCompoundWords,
         updateCompoundWord,
         deleteCompoundWord,
+        deleteCompoundWords,
         gradeFlashcard,
         buildExportBundle,
         buildFullExportBundle,
