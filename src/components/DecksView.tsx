@@ -844,7 +844,7 @@ export const DecksView: React.FC = () => {
   const showRootDropZone = Boolean(draggingFolder && draggingFolder.parentId !== null);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div className="w-full space-y-5">
       {/* Top Toolbar */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">

@@ -101,7 +101,7 @@ export const DeckDetailView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
+    <div className="w-full space-y-4">
       <div className="flex items-center justify-between">
         <Link
           to="/decks"
