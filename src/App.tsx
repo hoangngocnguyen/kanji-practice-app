@@ -20,6 +20,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthGuardModal } from './components/auth/AuthGuardModal';
 import { SyncConflictModal } from './components/auth/SyncConflictModal';
+import { CloudInspectorModal } from './components/auth/CloudInspectorModal';
 import { RomajiReaderView } from './components/RomajiReaderView';
 import { TranslationView } from './components/TranslationView';
 import { RomajiConverterView } from './components/RomajiConverterView';
@@ -193,6 +194,7 @@ function AppLayout() {
       <AuthModal />
       <AuthGuardModal />
       <SyncConflictModal />
+      <CloudInspectorModal />
 
       {/* Floating Scroll to Top */}
       {showScrollTop && (

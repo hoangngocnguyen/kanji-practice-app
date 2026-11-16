@@ -19,6 +19,7 @@ import {
   ArrowUpToLine,
   AlertCircle,
   CheckCircle2,
+  Eye,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { StudyFolder } from '../types/deck';
@@ -44,6 +45,7 @@ export const DecksView: React.FC = () => {
     isSyncing,
     hasUnsyncedChanges,
     triggerAnkiSync,
+    openCloudInspector,
     syncMessage,
     syncError,
     clearSyncMessage,
@@ -888,6 +890,17 @@ export const DecksView: React.FC = () => {
                 ? 'Đồng bộ Cloud*'
                 : 'Đồng bộ Cloud'}
             </span>
+          </button>
+
+          <button
+            type="button"
+            disabled={isSyncing}
+            onClick={() => openCloudInspector()}
+            className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
+            title="Xem dữ liệu hiện có trên Cloud và so sánh khác biệt trước/sau khi sync"
+          >
+            <Eye className="w-3.5 h-3.5 text-teal-700" />
+            <span>Xem Cloud</span>
           </button>
 
           <button

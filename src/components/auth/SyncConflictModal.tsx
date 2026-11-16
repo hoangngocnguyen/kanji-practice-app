@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Cloud,
   Download,
+  Eye,
   Laptop,
   Loader2,
   Upload,
   X,
 } from 'lucide-react';
 import { useDecks } from '../../context/DeckContext';
+import { computeSyncDiff } from '../../services/syncService';
 
 function formatSyncTime(ts: number | null | undefined): string {
   if (!ts) return 'Chưa từng đồng bộ';
@@ -23,8 +25,13 @@ function formatSyncTime(ts: number | null | undefined): string {
 
 export const SyncConflictModal: React.FC = () => {
   const {
+    folders,
+    items,
     syncConflict,
     isSyncing,
+    cloudSnapshot,
+    isLoadingCloudSnapshot,
+    openCloudInspector,
     resolveConflictPush,
     resolveConflictPull,
     dismissConflict,
@@ -34,6 +41,16 @@ export const SyncConflictModal: React.FC = () => {
     null
   );
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const quickDiff = useMemo(() => {
+    if (!syncConflict || !cloudSnapshot) return null;
+    return computeSyncDiff(
+      folders,
+      items,
+      cloudSnapshot.folders,
+      cloudSnapshot.items
+    );
+  }, [syncConflict, cloudSnapshot, folders, items]);
 
   useEffect(() => {
     if (!syncConflict) {
@@ -93,11 +110,11 @@ export const SyncConflictModal: React.FC = () => {
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Phát hiện xung đột dữ liệu đồng bộ
+                Phát hiện chênh lệch dữ liệu đồng bộ
               </h3>
               <p className="text-xs text-slate-600">
-                Chọn 1 chiều đồng bộ chuẩn (tương tự AnkiDroid) để tránh mất dữ
-                liệu
+                Kiểm tra kỹ và chọn 1 chiều đồng bộ chuẩn (kiểu AnkiDroid) để
+                tránh mất thẻ
               </p>
             </div>
           </div>
@@ -113,7 +130,7 @@ export const SyncConflictModal: React.FC = () => {
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed">
             <strong className="text-slate-900">Nguyên nhân: </strong>
             {reason}
@@ -197,6 +214,45 @@ export const SyncConflictModal: React.FC = () => {
             </div>
           </div>
 
+          {/* Quick Diff + Inspect Cloud CTA */}
+          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-[11px] text-slate-600 tabular-nums">
+              {isLoadingCloudSnapshot && !quickDiff ? (
+                <span>Đang đối chiếu chi tiết giữa Máy và Cloud...</span>
+              ) : quickDiff ? (
+                <span>
+                  Chênh lệch:{' '}
+                  <strong className="text-sky-800">
+                    {quickDiff.cardStats.localOnly} Kanji chỉ ở Máy
+                  </strong>
+                  {' · '}
+                  <strong className="text-amber-800">
+                    {quickDiff.cardStats.cloudOnly} Kanji chỉ ở Cloud
+                  </strong>
+                  {' · '}
+                  <strong className="text-violet-800">
+                    {quickDiff.cardStats.modified} Kanji khác nội dung/SRS
+                  </strong>
+                </span>
+              ) : (
+                <span>
+                  Bạn có thể mở bảng xem chi tiết từng thư mục và chữ Kanji
+                  trên Cloud trước khi chọn.
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={() => openCloudInspector()}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-800 bg-white hover:bg-teal-50 border border-teal-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Xem & So sánh Cloud</span>
+            </button>
+          </div>
+
           {actionError && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
               {actionError}
@@ -218,10 +274,12 @@ export const SyncConflictModal: React.FC = () => {
               )}
               <div>
                 <div className="text-xs sm:text-sm font-bold">
-                  Tải lên Cloud (Upload)
+                  Đẩy lên Cloud (Upload)
                 </div>
-                <div className="text-[11px] text-teal-100 mt-0.5">
-                  Lấy dữ liệu ở máy này ghi đè toàn bộ lên Cloud
+                <div className="text-[11px] text-teal-100 mt-0.5 tabular-nums">
+                  Giữ {localSummary.deckCount} thư mục / {localSummary.cardCount}{' '}
+                  Kanji trên máy và ghi đè lên Cloud ({serverSummary.cardCount}{' '}
+                  Kanji)
                 </div>
               </div>
             </button>
@@ -239,10 +297,12 @@ export const SyncConflictModal: React.FC = () => {
               )}
               <div>
                 <div className="text-xs sm:text-sm font-bold">
-                  Tải về máy (Download)
+                  Kéo từ Cloud về (Download)
                 </div>
-                <div className="text-[11px] text-slate-300 mt-0.5">
-                  Xóa bản trên máy và tải bản chuẩn từ Cloud về
+                <div className="text-[11px] text-slate-300 mt-0.5 tabular-nums">
+                  Xóa {localSummary.cardCount} Kanji trên máy để thay bằng{' '}
+                  {serverSummary.deckCount} thư mục / {serverSummary.cardCount}{' '}
+                  Kanji từ Cloud
                 </div>
               </div>
             </button>

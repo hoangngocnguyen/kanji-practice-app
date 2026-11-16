@@ -59,16 +59,26 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
     const serverChanged = serverVersion !== Number(lastSyncedVersion || 0);
 
     const hasUserModifiedLocalData = Boolean(localStats?.hasUserModifiedData);
+    const isUntouchedStarter = Boolean(localStats?.isUntouchedStarter);
     const localDeckCount = Number(localStats?.deckCount || 0);
     const localCardCount = Number(localStats?.cardCount || 0);
     const hasPendingDeletions =
       Number(localStats?.deletedDeckCount || 0) > 0 ||
       Number(localStats?.deletedCardCount || 0) > 0;
 
+    const cloudHasCards = deckCount > 0 || cardCount > 0;
+    const cloudBrandNew = serverVersion === 0 && !cloudHasCards;
+
+    const localIsEmpty = localDeckCount === 0 && localCardCount === 0;
+    const localCanAutoPull =
+      localIsEmpty ||
+      (isUntouchedStarter && !hasUserModifiedLocalData && !hasPendingDeletions);
+    const localHasRealData = !localIsEmpty && !localCanAutoPull;
+
     const effectiveLocalChanges = Boolean(localHasChanges) || hasPendingDeletions;
     const sameHash = Boolean(localDataHash && serverHash && localDataHash === serverHash);
     const accountMismatch = Boolean(
-      lastSyncedUserId && lastSyncedUserId !== user.id && (localDeckCount > 0 || localCardCount > 0)
+      lastSyncedUserId && lastSyncedUserId !== user.id && localHasRealData
     );
 
     let decision: SyncCheckDecision = 'up_to_date';
@@ -77,16 +87,42 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
     if (sameHash && !hasPendingDeletions) {
       decision = 'up_to_date';
       reason = 'Dữ liệu đã được đồng bộ mới nhất.';
-    } else if (accountMismatch && serverHasData) {
-      decision = 'conflict';
-      reason = 'Tài khoản vừa đăng nhập khác với phiên đồng bộ trước đó trên thiết bị này.';
-    } else if (Number(lastSyncedVersion || 0) === 0 && serverHasData) {
-      if (!hasUserModifiedLocalData) {
+    } else if (cloudBrandNew) {
+      if (localDeckCount > 0 || localCardCount > 0) {
+        decision = 'auto_push';
+        reason = 'Cloud chưa có dữ liệu nào, tự động sao lưu toàn bộ bộ thẻ từ máy lên Cloud.';
+      } else {
+        decision = 'up_to_date';
+        reason = 'Cả thiết bị này và Cloud đều chưa có dữ liệu.';
+      }
+    } else if (accountMismatch) {
+      if (localCanAutoPull && cloudHasCards) {
         decision = 'auto_pull';
-        reason = 'Thiết bị mới chưa có dữ liệu tùy chỉnh, tự động tải từ Cloud.';
+        reason = 'Thiết bị chưa có bộ thẻ cá nhân, tự động tải dữ liệu từ tài khoản Cloud.';
       } else {
         decision = 'conflict';
-        reason = 'Cả thiết bị này và Cloud đều đang có bộ thẻ riêng biệt.';
+        reason = 'Tài khoản vừa đăng nhập khác với phiên đồng bộ trước đó trên thiết bị này.';
+      }
+    } else if (Number(lastSyncedVersion || 0) === 0) {
+      if (localIsEmpty) {
+        if (cloudHasCards) {
+          decision = 'auto_pull';
+          reason = 'Thiết bị mới chưa có thẻ nào, tự động tải dữ liệu từ Cloud.';
+        } else {
+          decision = 'up_to_date';
+          reason = 'Thiết bị và Cloud hiện đều chưa có thẻ.';
+        }
+      } else if (localCanAutoPull && cloudHasCards) {
+        decision = 'auto_pull';
+        reason = 'Thiết bị chỉ có bộ dữ liệu mẫu khởi tạo, tự động tải bộ thẻ của bạn từ Cloud.';
+      } else if (!cloudHasCards && localHasRealData) {
+        decision = 'conflict';
+        reason =
+          'Cloud đang trống (0 thẻ) từ lần đồng bộ trước trong khi máy này đang có bộ thẻ riêng. Hãy chọn Tải lên Cloud hoặc Tải về máy.';
+      } else {
+        decision = 'conflict';
+        reason =
+          'Cả thiết bị này và Cloud đều đang có dữ liệu riêng chưa ghép đôi. Hãy kiểm tra khác biệt và chọn chiều đồng bộ.';
       }
     } else if (effectiveLocalChanges && serverChanged) {
       decision = 'conflict';
@@ -97,9 +133,9 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
     } else if (effectiveLocalChanges && !serverChanged) {
       decision = 'auto_push';
       reason = 'Thiết bị này có thay đổi mới, sẵn sàng tải lên Cloud.';
-    } else if (!serverHasData && (localDeckCount > 0 || localCardCount > 0)) {
-      decision = 'auto_push';
-      reason = 'Cloud chưa có dữ liệu, tự động sao lưu dữ liệu từ máy lên Cloud.';
+    } else if (!sameHash && (localHasRealData || cloudHasCards)) {
+      decision = 'conflict';
+      reason = 'Phát hiện chênh lệch dữ liệu giữa máy và Cloud. Vui lòng xem chi tiết và chọn chiều đồng bộ.';
     }
 
     return res.status(200).json({

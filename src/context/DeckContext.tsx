@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
 import { User } from '@supabase/supabase-js';
 import {
   CompoundWordCard,
@@ -32,8 +39,10 @@ import {
   apiForcePullSync,
   apiForcePushSync,
   apiMergeSync,
+  CloudSnapshot,
   computeClientDeckHash,
   DEFAULT_SYNC_META,
+  isUntouchedStarterDeck,
   loadLocalSyncMeta,
   LocalSyncMeta,
   saveLocalSyncMeta,
@@ -268,6 +277,13 @@ interface DeckContextValue {
   resolveConflictPull: () => Promise<void>;
   dismissConflict: () => void;
   clearSyncMessage: () => void;
+  isCloudInspectorOpen: boolean;
+  cloudSnapshot: CloudSnapshot | null;
+  isLoadingCloudSnapshot: boolean;
+  cloudSnapshotError: string | null;
+  openCloudInspector: () => Promise<void>;
+  refreshCloudSnapshot: () => Promise<CloudSnapshot | null>;
+  closeCloudInspector: () => void;
   syncNowToCloud: () => Promise<void>;
   pullFromCloud: () => Promise<void>;
   logoutCloud: () => Promise<void>;
@@ -376,13 +392,26 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncConflict, setSyncConflict] = useState<SyncConflictInfo | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
+  const [isCloudInspectorOpen, setIsCloudInspectorOpen] = useState(false);
+  const [cloudSnapshot, setCloudSnapshot] = useState<CloudSnapshot | null>(null);
+  const [isLoadingCloudSnapshot, setIsLoadingCloudSnapshot] = useState(false);
+  const [cloudSnapshotError, setCloudSnapshotError] = useState<string | null>(null);
+
+  const isStarterUntouched = useMemo(
+    () => isUntouchedStarterDeck(folders, items, syncMeta.hasUserModifiedData),
+    [folders, items, syncMeta.hasUserModifiedData]
+  );
+
   const isSyncing = syncStatus === 'checking' || syncStatus === 'syncing';
   const lastSyncedAt = syncMeta.lastSyncedAt;
   const lastSyncedVersion = syncMeta.lastSyncedVersion;
   const hasUnsyncedChanges =
     syncMeta.dirtySinceLastSync ||
     syncMeta.deletedFolderIds.length > 0 ||
-    syncMeta.deletedItemIds.length > 0;
+    syncMeta.deletedItemIds.length > 0 ||
+    (syncMeta.lastSyncedVersion === 0 &&
+      (folders.length > 0 || items.length > 0) &&
+      !isStarterUntouched);
 
   const updateSyncMeta = useCallback(
     (updater: (prev: LocalSyncMeta) => LocalSyncMeta) => {
@@ -1407,6 +1436,37 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [updateSyncMeta]
   );
 
+  const refreshCloudSnapshot = useCallback(async (): Promise<CloudSnapshot | null> => {
+    if (!cloudUser) return null;
+    setIsLoadingCloudSnapshot(true);
+    setCloudSnapshotError(null);
+    try {
+      const snap = await apiForcePullSync();
+      setCloudSnapshot(snap);
+      return snap;
+    } catch (err: any) {
+      setCloudSnapshotError(
+        err?.message || 'Không thể tải dữ liệu xem trước từ Cloud.'
+      );
+      return null;
+    } finally {
+      setIsLoadingCloudSnapshot(false);
+    }
+  }, [cloudUser]);
+
+  const openCloudInspector = useCallback(async () => {
+    if (!cloudUser) {
+      openAuthGuard('Xem dữ liệu bộ thẻ hiện có trên Cloud');
+      return;
+    }
+    setIsCloudInspectorOpen(true);
+    await refreshCloudSnapshot();
+  }, [cloudUser, openAuthGuard, refreshCloudSnapshot]);
+
+  const closeCloudInspector = useCallback(() => {
+    setIsCloudInspectorOpen(false);
+  }, []);
+
   const resolveConflictPush = useCallback(async () => {
     if (!cloudUser) {
       openAuthGuard('Đồng bộ bộ thẻ Flashcard lên đám mây');
@@ -1429,6 +1489,13 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deletedFolderIds: [],
         deletedItemIds: [],
       }));
+      setCloudSnapshot({
+        syncVersion: pushRes.syncVersion,
+        syncedAt: pushRes.syncedAt,
+        dataHash: pushRes.dataHash,
+        folders: [...folders],
+        items: [...items],
+      });
       setSyncConflict(null);
       setSyncStatus('synced');
       setSyncMessage(
@@ -1460,6 +1527,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pullRes.dataHash,
         cloudUser.id
       );
+      setCloudSnapshot(pullRes);
       setSyncConflict(null);
       setSyncStatus('synced');
       setSyncMessage(
@@ -1488,9 +1556,14 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const localHash = await computeClientDeckHash(folders, items);
       const localStats = buildLocalSummary();
+      const hasRealLocalWithoutVersion =
+        syncMeta.lastSyncedVersion === 0 &&
+        (folders.length > 0 || items.length > 0) &&
+        !isStarterUntouched;
       const localHasChanges =
         syncMeta.dirtySinceLastSync ||
         (Boolean(syncMeta.lastSyncedHash) && localHash !== syncMeta.lastSyncedHash) ||
+        hasRealLocalWithoutVersion ||
         syncMeta.deletedFolderIds.length > 0 ||
         syncMeta.deletedItemIds.length > 0;
 
@@ -1506,7 +1579,8 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastModifiedAt: syncMeta.lastLocalModifiedAt,
           deletedDeckCount: syncMeta.deletedFolderIds.length,
           deletedCardCount: syncMeta.deletedItemIds.length,
-          hasUserModifiedData: syncMeta.hasUserModifiedData,
+          hasUserModifiedData: syncMeta.hasUserModifiedData || hasRealLocalWithoutVersion,
+          isUntouchedStarter: isStarterUntouched,
         },
       });
 
@@ -1549,6 +1623,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           pullRes.dataHash,
           cloudUser.id
         );
+        setCloudSnapshot(pullRes);
         setSyncStatus('synced');
         setSyncMessage(`Đã tự động đồng bộ dữ liệu mới từ Cloud (v${pullRes.syncVersion}).`);
         refreshProfile();
@@ -1573,6 +1648,13 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
             mergeRes.dataHash,
             cloudUser.id
           );
+          setCloudSnapshot({
+            syncVersion: mergeRes.syncVersion,
+            syncedAt: mergeRes.syncedAt,
+            dataHash: mergeRes.dataHash,
+            folders: mergeRes.folders,
+            items: mergeRes.items,
+          });
           setSyncStatus('synced');
           setSyncMessage(`Đã đồng bộ thay đổi lên Cloud (v${mergeRes.syncVersion}).`);
           refreshProfile();
@@ -1587,19 +1669,21 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
               serverSummary,
             });
             setSyncStatus('conflict');
+            refreshCloudSnapshot();
             return 'conflict';
           }
           throw mergeErr;
         }
       }
 
-      // Conflict case
+      // Conflict case — prefetch read-only Cloud snapshot so user can inspect immediately
       setSyncConflict({
         reason: checkRes.reason,
         localSummary: localStats,
         serverSummary,
       });
       setSyncStatus('conflict');
+      refreshCloudSnapshot();
       return 'conflict';
     } catch (err: any) {
       setSyncStatus('error');
@@ -1612,10 +1696,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     folders,
     items,
     syncMeta,
+    isStarterUntouched,
     buildLocalSummary,
     updateSyncMeta,
     applyServerSnapshot,
     refreshProfile,
+    refreshCloudSnapshot,
   ]);
 
   const dismissConflict = useCallback(() => {
@@ -1637,6 +1723,8 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [resolveConflictPull]);
 
   const logoutCloud = useCallback(async () => {
+    setCloudSnapshot(null);
+    setIsCloudInspectorOpen(false);
     await authLogout();
   }, [authLogout]);
 
@@ -1737,6 +1825,13 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resolveConflictPull,
         dismissConflict,
         clearSyncMessage,
+        isCloudInspectorOpen,
+        cloudSnapshot,
+        isLoadingCloudSnapshot,
+        cloudSnapshotError,
+        openCloudInspector,
+        refreshCloudSnapshot,
+        closeCloudInspector,
         syncNowToCloud,
         pullFromCloud,
         logoutCloud,
