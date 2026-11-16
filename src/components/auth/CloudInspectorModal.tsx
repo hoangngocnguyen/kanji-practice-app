@@ -403,9 +403,13 @@ export const CloudInspectorModal: React.FC = () => {
     );
   };
 
+  const cloudFolderIdSet = cloudSnapshot
+    ? new Set(cloudSnapshot.folders.map((f) => f.id))
+    : new Set<string>();
+
   const rootCloudFolders = cloudSnapshot
     ? cloudSnapshot.folders
-        .filter((f) => f.parentId === null)
+        .filter((f) => !f.parentId || !cloudFolderIdSet.has(f.parentId))
         .sort((a, b) => a.sortOrder - b.sortOrder)
     : [];
 

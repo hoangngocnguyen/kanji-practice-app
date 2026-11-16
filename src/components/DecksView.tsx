@@ -184,32 +184,37 @@ export const DecksView: React.FC = () => {
     [folders, normalizedQuery]
   );
 
+  const folderIdSet = useMemo(
+    () => new Set(folders.map((f) => f.id)),
+    [folders]
+  );
+
   const rootFolders = useMemo(
     () =>
       folders
-        .filter((f) => f.parentId === null)
+        .filter((f) => !f.parentId || !folderIdSet.has(f.parentId))
         .sort((a, b) => a.sortOrder - b.sortOrder),
-    [folders]
+    [folders, folderIdSet]
   );
 
   // Flattened list of currently visible folders for ArrowUp/ArrowDown keyboard navigation
   const visibleFolders = useMemo(() => {
     if (matchingFolders) return matchingFolders;
     const result: StudyFolder[] = [];
-    const walk = (parentId: string | null) => {
-      const children = folders
-        .filter((f) => f.parentId === parentId)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      for (const child of children) {
+    const walk = (list: StudyFolder[]) => {
+      for (const child of list) {
         result.push(child);
         if (expandedIds[child.id]) {
-          walk(child.id);
+          const children = folders
+            .filter((f) => f.parentId === child.id)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+          walk(children);
         }
       }
     };
-    walk(null);
+    walk(rootFolders);
     return result;
-  }, [folders, expandedIds, matchingFolders]);
+  }, [folders, rootFolders, expandedIds, matchingFolders]);
 
   // Check if targetId is sourceId or a descendant of sourceId (invalid drag target)
   const isDescendantOrSelf = useCallback(

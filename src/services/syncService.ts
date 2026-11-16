@@ -169,7 +169,7 @@ async function authorizedFetch(url: string, init: RequestInit = {}) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(url, { ...init, headers });
+  const res = await fetch(url, { ...init, cache: 'no-store', headers });
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
@@ -575,7 +575,7 @@ export async function apiForcePushSync(payload: {
 }
 
 export async function apiForcePullSync(): Promise<CloudSnapshot> {
-  return authorizedFetch('/api/sync/pull', {
+  return authorizedFetch(`/api/sync/pull?_t=${Date.now()}`, {
     method: 'GET',
   });
 }

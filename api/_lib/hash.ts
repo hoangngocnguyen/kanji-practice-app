@@ -109,13 +109,21 @@ export function computeServerDeckHash(
   return crypto.createHash('sha256').update(canonical).digest('hex');
 }
 
+function safeIsoTimestamp(value: number | undefined, fallbackIso: string): string {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return fallbackIso;
+}
+
 export function dbDeckRowToFolder(row: any): SyncFolder {
   return {
     id: row.id,
-    parentId: row.parent_id ?? null,
+    parentId: row.parent_id ? String(row.parent_id) : null,
     name: row.name,
     description: row.description || undefined,
-    sortOrder: Number(row.sort_order ?? 0),
+    sortOrder: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0,
     isPublic: Boolean(row.is_public),
     shareSlug: row.share_slug || undefined,
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
@@ -153,15 +161,15 @@ export function folderToDbRow(
   return {
     id: folder.id,
     user_id: userId,
-    parent_id: folder.parentId ?? null,
+    parent_id: folder.parentId ? String(folder.parentId) : null,
     name: folder.name,
     description: folder.description || '',
-    sort_order: Number(folder.sortOrder ?? 0),
+    sort_order: Number.isFinite(Number(folder.sortOrder)) ? Number(folder.sortOrder) : 0,
     is_public: Boolean(folder.isPublic),
     share_slug: folder.shareSlug || null,
     sync_version: syncVersion,
-    created_at: folder.createdAt ? new Date(folder.createdAt).toISOString() : nowIso,
-    updated_at: folder.updatedAt ? new Date(folder.updatedAt).toISOString() : nowIso,
+    created_at: safeIsoTimestamp(folder.createdAt, nowIso),
+    updated_at: safeIsoTimestamp(folder.updatedAt, nowIso),
     deleted_at: null,
   };
 }
@@ -185,7 +193,7 @@ export function kanjiItemToDbRow(
     srs_state: item.srsState,
     compound_words: Array.isArray(item.compoundWords) ? item.compoundWords : [],
     sync_version: syncVersion,
-    created_at: item.createdAt ? new Date(item.createdAt).toISOString() : nowIso,
+    created_at: safeIsoTimestamp(item.createdAt, nowIso),
     updated_at: nowIso,
     deleted_at: null,
   };

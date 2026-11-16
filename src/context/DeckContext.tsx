@@ -1409,14 +1409,25 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dataHash: string,
       userId: string
     ) => {
-      setFolders(nextFolders);
+      const validFolderIds = new Set(nextFolders.map((f) => f.id));
+      const normalizedFolders = nextFolders.map((f) => ({
+        ...f,
+        parentId:
+          f.parentId && validFolderIds.has(f.parentId) ? f.parentId : null,
+      }));
+      setFolders(normalizedFolders);
       setItems(nextItems);
       setSelectedFolderId((prev) =>
-        prev && nextFolders.some((f) => f.id === prev)
+        prev && normalizedFolders.some((f) => f.id === prev)
           ? prev
-          : nextFolders[0]?.id ?? null
+          : normalizedFolders[0]?.id ?? null
       );
       try {
+        localStorage.setItem(
+          STORAGE_FOLDERS_KEY,
+          JSON.stringify(normalizedFolders)
+        );
+        localStorage.setItem(STORAGE_ITEMS_KEY, JSON.stringify(nextItems));
         localStorage.setItem(STORAGE_STARTER_SEEDED_KEY, '1');
       } catch {}
 
@@ -1499,7 +1510,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSyncConflict(null);
       setSyncStatus('synced');
       setSyncMessage(
-        `Đã tải toàn bộ dữ liệu từ máy lên Cloud (v${pushRes.syncVersion}).`
+        `Đã tải ${folders.length} thư mục (${items.length} Kanji) từ máy lên Cloud (v${pushRes.syncVersion}).`
       );
       refreshProfile();
     } catch (err: any) {
@@ -1519,6 +1530,15 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSyncMessage(null);
     try {
       const pullRes = await apiForcePullSync();
+      if (
+        syncConflict &&
+        syncConflict.serverSummary.deckCount > 0 &&
+        pullRes.folders.length === 0
+      ) {
+        throw new Error(
+          'Cloud báo đang có dữ liệu nhưng kết quả tải về bị rỗng. Đã hủy ghi đè để bảo vệ bộ thẻ trên máy.'
+        );
+      }
       applyServerSnapshot(
         pullRes.folders,
         pullRes.items,
@@ -1531,7 +1551,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSyncConflict(null);
       setSyncStatus('synced');
       setSyncMessage(
-        `Đã tải bản chuẩn từ Cloud về máy (v${pullRes.syncVersion}).`
+        `Đã tải ${pullRes.folders.length} thư mục (${pullRes.items.length} Kanji) từ Cloud về máy (v${pullRes.syncVersion}).`
       );
       refreshProfile();
     } catch (err: any) {
@@ -1539,7 +1559,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSyncError(err?.message || 'Lỗi tải dữ liệu từ Cloud.');
       throw err;
     }
-  }, [cloudUser, openAuthGuard, applyServerSnapshot, refreshProfile]);
+  }, [cloudUser, syncConflict, openAuthGuard, applyServerSnapshot, refreshProfile]);
 
   const triggerAnkiSync = useCallback(async (): Promise<
     'auth_required' | 'synced' | 'conflict' | 'error'
@@ -1615,6 +1635,11 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (checkRes.decision === 'auto_pull') {
         setSyncStatus('syncing');
         const pullRes = await apiForcePullSync();
+        if (checkRes.serverSummary.deckCount > 0 && pullRes.folders.length === 0) {
+          throw new Error(
+            'Cloud báo đang có dữ liệu nhưng kết quả tải về bị rỗng. Đã hủy ghi đè để bảo vệ bộ thẻ trên máy.'
+          );
+        }
         applyServerSnapshot(
           pullRes.folders,
           pullRes.items,
@@ -1625,7 +1650,9 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         setCloudSnapshot(pullRes);
         setSyncStatus('synced');
-        setSyncMessage(`Đã tự động đồng bộ dữ liệu mới từ Cloud (v${pullRes.syncVersion}).`);
+        setSyncMessage(
+          `Đã tự động tải ${pullRes.folders.length} thư mục (${pullRes.items.length} Kanji) từ Cloud về máy (v${pullRes.syncVersion}).`
+        );
         refreshProfile();
         return 'synced';
       }
@@ -1656,7 +1683,9 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
             items: mergeRes.items,
           });
           setSyncStatus('synced');
-          setSyncMessage(`Đã đồng bộ thay đổi lên Cloud (v${mergeRes.syncVersion}).`);
+          setSyncMessage(
+            `Đã đồng bộ ${mergeRes.folders.length} thư mục (${mergeRes.items.length} Kanji) lên Cloud (v${mergeRes.syncVersion}).`
+          );
           refreshProfile();
           return 'synced';
         } catch (mergeErr: any) {
