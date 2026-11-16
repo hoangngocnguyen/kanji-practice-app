@@ -1,21 +1,31 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
-import { FolderKanjiItem, KanjiDeckExportBundle, StudyFolder } from '../types/deck';
+import { KanjiDeckExportBundle } from '../types/deck';
 
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || '';
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || '';
+const supabasePublishableKey = (
+  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+  ''
+).trim();
 
 export const isSupabaseConfigured = (): boolean => {
-  return Boolean(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http'));
+  return Boolean(supabaseUrl && supabasePublishableKey && supabaseUrl.startsWith('http'));
 };
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabasePublishableKey)
   : null;
 
 export async function getCurrentSupabaseUser(): Promise<User | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   return data.user ?? null;
+}
+
+export async function getSupabaseAccessToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
 }
 
 export async function signInWithSupabase(email: string, password: string) {
@@ -25,11 +35,26 @@ export async function signInWithSupabase(email: string, password: string) {
   return data.user;
 }
 
-export async function signUpWithSupabase(email: string, password: string) {
+export async function signUpWithSupabase(
+  email: string,
+  password: string,
+  displayName?: string
+) {
   if (!supabase) throw new Error('Supabase chưa được cấu hình.');
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const cleanName = displayName?.trim();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: cleanName
+      ? {
+          data: {
+            display_name: cleanName,
+          },
+        }
+      : undefined,
+  });
   if (error) throw error;
-  return data.user;
+  return { user: data.user, session: data.session };
 }
 
 export async function signOutSupabase() {
@@ -38,58 +63,11 @@ export async function signOutSupabase() {
 }
 
 /**
- * Đồng bộ toàn bộ cây thư mục & thẻ Kanji lên Supabase (bảng user_kanji_decks)
- */
-export async function syncDecksToCloud(
-  userId: string,
-  folders: StudyFolder[],
-  items: FolderKanjiItem[]
-): Promise<void> {
-  if (!supabase) throw new Error('Supabase chưa được cấu hình.');
-
-  const { error } = await supabase.from('user_kanji_decks').upsert(
-    {
-      user_id: userId,
-      folders,
-      items,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  );
-
-  if (error) throw error;
-}
-
-/**
- * Tải dữ liệu thư mục & thẻ Kanji từ Supabase của user hiện tại
- */
-export async function fetchDecksFromCloud(userId: string): Promise<{
-  folders: StudyFolder[];
-  items: FolderKanjiItem[];
-} | null> {
-  if (!supabase) return null;
-
-  const { data, error } = await supabase
-    .from('user_kanji_decks')
-    .select('folders, items')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) return null;
-
-  return {
-    folders: (data.folders as StudyFolder[]) || [],
-    items: (data.items as FolderKanjiItem[]) || [],
-  };
-}
-
-/**
  * Xuất bản một thư mục (và toàn bộ cây con) thành bộ bài chia sẻ công khai trên Supabase
  */
 export async function publishFolderShareToCloud(
   userId: string,
-  authorEmail: string,
+  authorNameOrEmail: string,
   bundle: KanjiDeckExportBundle,
   slug: string
 ): Promise<string> {
@@ -97,12 +75,15 @@ export async function publishFolderShareToCloud(
 
   const rootFolder = bundle.folders.find((f) => f.id === bundle.rootFolderId);
   const title = rootFolder?.name || 'Bộ ôn tập Kanji';
+  const authorName = authorNameOrEmail.includes('@')
+    ? authorNameOrEmail.split('@')[0]
+    : authorNameOrEmail;
 
   const { error } = await supabase.from('public_shared_decks').upsert(
     {
       slug,
       owner_id: userId,
-      author_name: authorEmail.split('@')[0] || 'Thành viên',
+      author_name: authorName || 'Thành viên',
       title,
       description: rootFolder?.description || `${bundle.items.length} chữ Kanji`,
       bundle,

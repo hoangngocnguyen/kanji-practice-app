@@ -3,6 +3,11 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import translateHandler from './api/translate';
+import profileHandler from './api/profile';
+import syncCheckHandler from './api/sync/check';
+import syncMergeHandler from './api/sync/merge';
+import syncPushHandler from './api/sync/push';
+import syncPullHandler from './api/sync/pull';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,18 +16,27 @@ async function startServer() {
   const app = express();
   const port = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
 
-  // Server-side translation route powered by Gemini AI
-  app.all('/api/translate', async (req, res) => {
-    try {
-      await translateHandler(req, res);
-    } catch (err: any) {
-      if (!res.headersSent) {
-        res.status(500).json({ error: err.message || 'Lỗi server dịch thuật' });
+  const mountHandler = (routePath: string, fn: (req: any, res: any) => Promise<any>) => {
+    app.all(routePath, async (req, res) => {
+      try {
+        await fn(req, res);
+      } catch (err: any) {
+        if (!res.headersSent) {
+          res.status(500).json({ error: err?.message || 'Lỗi server nội bộ' });
+        }
       }
-    }
-  });
+    });
+  };
+
+  // Server-side translation & Supabase Auth/Sync routes
+  mountHandler('/api/translate', translateHandler);
+  mountHandler('/api/profile', profileHandler);
+  mountHandler('/api/sync/check', syncCheckHandler);
+  mountHandler('/api/sync/merge', syncMergeHandler);
+  mountHandler('/api/sync/push', syncPushHandler);
+  mountHandler('/api/sync/pull', syncPullHandler);
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));

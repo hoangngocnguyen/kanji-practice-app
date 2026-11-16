@@ -54,7 +54,7 @@ export const PublicShareView: React.FC = () => {
       }
       if (!isSupabaseConfigured()) {
         setError(
-          'Ứng dụng chưa cấu hình biến môi trường Supabase (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY) để tải bộ bài công khai.'
+          'Ứng dụng chưa cấu hình biến môi trường Supabase (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY) để tải bộ bài công khai.'
         );
         setLoading(false);
         return;

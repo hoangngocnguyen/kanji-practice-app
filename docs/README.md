@@ -1,6 +1,6 @@
 # 📚 Luyện Kanji - Tài Liệu Kiến Trúc & Cơ Chế Kỹ Thuật
 
-Thư mục này chứa toàn bộ tài liệu kỹ thuật chi tiết giải thích cơ chế hoạt động, thuật toán, công nghệ và luồng xử lý dữ liệu cho các tính năng của ứng dụng **Luyện Kanji (Web App & Chrome Extension v3.0.0)**.
+Thư mục này chứa toàn bộ tài liệu kỹ thuật chi tiết giải thích cơ chế hoạt động, thuật toán, công nghệ và luồng xử lý dữ liệu cho các tính năng của ứng dụng **Luyện Kanji (Web App v3.2.0 & Chrome Extension v3.0.0)**.
 
 ---
 
@@ -47,6 +47,12 @@ Thư mục này chứa toàn bộ tài liệu kỹ thuật chi tiết giải th�
    * Giao diện Popover hiển thị số thứ tự `1`-`9`, chữ Hán, Furigana, âm Hán-Việt và nghĩa tiếng Việt tóm tắt.
    * Tích hợp đồng bộ trên khung soạn thảo chính, thanh tìm kiếm nhanh và ô thêm Kanji.
 
+9. [09. Cơ Chế Xác Thực Tài Khoản & Đồng Bộ Flashcard Chuẩn AnkiDroid](./09-xac-thuc-va-dong-bo-cloud.md)
+   * Kiến trúc bảo mật Serverless Proxy (`/api/*` + `SUPABASE_SECRET_KEY`) và xác thực JWT Bearer token.
+   * Schema PostgreSQL (`profiles`, `flashcard_decks`, `flashcards`), trigger tự tạo profile, soft-delete tombstones và RLS + `GRANT`.
+   * Thuật toán kiểm tra 3 chiều bằng SHA-256 hash & `sync_version`, cùng Modal giải quyết xung đột (Upload / Download).
+   * Luồng Guest-first, Auth Guard Modal, Avatar Header và trang Thông tin cá nhân (`/profile`).
+
 ---
 
-*Tài liệu kỹ thuật hệ thống Luyện Kanji v3.0.0* 🚀
+*Tài liệu kỹ thuật hệ thống Luyện Kanji v3.2.0* 🚀

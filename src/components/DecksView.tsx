@@ -40,8 +40,13 @@ export const DecksView: React.FC = () => {
     buildFullExportBundle,
     renameFolder,
     moveFolder,
-    supabaseEnabled,
     cloudUser,
+    isSyncing,
+    hasUnsyncedChanges,
+    triggerAnkiSync,
+    syncMessage,
+    syncError,
+    clearSyncMessage,
   } = useDecks();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,8 +117,18 @@ export const DecksView: React.FC = () => {
     }
     toastTimerRef.current = window.setTimeout(() => {
       setActionToast(null);
-    }, 2800);
+    }, 3200);
   }, []);
+
+  useEffect(() => {
+    if (syncMessage) {
+      showToast('success', syncMessage);
+      clearSyncMessage();
+    } else if (syncError) {
+      showToast('error', syncError);
+      clearSyncMessage();
+    }
+  }, [syncMessage, syncError, showToast, clearSyncMessage]);
 
   // Track pointer type (Desktop mouse vs Mobile touch)
   useEffect(() => {
@@ -842,20 +857,38 @@ export const DecksView: React.FC = () => {
         </div>
 
         <div className="flex items-center flex-wrap gap-2 shrink-0">
-          {supabaseEnabled && (
-            <button
-              type="button"
-              onClick={() => setIsCloudOpen(true)}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-            >
-              <Cloud
-                className={`w-3.5 h-3.5 ${
-                  cloudUser ? 'text-emerald-600' : 'text-slate-400'
-                }`}
-              />
-              <span>{cloudUser ? cloudUser.email?.split('@')[0] : 'Đồng bộ Cloud'}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={isSyncing}
+            onClick={() => triggerAnkiSync()}
+            className={`px-3 py-2 text-xs font-semibold border rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60 ${
+              cloudUser
+                ? 'text-teal-800 bg-teal-50/80 hover:bg-teal-100 border-teal-200'
+                : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
+            }`}
+            title={
+              cloudUser
+                ? 'Kiểm tra và đồng bộ bộ thẻ Flashcard lên Cloud'
+                : 'Đăng nhập để đồng bộ bộ thẻ Flashcard lên Cloud'
+            }
+          >
+            <Cloud
+              className={`w-3.5 h-3.5 ${
+                isSyncing
+                  ? 'animate-pulse text-teal-700'
+                  : cloudUser
+                  ? 'text-teal-700'
+                  : 'text-slate-400'
+              }`}
+            />
+            <span>
+              {isSyncing
+                ? 'Đang đồng bộ...'
+                : cloudUser && hasUnsyncedChanges
+                ? 'Đồng bộ Cloud*'
+                : 'Đồng bộ Cloud'}
+            </span>
+          </button>
 
           <button
             type="button"

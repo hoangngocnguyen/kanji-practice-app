@@ -18,8 +18,8 @@ import {
   ListTree,
 } from 'lucide-react';
 import { FolderTreeNodeInput, useDecks } from '../context/DeckContext';
+import { useAuth } from '../context/AuthContext';
 import { KanjiDeckExportBundle, StudyFolder } from '../types/deck';
-import { signInWithSupabase, signUpWithSupabase } from '../utils/supabaseClient';
 
 interface JsonImportModalProps {
   isOpen: boolean;
@@ -252,19 +252,18 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
     cloudUser,
     isSyncing,
     lastSyncedAt,
+    lastSyncedVersion,
     syncError,
-    syncNowToCloud,
-    pullFromCloud,
+    triggerAnkiSync,
+    resolveConflictPush,
+    resolveConflictPull,
     logoutCloud,
     publishFolderPublicly,
     unpublishFolderPublicly,
   } = useDecks();
+  const { displayName, openAuthModal } = useAuth();
 
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
@@ -274,26 +273,6 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
   const shareUrl = targetFolder?.shareSlug
     ? `${window.location.origin}/share/${targetFolder.shareSlug}`
     : '';
-
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setStatusMsg(null);
-    setAuthLoading(true);
-    try {
-      if (authMode === 'login') {
-        await signInWithSupabase(email, password);
-        setStatusMsg('Đăng nhập thành công!');
-      } else {
-        await signUpWithSupabase(email, password);
-        setStatusMsg('Đăng ký thành công! Vui lòng kiểm tra email nếu cần xác nhận.');
-      }
-    } catch (err: any) {
-      setAuthError(err?.message || 'Lỗi xác thực Supabase.');
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
   const handleToggleShare = async () => {
     if (!targetFolder) return;
@@ -319,13 +298,19 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4">
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 border border-slate-200 shadow-xl space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Cloud className="w-4 h-4 text-teal-700" />
             <span>
-              {targetFolder ? `Chia sẻ: ${targetFolder.name}` : 'Tài khoản & Đồng bộ Supabase'}
+              {targetFolder ? `Chia sẻ: ${targetFolder.name}` : 'Tài khoản & Đồng bộ Cloud'}
             </span>
           </h3>
           <button
@@ -342,89 +327,41 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1.5">
               <p className="font-bold">Chế độ Offline-first đang hoạt động</p>
               <p>
-                Hiện tại mọi thư mục và tiến độ SRS được lưu an toàn trong trình duyệt của bạn. Bạn vẫn có thể dùng tính năng <strong>Xuất / Nhập file JSON</strong> để chia sẻ cho bạn bè ngay lập tức.
+                Hiện tại mọi thư mục và tiến độ SRS được lưu an toàn trong trình duyệt của bạn. Bạn vẫn có thể dùng tính năng <strong>Xuất / Nhập file JSON</strong> để sao lưu hoặc chia sẻ ngay lập tức.
               </p>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-              <p className="font-bold text-slate-800">Để bật đồng bộ Cloud & Link chia sẻ công khai:</p>
+              <p className="font-bold text-slate-800">Để bật đồng bộ Cloud &amp; Link chia sẻ công khai:</p>
               <ol className="list-decimal pl-4 space-y-1">
-                <li>Tạo project miễn phí tại Supabase và chạy script SQL trong <code>docs/supabase_decks_schema.sql</code>.</li>
-                <li>Thêm <code>VITE_SUPABASE_URL</code> và <code>VITE_SUPABASE_ANON_KEY</code> vào biến môi trường Vercel hoặc <code>.env</code>.</li>
+                <li>Chạy script SQL trong <code>docs/supabase_decks_schema.sql</code> trên Supabase.</li>
+                <li>Thêm <code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_PUBLISHABLE_KEY</code>, <code>SUPABASE_URL</code> và <code>SUPABASE_SECRET_KEY</code> vào Vercel hoặc <code>.env</code>.</li>
               </ol>
             </div>
           </div>
         ) : !cloudUser ? (
-          <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
-            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setAuthMode('login')}
-                className={`flex-1 py-1.5 rounded-lg font-semibold cursor-pointer ${
-                  authMode === 'login' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
-                }`}
-              >
-                Đăng nhập
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode('signup')}
-                className={`flex-1 py-1.5 rounded-lg font-semibold cursor-pointer ${
-                  authMode === 'signup' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
-                }`}
-              >
-                Đăng ký tài khoản
-              </button>
-            </div>
-
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email của bạn..."
-              required
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mật khẩu (tối thiểu 6 ký tự)..."
-              required
-              minLength={6}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
-            />
-
-            {authError && (
-              <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
-                {authError}
-              </div>
-            )}
-            {statusMsg && (
-              <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
-                {statusMsg}
-              </div>
-            )}
-
+          <div className="space-y-4 text-xs text-slate-600">
+            <p className="leading-relaxed">
+              Vui lòng đăng nhập tài khoản để đồng bộ bộ thẻ Flashcard hoặc xuất bản liên kết chia sẻ công khai.
+            </p>
             <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl cursor-pointer"
+              type="button"
+              onClick={() => {
+                onClose();
+                openAuthModal('login');
+              }}
+              className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl cursor-pointer transition-colors"
             >
-              {authLoading
-                ? 'Đang xử lý...'
-                : authMode === 'login'
-                ? 'Đăng nhập Supabase'
-                : 'Tạo tài khoản mới'}
+              Đăng nhập / Đăng ký tài khoản
             </button>
-          </form>
+          </div>
         ) : (
           <div className="space-y-4 text-xs">
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div>
-                <div className="font-bold text-slate-900">{cloudUser.email}</div>
+                <div className="font-bold text-slate-900">{displayName}</div>
                 <div className="text-slate-500 text-[11px]">
                   {lastSyncedAt
-                    ? `Đồng bộ gần nhất: ${new Date(lastSyncedAt).toLocaleTimeString('vi-VN')}`
+                    ? `Đồng bộ v${lastSyncedVersion}: ${new Date(lastSyncedAt).toLocaleTimeString('vi-VN')}`
                     : 'Sẵn sàng đồng bộ đám mây'}
                 </div>
               </div>
@@ -438,20 +375,35 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
               </button>
             </div>
 
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={() =>
+                triggerAnkiSync().then((res) => {
+                  if (res === 'synced') setStatusMsg('Đã kiểm tra và đồng bộ xong!');
+                  if (res === 'conflict') onClose();
+                })
+              }
+              className="w-full py-2.5 px-3 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>Kiểm tra &amp; Đồng bộ ngay (AnkiDroid)</span>
+            </button>
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 disabled={isSyncing}
-                onClick={() => syncNowToCloud().then(() => setStatusMsg('Đã lưu lên Cloud!'))}
-                className="py-2 px-3 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => resolveConflictPush().then(() => setStatusMsg('Đã tải lên ghi đè Cloud!'))}
+                className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>Lưu lên Cloud</span>
+                <Upload className="w-3.5 h-3.5" />
+                <span>Tải lên Cloud</span>
               </button>
               <button
                 type="button"
                 disabled={isSyncing}
-                onClick={() => pullFromCloud().then(() => setStatusMsg('Đã tải từ Cloud về máy!'))}
+                onClick={() => resolveConflictPull().then(() => setStatusMsg('Đã tải từ Cloud về máy!'))}
                 className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Cloud className="w-3.5 h-3.5" />

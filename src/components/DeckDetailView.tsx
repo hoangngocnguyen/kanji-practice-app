@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ArrowLeft, Folder } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
+import { useAuth } from '../context/AuthContext';
 import { ReviewFilterMode } from '../types/deck';
 import { FolderKanjiTable } from './FolderKanjiTable';
 import { FlashcardSrsSession } from './FlashcardSrsSession';
@@ -19,6 +20,7 @@ export const DeckDetailView: React.FC = () => {
     getReviewCardsForFolder,
     getItemsForFolderRecursive,
   } = useDecks();
+  const { requireAuthOrGuard } = useAuth();
 
   const folder = folders.find((f) => f.id === folderId) || null;
 
@@ -115,7 +117,11 @@ export const DeckDetailView: React.FC = () => {
           setReviewSession({ folderId: folder.id, mode, onlyDue })
         }
         onExportFolder={handleExportFolder}
-        onOpenShareModal={(id) => setShareModalFolderId(id)}
+        onOpenShareModal={(id) =>
+          requireAuthOrGuard('Chia sẻ bộ bài học công khai', () =>
+            setShareModalFolderId(id)
+          )
+        }
         onSelectFolder={(id) => navigate(`/decks/${id}`)}
       />
 

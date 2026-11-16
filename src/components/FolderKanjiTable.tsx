@@ -205,24 +205,22 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               <span>Xuất JSON</span>
             </button>
 
-            {supabaseEnabled && (
-              <button
-                type="button"
-                onClick={() => onOpenShareModal(selectedFolder.id)}
-                className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
-                  selectedFolder.isPublic
-                    ? 'bg-teal-50 text-teal-800 border-teal-300'
-                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
-                }`}
-              >
-                {selectedFolder.isPublic ? (
-                  <Globe className="w-3.5 h-3.5 text-teal-700" />
-                ) : (
-                  <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                )}
-                <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onOpenShareModal(selectedFolder.id)}
+              className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+                selectedFolder.isPublic
+                  ? 'bg-teal-50 text-teal-800 border-teal-300'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+              }`}
+            >
+              {selectedFolder.isPublic ? (
+                <Globe className="w-3.5 h-3.5 text-teal-700" />
+              ) : (
+                <Share2 className="w-3.5 h-3.5 text-slate-500" />
+              )}
+              <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
+            </button>
 
             <button
               type="button"

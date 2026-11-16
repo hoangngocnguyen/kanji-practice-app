@@ -21,11 +21,17 @@ Bản cập nhật **v3.2.0** nâng cấp toàn diện hệ thống quản lý b
 - **Nhập hàng loạt & Modal Chi tiết Kanji**: Hỗ trợ nhập Kanji kèm từ ghép bằng Cú pháp Text nhanh hoặc JSON tối giản cho AI (tự tra nghĩa/âm đọc Kanji), kèm Modal **Xem chi tiết** cho phép sửa/thêm/nhập hàng loạt từ ghép ngay bên trong.
 - **Modal Ôn tập Flashcard SRS Tập trung**: Khóa cuộn nền, căn giữa màn hình, bố cục 2 cột tối ưu, nút chuyển thẻ trái/phải và phím tắt `Space`, `←`/`→`, `1`/`2`/`3`.
 
+- **Quản lý Tài khoản & Đồng bộ Flashcard (Chuẩn AnkiDroid Sync)**:
+  - **Guest-first:** Trải nghiệm đầy đủ tính năng offline ngay lập tức mà không ép đăng nhập; nút **Đăng nhập** đặt gọn bên trái nút *In tập viết* trên Header, kèm **Auth Guard Modal** mời đăng nhập khi Guest sử dụng tính năng Cloud.
+  - **Hồ sơ cá nhân (`/profile`):** Khi đã đăng nhập, Header hiển thị **Avatar tròn** bên trái nút *Cài đặt*; hỗ trợ chỉnh sửa **Tên hiển thị**, xem thống kê bộ thẻ, thời gian đồng bộ gần nhất và đăng xuất.
+  - **Đồng bộ 2 chiều qua Serverless `/api/*` & Xử lý Xung đột kiểu AnkiDroid:** Toàn bộ thao tác đọc/ghi đồng bộ đi qua Vercel Serverless Functions (`/api/profile`, `/api/sync/*`) xác thực Bearer JWT (`SUPABASE_SECRET_KEY`) và PostgreSQL RLS. Tự động phát hiện lệch phiên bản/`SHA-256` hash + soft-delete tombstones, đồng thời bật **Modal Giải quyết xung đột** (chọn **Tải lên Cloud** hoặc **Tải về máy**) khi cả hai phía cùng thay đổi.
+
 - **🌐 Định tuyến React Router Đa trang Chuẩn mực (F5 Không mất trang)**:
   - `/` hoặc `/input`: **Nhập văn bản** - Giao diện nhập liệu tinh gọn, bo góc mềm mại, tích hợp bộ gõ Kanji IME và bộ chuyển đổi cỡ chữ.
   - `/kanji`: **Nét viết Kanji** - Bảng tra nét vẽ, hoạt ảnh SVG động, thanh chọn nhanh Kanji Quick Bar 1-chạm, chế độ lưới kẻ ô mễ và modal luyện viết tay.
-  - `/decks`: **Quản lý Thư mục Bài học (Trải nghiệm kiểu Google Drive)** - Tổ chức thư mục phân cấp cha–con không giới hạn, tạo cả cấu trúc thư mục 1 lần, tìm kiếm nhanh, chọn 1 lần & nhấn đúp/`Enter` để mở (chạm 1 lần trên Mobile), bấm `F2` đổi tên trực tiếp, chuột phải mở Context Menu, kéo-thả (Drag & Drop) di chuyển thư mục, điều hướng bàn phím (`↑↓←→`, `Del`), **Xuất toàn bộ** & Nhập `.json` (Gộp hoặc Tạo bản sao).
+  - `/decks`: **Quản lý Thư mục Bài học (Trải nghiệm kiểu Google Drive)** - Tổ chức thư mục phân cấp cha–con không giới hạn, tạo cả cấu trúc thư mục 1 lần, tìm kiếm nhanh, chọn 1 lần & nhấn đúp/`Enter` để mở (chạm 1 lần trên Mobile), bấm `F2` đổi tên trực tiếp, chuột phải mở Context Menu, kéo-thả (Drag & Drop) di chuyển thư mục, điều hướng bàn phím (`↑↓←→`, `Del`), **Đồng bộ Cloud (AnkiDroid)**, **Xuất toàn bộ** & Nhập `.json` (Gộp hoặc Tạo bản sao).
   - `/decks/:folderId`: **Chi tiết Bài học, Nhập hàng loạt & Ôn tập Flashcard SRS** - Nhập hàng loạt Kanji & từ ghép bằng **Cú pháp Text nhanh** hoặc **JSON tối giản (AI)**, mở Modal **Xem chi tiết** để sửa/thêm/nhập hàng loạt từ ghép, nút phát âm ngay cạnh chữ Kanji, và ôn tập **Flashcard kép + SRS chuẩn Anki** trong Modal tập trung toàn màn hình.
+  - `/profile`: **Thông tin cá nhân & Trạng thái Đồng bộ** - Quản lý tên hiển thị, xem thông tin tài khoản và kiểm tra đồng bộ Cloud.
   - `/share/:slug`: **Xem & Ôn bộ bài chia sẻ công khai** - Mở liên kết chia sẻ từ bạn bè/cộng đồng để ôn thử Flashcard ngay hoặc lưu về thư mục cá nhân (kích hoạt khi cấu hình Supabase).
   - `/romaji`: **Phiên âm Romaji** - Trang chuyên biệt hiển thị các cặp dòng song song `[JP]` & `[ROMAJI]` chuẩn Hepburn, phân tách từ ghép rõ ràng, kèm tính năng phát âm và sao chép.
   - `/translate`: **Dịch câu song ngữ** - Trang dịch thuật chuyên biệt Nhật - Việt với công nghệ Google Dịch & Gemini AI.
@@ -59,8 +65,9 @@ Version **v3.2.0** transforms deck management and SRS review into a fast, distra
 - **🌐 React Router Deep-linking (F5 Persistent Navigation)**:
   - `/` / `/input`: Minimalist, focused Japanese text input area with IME support.
   - `/kanji`: Dedicated stroke order list, SVG animation, practice modal, and horizontal Quick Bar.
-  - `/decks`: **Hierarchical Study Folders (Google Drive-style UX)** — Manage nested parent/child folders, bulk-create entire folder trees (indentation or `/` paths), **Export All** folders in one JSON, single-click select & double-click/`Enter` to open (single-tap on mobile), `F2` inline rename, right-click context menu, drag-and-drop moving with cycle guard, keyboard navigation (`↑↓←→`, `Del`), and smart JSON Merge/Copy import.
+  - `/decks`: **Hierarchical Study Folders (Google Drive-style UX)** — Manage nested parent/child folders, bulk-create entire folder trees (indentation or `/` paths), **Export All** folders in one JSON, single-click select & double-click/`Enter` to open (single-tap on mobile), `F2` inline rename, right-click context menu, drag-and-drop moving with cycle guard, keyboard navigation (`↑↓←→`, `Del`), **AnkiDroid-style Cloud Sync**, and smart JSON Merge/Copy import.
   - `/decks/:folderId`: **Folder Detail, Batch Import & Focused SRS Modal** — Batch-import Kanji and compound words via **Quick Text Syntax** or **Minimalist AI-friendly JSON**, open the wide **Kanji Detail Modal** to edit/add/batch-import compound words, and review inside a **full-viewport focused Flashcard SRS Modal** (scroll-locked, centered fixed-height 2-column cards, `Space`, `←`/`→`, `1`/`2`/`3`).
+  - `/profile`: **Account Profile & Sync Status** — Guest-friendly Auth modal (login/signup with Display Name), circular Header Avatar, Auth Guard for protected actions, and profile/sync management.
   - `/share/:slug`: **Public Shared Deck Viewer** — Practice or clone shared community decks (when Supabase is configured).
   - `/romaji`: Dedicated Hepburn Romaji transliteration reading view with side-by-side line pairs.
   - `/translate`: Focused Japanese-Vietnamese translation powered by Google Translate & Gemini AI.
@@ -79,12 +86,12 @@ Version **v3.2.0** transforms deck management and SRS review into a fast, distra
 - **Frontend Framework:** React 19, TypeScript 5.8, Vite 8
 - **Routing:** React Router DOM v7 (HTML5 History API with full deep-linking & F5 persistence)
 - **UI & Styling:** Tailwind CSS v4, Lucide React Icons
-- **State Management:** React Context API (`KanjiContext`, `DeckContext`) with Offline-first `localStorage` persistence
-- **Optional Cloud Sync & Sharing:** Supabase (`@supabase/supabase-js` Auth & PostgreSQL RLS via `docs/supabase_decks_schema.sql`)
+- **State Management:** React Context API (`AuthContext`, `KanjiContext`, `DeckContext`) with Offline-first `localStorage` persistence
+- **Authentication & Cloud Sync (AnkiDroid Conflict Resolution):** Supabase Auth (`VITE_SUPABASE_PUBLISHABLE_KEY`), Vercel Serverless Functions (`/api/profile`, `/api/sync/*` using `SUPABASE_SECRET_KEY`), PostgreSQL RLS & SHA-256 3-way sync (`docs/supabase_decks_schema.sql`)
 - **Graphics & Vector Animation:** KanjiVG SVG Vector Paths, HTML5 Canvas API, `requestAnimationFrame`
 - **OCR Engine:** Tesseract.js (Client-side WebAssembly OCR)
 - **Speech Synthesis:** Web Speech Synthesis API (`ja-JP`)
-- **Backend & AI:** Node.js Express Server, `@google/genai` (Gemini API)
+- **Backend & AI:** Node.js Express Server / Vercel Serverless Functions, `@google/genai` (Gemini API)
 
 ---
 
@@ -105,9 +112,10 @@ npm run dev
 npm run build
 ```
 
-> **Lưu ý cấu hình tùy chọn (`.env`)**:
+> **Lưu ý cấu hình tùy chọn (`.env` / Vercel Environment Variables)**:
 > - `GEMINI_API_KEY`: Dùng cho tính năng dịch song ngữ AI.
-> - `VITE_SUPABASE_URL` & `VITE_SUPABASE_ANON_KEY`: Tùy chọn — ứng dụng mặc định chạy **100% Offline-first** với `localStorage`; khi khai báo thêm 2 biến này (và chạy `docs/supabase_decks_schema.sql` trên Supabase), tính năng đồng bộ tài khoản Cloud và chia sẻ liên kết công khai `/share/:slug` sẽ tự động kích hoạt.
+> - `VITE_SUPABASE_URL` & `VITE_SUPABASE_PUBLISHABLE_KEY` (Frontend): Dùng cho Supabase Auth ở trình duyệt.
+> - `SUPABASE_URL` & `SUPABASE_SECRET_KEY` (Backend `/api/*` — **không** gắn tiền tố `VITE_`): Dùng cho Vercel Serverless Functions xác thực JWT và đồng bộ dữ liệu PostgreSQL (sau khi chạy `docs/supabase_decks_schema.sql` trên Supabase). Mặc định khi chưa đăng nhập, ứng dụng vẫn chạy **100% Offline-first** với `localStorage`.
 
 ---
 

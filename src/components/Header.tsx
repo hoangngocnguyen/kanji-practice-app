@@ -1,7 +1,8 @@
 import React from 'react';
-import { Printer, Settings, Menu } from 'lucide-react';
+import { Printer, Settings, Menu, LogIn } from 'lucide-react';
 import { useLocation, NavLink } from 'react-router-dom';
 import { useKanji } from '../context/KanjiContext';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void;
@@ -9,7 +10,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const location = useLocation();
-  const { extractedKanjiList, setIsPrintModalOpen, setIsSettingsOpen } = useKanji();
+  const { extractedKanjiList, setIsSettingsOpen } = useKanji();
+  const { user, displayName, avatarInitials, openAuthModal } = useAuth();
 
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
@@ -28,6 +30,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         return {
           title: 'Ôn tập Kanji theo bài',
           subtitle: 'Thư mục phân cấp, từ ghép & Flashcard SRS chuẩn Anki',
+        };
+      case '/profile':
+        return {
+          title: 'Thông tin cá nhân',
+          subtitle: 'Quản lý tài khoản và đồng bộ dữ liệu Flashcard',
         };
       case '/romaji':
         return {
@@ -82,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
     }
   };
 
-  const { title, subtitle } = getPageTitle(location.pathname);
+  void getPageTitle(location.pathname);
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs print:hidden">
@@ -100,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             </button>
           )}
 
-          {/* Brand Logo & Web Name (Only Logo & Name per user request) */}
+          {/* Brand Logo & Web Name */}
           <NavLink to="/input" className="flex items-center gap-2.5 shrink-0 group" title="Trang chủ / Nhập văn bản">
             <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-teal-900/15 ring-1 ring-emerald-400/30 group-hover:scale-105 transition-transform">
               <span className="font-kanji font-black text-xl leading-none">漢</span>
@@ -115,12 +122,24 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           </NavLink>
         </div>
 
-        {/* Right: Clean Utility Actions */}
+        {/* Right: Auth / Print / Avatar / Settings */}
         <div className="flex items-center gap-2 shrink-0">
+          {!user && (
+            <button
+              type="button"
+              onClick={() => openAuthModal('login')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/90 rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 whitespace-nowrap"
+              title="Đăng nhập hoặc đăng ký tài khoản để đồng bộ Flashcard"
+            >
+              <LogIn className="w-3.5 h-3.5 shrink-0" />
+              <span>Đăng nhập</span>
+            </button>
+          )}
+
           <NavLink
             to="/print"
             className={({ isActive }) =>
-              `hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 border ${
+              `hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 border whitespace-nowrap ${
                 isActive
                   ? 'bg-teal-700 text-white border-teal-800'
                   : 'text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 border-slate-200/90'
@@ -132,11 +151,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             <span>In tập viết</span>
           </NavLink>
 
+          {user && (
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                `w-8 h-8 rounded-full bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs flex items-center justify-center transition-all cursor-pointer shrink-0 select-none ${
+                  isActive ? 'ring-2 ring-offset-2 ring-teal-700' : 'ring-1 ring-teal-800/20'
+                }`
+              }
+              title={`${displayName} · Thông tin cá nhân`}
+              aria-label="Thông tin cá nhân"
+            >
+              {avatarInitials}
+            </NavLink>
+          )}
+
           <button
             type="button"
             onClick={() => setIsSettingsOpen(true)}
             className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0"
             title="Cài đặt ứng dụng"
+            aria-label="Cài đặt ứng dụng"
           >
             <Settings className="w-4 h-4 shrink-0" />
           </button>

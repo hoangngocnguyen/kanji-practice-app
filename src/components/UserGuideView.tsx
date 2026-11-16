@@ -21,6 +21,10 @@ import {
   ListPlus,
   Download,
   Sparkles,
+  Cloud,
+  UserCheck,
+  ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,6 +34,7 @@ interface UserGuideViewProps {
 
 type GuideTabKey =
   | 'decks'
+  | 'account'
   | 'input'
   | 'strokes'
   | 'romaji'
@@ -49,6 +54,11 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
       id: 'decks',
       label: 'Bộ thẻ & Ôn tập SRS',
       icon: <FolderKanban className="w-4 h-4 shrink-0" />,
+    },
+    {
+      id: 'account',
+      label: 'Tài khoản & Đồng bộ',
+      icon: <Cloud className="w-4 h-4 shrink-0" />,
     },
     {
       id: 'input',
@@ -204,6 +214,71 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
                     Phiên ôn tập mở dưới dạng <strong>Modal toàn màn hình</strong> khóa cuộn nền giúp bạn tập trung 100% vào thẻ ở chính giữa. Hỗ trợ lật thẻ bằng <strong>Space</strong>, chuyển thẻ bằng phím <strong>← / →</strong>, và chấm điểm SRS 3 mức <strong>1 (Khó) · 2 (Tốt) · 3 (Dễ)</strong> tùy chỉnh theo chuẩn Anki.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: TÀI KHOẢN & ĐỒNG BỘ CLOUD */}
+          {activeTab === 'account' && (
+            <div className="space-y-4 animate-in fade-in duration-100">
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs tabular-nums">
+                    {activeIndex}
+                  </div>
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                    Tài khoản cá nhân &amp; Đồng bộ Cloud chuẩn AnkiDroid
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile')}
+                  className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  Mở trang Hồ sơ <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
+                    <UserCheck className="w-4 h-4 text-teal-600" />
+                    Chế độ Khách (Guest) &amp; Đăng nhập
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Bạn luôn có thể học và lưu bộ thẻ offline ngay lập tức mà không bị ép đăng nhập. Khi cần đồng bộ nhiều thiết bị, bấm nút <strong>Đăng nhập</strong> ở bên trái nút <em>In tập viết</em> trên Header để đăng nhập hoặc đăng ký tài khoản (kèm <strong>Tên hiển thị</strong>).
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
+                    <ShieldCheck className="w-4 h-4 text-teal-600" />
+                    Avatar &amp; Trang Thông tin cá nhân
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Sau khi đăng nhập, góc phải Header (ngay bên trái nút Cài đặt) sẽ hiển thị <strong>Avatar hình tròn</strong> của bạn. Nhấn vào Avatar để mở trang <strong>Thông tin cá nhân</strong>, đổi tên hiển thị, xem tiến độ đồng bộ hoặc đăng xuất.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
+                    <Cloud className="w-4 h-4 text-emerald-600" />
+                    Đồng bộ 2 chiều tự động
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Tại trang <strong>Bộ thẻ</strong> hoặc <strong>Hồ sơ</strong>, bấm <strong>Đồng bộ Cloud</strong> để đối chiếu phiên bản và mã băm nội dung với máy chủ. Nếu chỉ một bên có thay đổi, hệ thống tự động hợp nhất và ghi nhận các thẻ/thư mục đã xóa để không bị hồi sinh trên máy khác.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-900">
+                    <RefreshCw className="w-4 h-4 text-teal-600" />
+                    Giải quyết xung đột kiểu AnkiDroid
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Khi phát hiện cả máy hiện tại và Cloud đều có thay đổi khác nhau, hệ thống sẽ dừng ghi đè và bật <strong>Modal Giải quyết xung đột</strong> hiển thị đối chiếu số lượng thẻ của cả 2 bên để bạn chủ động chọn <strong>Tải lên Cloud (Upload)</strong> hoặc <strong>Tải về máy (Download)</strong>.
                   </p>
                 </div>
               </div>

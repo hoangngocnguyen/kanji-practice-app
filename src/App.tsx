@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ArrowUp } from 'lucide-react';
 import { KanjiProvider, useKanji } from './context/KanjiContext';
+import { AuthProvider } from './context/AuthContext';
 import { DeckProvider } from './context/DeckContext';
 import { Header } from './components/Header';
 import { AppSidebar } from './components/AppSidebar';
@@ -15,6 +16,10 @@ import { KanjiStrokesView } from './components/KanjiStrokesView';
 import { DecksView } from './components/DecksView';
 import { DeckDetailView } from './components/DeckDetailView';
 import { PublicShareView } from './components/PublicShareView';
+import { ProfilePage } from './pages/ProfilePage';
+import { AuthModal } from './components/auth/AuthModal';
+import { AuthGuardModal } from './components/auth/AuthGuardModal';
+import { SyncConflictModal } from './components/auth/SyncConflictModal';
 import { RomajiReaderView } from './components/RomajiReaderView';
 import { TranslationView } from './components/TranslationView';
 import { RomajiConverterView } from './components/RomajiConverterView';
@@ -115,6 +120,7 @@ function AppLayout() {
               <Route path="/decks" element={<DecksView />} />
               <Route path="/decks/:folderId" element={<DeckDetailView />} />
               <Route path="/share/:slug" element={<PublicShareView />} />
+              <Route path="/profile" element={<ProfilePage />} />
               <Route path="/romaji" element={<RomajiReaderView />} />
               <Route path="/translate" element={<TranslationView />} />
               <Route path="/converter" element={<RomajiConverterView />} />
@@ -183,6 +189,11 @@ function AppLayout() {
       {/* License Modal */}
       <LicenseModal isOpen={isLicenseOpen} onClose={() => setIsLicenseOpen(false)} />
 
+      {/* Global Auth, Auth Guard & AnkiDroid Sync Conflict Modals */}
+      <AuthModal />
+      <AuthGuardModal />
+      <SyncConflictModal />
+
       {/* Floating Scroll to Top */}
       {showScrollTop && (
         <button
@@ -202,11 +213,13 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <KanjiProvider>
-        <DeckProvider>
-          <AppLayout />
-        </DeckProvider>
-      </KanjiProvider>
+      <AuthProvider>
+        <KanjiProvider>
+          <DeckProvider>
+            <AppLayout />
+          </DeckProvider>
+        </KanjiProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
