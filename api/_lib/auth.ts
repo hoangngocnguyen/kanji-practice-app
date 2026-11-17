@@ -61,6 +61,38 @@ export async function requireAuth(req: any, res: any): Promise<AuthContext | nul
   }
 }
 
+export async function optionalAuth(
+  req: any,
+  res: any
+): Promise<{ user: User | null; supabaseAdmin: SupabaseClient } | null> {
+  if (!isServerSupabaseConfigured()) {
+    res.status(503).json({
+      error: 'Máy chủ chưa cấu hình SUPABASE_URL hoặc SUPABASE_SECRET_KEY.',
+      code: 'SUPABASE_NOT_CONFIGURED',
+    });
+    return null;
+  }
+
+  const supabaseAdmin = getSupabaseAdmin();
+  const authHeader = (req.headers?.authorization || req.headers?.Authorization || '') as string;
+  const match = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+  const token = match?.[1]?.trim();
+
+  if (!token) {
+    return { user: null, supabaseAdmin };
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !data?.user) {
+      return { user: null, supabaseAdmin };
+    }
+    return { user: data.user, supabaseAdmin };
+  } catch {
+    return { user: null, supabaseAdmin };
+  }
+}
+
 export interface ProfileRow {
   id: string;
   email: string;

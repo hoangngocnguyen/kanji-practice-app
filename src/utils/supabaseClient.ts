@@ -105,10 +105,13 @@ export async function unpublishFolderShareFromCloud(slug: string): Promise<void>
 
 export interface PublicSharedDeckRecord {
   slug: string;
+  owner_id: string;
   author_name: string;
   title: string;
   description: string;
   kanji_count: number;
+  likes_count?: number;
+  downloads_count?: number;
   bundle: KanjiDeckExportBundle;
   updated_at: string;
 }
@@ -117,7 +120,7 @@ export async function fetchPublicSharedDeck(slug: string): Promise<PublicSharedD
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('public_shared_decks')
-    .select('slug, author_name, title, description, kanji_count, bundle, updated_at')
+    .select('slug, owner_id, author_name, title, description, kanji_count, likes_count, downloads_count, bundle, updated_at')
     .eq('slug', slug)
     .maybeSingle();
 
@@ -129,7 +132,7 @@ export async function listPublicSharedDecks(): Promise<PublicSharedDeckRecord[]>
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('public_shared_decks')
-    .select('slug, author_name, title, description, kanji_count, bundle, updated_at')
+    .select('slug, owner_id, author_name, title, description, kanji_count, likes_count, downloads_count, bundle, updated_at')
     .order('updated_at', { ascending: false })
     .limit(20);
 

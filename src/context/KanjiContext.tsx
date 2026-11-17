@@ -17,8 +17,10 @@ interface KanjiContextType {
   setIncludeGrid: (val: boolean | ((prev: boolean) => boolean)) => void;
   inspectedKanji: KanjiItem | null;
   setInspectedKanji: (item: KanjiItem | null) => void;
+  practiceContextList: KanjiItem[] | null;
   handleInspectKanji: (item: KanjiItem) => void;
   handleSelectRecentKanji: (char: string) => void;
+  openKanjiPracticeModal: (char: string, contextChars?: string[]) => void;
   copyStatus: Record<string, CopyStatus>;
   handleCopyImage: (item: KanjiItem) => Promise<void>;
   handleDownloadPng: (item: KanjiItem) => Promise<void>;
@@ -96,7 +98,15 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Modals & Settings
   const [includeGrid, setIncludeGrid] = useState<boolean>(false);
-  const [inspectedKanji, setInspectedKanji] = useState<KanjiItem | null>(null);
+  const [inspectedKanji, setInspectedKanjiState] = useState<KanjiItem | null>(null);
+  const [practiceContextList, setPracticeContextList] = useState<KanjiItem[] | null>(null);
+
+  const setInspectedKanji = useCallback((item: KanjiItem | null) => {
+    setInspectedKanjiState(item);
+    if (!item) {
+      setPracticeContextList(null);
+    }
+  }, []);
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -215,7 +225,7 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       fetchKanjiSvg(item.svgUrl, item.hex).catch(() => {});
       const enriched = enrichedDetails[item.kanji] || getKanjiInfo(item.kanji);
       const targetItem = enriched ? { ...item, detail: enriched } : item;
-      setInspectedKanji(targetItem);
+      setInspectedKanjiState(targetItem);
       saveToRecentHistory(targetItem);
     },
     [enrichedDetails, saveToRecentHistory]
@@ -223,6 +233,7 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const handleSelectRecentKanji = useCallback(
     (char: string) => {
+      setPracticeContextList(null);
       const found =
         mergedKanjiList.find((k) => k.kanji === char) ||
         historyItems.find((k) => k.kanji === char);
@@ -236,6 +247,30 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     },
     [mergedKanjiList, historyItems, handleInspectKanji]
+  );
+
+  const openKanjiPracticeModal = useCallback(
+    (char: string, contextChars?: string[]) => {
+      const uniqueChars = contextChars && contextChars.length > 0
+        ? Array.from(new Set(contextChars.filter(Boolean)))
+        : [char];
+      const builtList = extractUniqueKanji(uniqueChars.join('')).map((item) => {
+        const enriched = enrichedDetails[item.kanji] || getKanjiInfo(item.kanji);
+        return enriched ? { ...item, detail: enriched } : item;
+      });
+
+      if (builtList.length > 0) {
+        setPracticeContextList(builtList);
+        const target =
+          builtList.find((k) => k.kanji === char) ||
+          extractUniqueKanji(char)[0] ||
+          builtList[0];
+        handleInspectKanji(target);
+      } else {
+        handleSelectRecentKanji(char);
+      }
+    },
+    [enrichedDetails, handleInspectKanji, handleSelectRecentKanji]
   );
 
   // Copy image to clipboard
@@ -297,8 +332,10 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIncludeGrid,
         inspectedKanji,
         setInspectedKanji,
+        practiceContextList,
         handleInspectKanji,
         handleSelectRecentKanji,
+        openKanjiPracticeModal,
         handleRemoveKanjiFromList,
         copyStatus,
         handleCopyImage,

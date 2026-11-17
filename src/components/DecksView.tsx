@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Eye,
+  Globe,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { StudyFolder } from '../types/deck';
@@ -30,6 +31,7 @@ import {
   JsonImportModal,
   SupabaseCloudModal,
 } from './DeckModals';
+import { SharedDecksManager } from './SharedDecksManager';
 
 export const DecksView: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +53,7 @@ export const DecksView: React.FC = () => {
     clearSyncMessage,
   } = useDecks();
 
+  const [activeTab, setActiveTab] = useState<'folders' | 'shares'>('folders');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -343,7 +346,7 @@ export const DecksView: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (anyModalOpen || renamingId) return;
+      if (anyModalOpen || renamingId || activeTab !== 'folders') return;
 
       const activeTag = (document.activeElement as HTMLElement | null)?.tagName;
       if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
@@ -454,6 +457,7 @@ export const DecksView: React.FC = () => {
     matchingFolders,
     navigate,
     startInlineRename,
+    activeTab,
   ]);
 
   const handleOpenContextMenu = (e: React.MouseEvent, folder: StudyFolder) => {
@@ -964,8 +968,42 @@ export const DecksView: React.FC = () => {
         </div>
       )}
 
-      {/* Search & Folder List */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-visible">
+      {/* View Switcher: Thư mục của tôi | Quản lý chia sẻ */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="inline-flex p-1 bg-slate-200/70 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('folders')}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeTab === 'folders'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Folder className="w-3.5 h-3.5 text-teal-700" />
+            <span>Thư mục của tôi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('shares')}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              activeTab === 'shares'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-teal-700" />
+            <span>Quản lý chia sẻ</span>
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'shares' ? (
+        <SharedDecksManager />
+      ) : (
+        <>
+          {/* Search & Folder List */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 overflow-visible">
         <div className="p-3.5 border-b border-slate-100 flex items-center gap-2.5">
           <Search className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
           <input
@@ -1047,7 +1085,9 @@ export const DecksView: React.FC = () => {
             </span>
           </div>
         )}
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Floating Right-Click Context Menu */}
       {contextMenu && (

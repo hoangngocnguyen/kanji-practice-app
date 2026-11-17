@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from 'react';
 import { User } from '@supabase/supabase-js';
 import {
@@ -24,7 +25,12 @@ import {
 } from '../utils/srsAlgorithm';
 import { extractUniqueKanji } from '../utils/kanji';
 import { getKanjiInfo } from '../data/kanjiDictionary';
-import { getFullKanjiDetail } from '../utils/kanjiApi';
+import {
+  cleanMeaningsList,
+  cleanReadingsList,
+  getFullKanjiDetail,
+  hasMissingKanjiData,
+} from '../utils/kanjiApi';
 import {
   ParsedCompoundWordInput,
   ParsedLessonItemInput,
@@ -230,6 +236,12 @@ interface DeckContextValue {
   updateKanjiItem: (itemId: string, patch: Partial<FolderKanjiItem>) => void;
   deleteKanjiItem: (itemId: string) => void;
   deleteKanjiItems: (itemIds: string[]) => void;
+  moveKanjiItems: (
+    itemIds: string[],
+    targetFolderId: string
+  ) => { movedCount: number; mergedCount: number };
+  enrichingItemIds: Record<string, boolean>;
+  enrichKanjiItems: (targetItems: FolderKanjiItem[], forceRetry?: boolean) => Promise<number>;
   addCompoundWord: (
     kanjiItemId: string,
     payload: { word: string; reading: string; hanViet: string; meaning: string }
@@ -398,6 +410,10 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cloudSnapshot, setCloudSnapshot] = useState<CloudSnapshot | null>(null);
   const [isLoadingCloudSnapshot, setIsLoadingCloudSnapshot] = useState(false);
   const [cloudSnapshotError, setCloudSnapshotError] = useState<string | null>(null);
+
+  const [enrichingItemIds, setEnrichingItemIds] = useState<Record<string, boolean>>({});
+  const attemptedEnrichRef = useRef<Set<string>>(new Set());
+  const activeEnrichRef = useRef<Set<string>>(new Set());
 
   const isStarterUntouched = useMemo(
     () => isUntouchedStarterDeck(folders, items, syncMeta.hasUserModifiedData),
@@ -793,6 +809,114 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [getDescendantFolderIds, selectedFolderId, items, markLocalMutation]
   );
 
+  const enrichKanjiItems = useCallback(
+    async (targetItems: FolderKanjiItem[], forceRetry = false): Promise<number> => {
+      const queue = targetItems.filter((it) => {
+        if (!it?.id || !it?.kanji) return false;
+        if (activeEnrichRef.current.has(it.id)) return false;
+        if (!forceRetry && attemptedEnrichRef.current.has(it.id)) return false;
+        return forceRetry || hasMissingKanjiData(it);
+      });
+
+      if (queue.length === 0) return 0;
+
+      queue.forEach((it) => {
+        activeEnrichRef.current.add(it.id);
+        attemptedEnrichRef.current.add(it.id);
+      });
+
+      setEnrichingItemIds((prev) => {
+        const next = { ...prev };
+        queue.forEach((it) => {
+          next[it.id] = true;
+        });
+        return next;
+      });
+
+      let updatedCount = 0;
+      let cursor = 0;
+      const concurrency = Math.min(4, queue.length);
+
+      const worker = async () => {
+        while (cursor < queue.length) {
+          const current = queue[cursor++];
+          if (!current) break;
+
+          try {
+            const detail = await getFullKanjiDetail(current.kanji);
+            const cleanedOn = cleanReadingsList(detail?.on);
+            const cleanedKun = cleanReadingsList(detail?.kun);
+            const cleanedMeanings = cleanMeaningsList(detail?.meanings);
+            const nextHv =
+              detail?.hanViet && detail.hanViet !== 'Chưa rõ' ? detail.hanViet : '';
+
+            let didMutateItem = false;
+            setItems((prev) =>
+              prev.map((it) => {
+                if (it.id !== current.id) return it;
+                const prevCleanOn = cleanReadingsList(it.onReadings);
+                const prevCleanKun = cleanReadingsList(it.kunReadings);
+                const prevCleanMeanings = cleanMeaningsList(it.meanings);
+
+                const finalOn = prevCleanOn.length > 0 ? prevCleanOn : cleanedOn;
+                const finalKun = prevCleanKun.length > 0 ? prevCleanKun : cleanedKun;
+                const finalMeanings =
+                  prevCleanMeanings.length > 0 ? prevCleanMeanings : cleanedMeanings;
+                const finalHv = it.hanViet || nextHv;
+                const finalStroke = it.strokeCount || detail?.strokeCount;
+
+                const changed =
+                  JSON.stringify(finalOn) !== JSON.stringify(it.onReadings) ||
+                  JSON.stringify(finalKun) !== JSON.stringify(it.kunReadings) ||
+                  JSON.stringify(finalMeanings) !== JSON.stringify(it.meanings) ||
+                  finalHv !== it.hanViet ||
+                  finalStroke !== it.strokeCount;
+
+                if (changed) {
+                  didMutateItem = true;
+                }
+
+                return changed
+                  ? {
+                      ...it,
+                      hanViet: finalHv,
+                      onReadings: finalOn,
+                      kunReadings: finalKun,
+                      meanings: finalMeanings,
+                      strokeCount: finalStroke,
+                    }
+                  : it;
+              })
+            );
+
+            if (didMutateItem) {
+              updatedCount += 1;
+            }
+          } catch {
+            // If forced retry or network failed, allow future retry
+            attemptedEnrichRef.current.delete(current.id);
+          } finally {
+            activeEnrichRef.current.delete(current.id);
+            setEnrichingItemIds((prev) => {
+              if (!prev[current.id]) return prev;
+              const next = { ...prev };
+              delete next[current.id];
+              return next;
+            });
+          }
+        }
+      };
+
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+      if (updatedCount > 0) {
+        markLocalMutation();
+      }
+      return updatedCount;
+    },
+    [markLocalMutation]
+  );
+
   // Kanji & Compound Word CRUD
   const addKanjiListToFolder = useCallback(
     async (folderId: string, rawText: string): Promise<number> => {
@@ -813,9 +937,9 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           folderId,
           kanji: entry.kanji,
           hanViet: localInfo?.hanViet || '',
-          onReadings: localInfo?.on || [],
-          kunReadings: localInfo?.kun || [],
-          meanings: localInfo?.meanings || [],
+          onReadings: cleanReadingsList(localInfo?.on),
+          kunReadings: cleanReadingsList(localInfo?.kun),
+          meanings: cleanMeaningsList(localInfo?.meanings),
           strokeCount: localInfo?.strokeCount,
           srsState: createInitialSrsState(now),
           compoundWords: [],
@@ -826,44 +950,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setItems((prev) => [...prev, ...newItems]);
       markLocalMutation();
 
-      // Enrich asynchronously with full dictionary API in background
-      newItems.forEach((created) => {
-        getFullKanjiDetail(created.kanji)
-          .then((detail) => {
-            if (!detail) return;
-            setItems((prev) =>
-              prev.map((it) =>
-                it.id === created.id
-                  ? {
-                      ...it,
-                      hanViet: it.hanViet || detail.hanViet || '',
-                      onReadings:
-                        detail.on && detail.on.length > 0 && !detail.on[0].includes('Tra Mazii')
-                          ? detail.on
-                          : it.onReadings,
-                      kunReadings:
-                        detail.kun && detail.kun.length > 0 && !detail.kun[0].includes('Tra Mazii')
-                          ? detail.kun
-                          : it.kunReadings,
-                      meanings:
-                        detail.meanings &&
-                        detail.meanings.length > 0 &&
-                        !detail.meanings[0].includes('Tra Mazii') &&
-                        !detail.meanings[0].includes('Bấm "Xem nét')
-                          ? detail.meanings
-                          : it.meanings,
-                      strokeCount: detail.strokeCount || it.strokeCount,
-                    }
-                  : it
-              )
-            );
-          })
-          .catch(() => {});
-      });
+      // Enrich asynchronously with concurrency-limited worker queue & loading state
+      void enrichKanjiItems(newItems, true);
 
       return newItems.length;
     },
-    [items, markLocalMutation]
+    [items, markLocalMutation, enrichKanjiItems]
   );
 
   const updateKanjiItem = useCallback(
@@ -891,6 +983,87 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       markLocalMutation({ deletedItems: uniqueIds });
     },
     [markLocalMutation]
+  );
+
+  const moveKanjiItems = useCallback(
+    (
+      itemIds: string[],
+      targetFolderId: string
+    ): { movedCount: number; mergedCount: number } => {
+      const uniqueIds = Array.from(new Set(itemIds.filter(Boolean)));
+      if (uniqueIds.length === 0 || !targetFolderId) {
+        return { movedCount: 0, mergedCount: 0 };
+      }
+      const targetExists = folders.some((f) => f.id === targetFolderId);
+      if (!targetExists) return { movedCount: 0, mergedCount: 0 };
+
+      const idSet = new Set(uniqueIds);
+      let movedCount = 0;
+      let mergedCount = 0;
+      const removedIds: string[] = [];
+
+      const targetByKanji = new Map<string, number>();
+      const next: FolderKanjiItem[] = [];
+
+      // Collect untouched items (or items already in targetFolderId)
+      for (const it of items) {
+        if (!idSet.has(it.id) || it.folderId === targetFolderId) {
+          const idx = next.push(it) - 1;
+          if (it.folderId === targetFolderId) {
+            targetByKanji.set(it.kanji, idx);
+          }
+        }
+      }
+
+      // Move or merge selected items from other folders into targetFolderId
+      for (const it of items) {
+        if (!idSet.has(it.id) || it.folderId === targetFolderId) continue;
+
+        const existingIdx = targetByKanji.get(it.kanji);
+        if (existingIdx !== undefined) {
+          const targetItem = next[existingIdx];
+          const existingWords = new Set(
+            (targetItem.compoundWords || []).map((cw) => cw.word.trim())
+          );
+          const extraWords = (it.compoundWords || []).filter((cw) => {
+            const w = cw.word.trim();
+            if (!w || existingWords.has(w)) return false;
+            existingWords.add(w);
+            return true;
+          });
+          next[existingIdx] = {
+            ...targetItem,
+            hanViet: targetItem.hanViet || it.hanViet,
+            onReadings:
+              targetItem.onReadings.length > 0 ? targetItem.onReadings : it.onReadings,
+            kunReadings:
+              targetItem.kunReadings.length > 0 ? targetItem.kunReadings : it.kunReadings,
+            meanings:
+              targetItem.meanings.length > 0 ? targetItem.meanings : it.meanings,
+            strokeCount: targetItem.strokeCount || it.strokeCount,
+            compoundWords: [...(targetItem.compoundWords || []), ...extraWords],
+          };
+          removedIds.push(it.id);
+          mergedCount += 1;
+        } else {
+          const movedItem: FolderKanjiItem = {
+            ...it,
+            folderId: targetFolderId,
+          };
+          const idx = next.push(movedItem) - 1;
+          targetByKanji.set(movedItem.kanji, idx);
+          movedCount += 1;
+        }
+      }
+
+      if (movedCount > 0 || mergedCount > 0) {
+        setItems(next);
+        markLocalMutation(removedIds.length > 0 ? { deletedItems: removedIds } : undefined);
+      }
+
+      return { movedCount, mergedCount };
+    },
+    [items, folders, markLocalMutation]
   );
 
   const addCompoundWord = useCallback(
@@ -1086,12 +1259,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
               folderId,
               kanji: parsed.kanji,
               hanViet: parsed.hanViet || localInfo?.hanViet || '',
-              onReadings: localInfo?.on || [],
-              kunReadings: localInfo?.kun || [],
+              onReadings: cleanReadingsList(localInfo?.on),
+              kunReadings: cleanReadingsList(localInfo?.kun),
               meanings:
                 parsed.meanings && parsed.meanings.length > 0
-                  ? parsed.meanings
-                  : localInfo?.meanings || [],
+                  ? cleanMeaningsList(parsed.meanings)
+                  : cleanMeaningsList(localInfo?.meanings),
               strokeCount: localInfo?.strokeCount,
               srsState: createInitialSrsState(now),
               compoundWords,
@@ -1108,49 +1281,15 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return next;
       });
 
-      // Enrich newly created Kanji items asynchronously
-      newlyCreatedItems.forEach((created) => {
-        getFullKanjiDetail(created.kanji)
-          .then((detail) => {
-            if (!detail) return;
-            setItems((prev) =>
-              prev.map((it) =>
-                it.id === created.id
-                  ? {
-                      ...it,
-                      hanViet: it.hanViet || detail.hanViet || '',
-                      onReadings:
-                        detail.on &&
-                        detail.on.length > 0 &&
-                        !detail.on[0].includes('Tra Mazii')
-                          ? detail.on
-                          : it.onReadings,
-                      kunReadings:
-                        detail.kun &&
-                        detail.kun.length > 0 &&
-                        !detail.kun[0].includes('Tra Mazii')
-                          ? detail.kun
-                          : it.kunReadings,
-                      meanings:
-                        detail.meanings &&
-                        detail.meanings.length > 0 &&
-                        !detail.meanings[0].includes('Tra Mazii') &&
-                        !detail.meanings[0].includes('Bấm "Xem nét')
-                          ? detail.meanings
-                          : it.meanings,
-                      strokeCount: detail.strokeCount || it.strokeCount,
-                    }
-                  : it
-              )
-            );
-          })
-          .catch(() => {});
-      });
+      // Enrich newly created Kanji items asynchronously with loading state & retries
+      if (newlyCreatedItems.length > 0) {
+        void enrichKanjiItems(newlyCreatedItems, true);
+      }
 
       markLocalMutation();
       return { addedKanji, mergedKanji, addedCompoundWords };
     },
-    [markLocalMutation]
+    [markLocalMutation, enrichKanjiItems]
   );
 
   // SRS Grading
@@ -1861,6 +2000,9 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateKanjiItem,
         deleteKanjiItem,
         deleteKanjiItems,
+        moveKanjiItems,
+        enrichingItemIds,
+        enrichKanjiItems,
         addCompoundWord,
         batchAddCompoundWords,
         updateCompoundWord,

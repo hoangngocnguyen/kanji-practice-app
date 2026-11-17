@@ -15,15 +15,18 @@ import { useKanji } from '../context/KanjiContext';
 import { CompoundWordCard, FolderKanjiItem } from '../types/deck';
 import { speakJapanese } from '../utils/speech';
 import { formatIntervalLabel } from '../utils/srsAlgorithm';
+import { cleanMeaningsList, cleanReadingsList } from '../utils/kanjiApi';
 
 interface KanjiItemDetailModalProps {
   item: FolderKanjiItem | null;
+  deckKanjiChars?: string[];
   onClose: () => void;
   onOpenBatchCompoundImport: (itemId: string) => void;
 }
 
 export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
   item,
+  deckKanjiChars,
   onClose,
   onOpenBatchCompoundImport,
 }) => {
@@ -34,7 +37,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
     deleteCompoundWord,
     deleteCompoundWords,
   } = useDecks();
-  const { handleSelectRecentKanji } = useKanji();
+  const { openKanjiPracticeModal } = useKanji();
 
   const [isEditingKanji, setIsEditingKanji] = useState(false);
   const [editHv, setEditHv] = useState('');
@@ -103,7 +106,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
 
   const startEditKanji = () => {
     setEditHv(item.hanViet || '');
-    setEditMeanings((item.meanings || []).join(', '));
+    setEditMeanings(cleanMeaningsList(item.meanings).join(', '));
     setIsEditingKanji(true);
   };
 
@@ -189,7 +192,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
             <div className="flex items-center gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => handleSelectRecentKanji(item.kanji)}
+                onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
                 className="w-20 h-20 rounded-2xl bg-white border border-slate-200 hover:border-teal-400 flex items-center justify-center font-kanji text-5xl font-black text-slate-900 hover:text-teal-800 transition-colors cursor-pointer shadow-2xs"
                 title="Xem nét viết & Bộ thủ"
               >
@@ -206,7 +209,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSelectRecentKanji(item.kanji)}
+                  onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
                   className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-teal-700 hover:border-teal-300 transition-colors cursor-pointer"
                   title="Xem nét viết & Bộ thủ"
                 >
@@ -289,7 +292,9 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                         </span>
                       </div>
                       <p className="text-sm text-slate-700 mt-1">
-                        {item.meanings.length > 0 ? item.meanings.join(', ') : 'Chưa có nghĩa'}
+                        {cleanMeaningsList(item.meanings).length > 0
+                          ? cleanMeaningsList(item.meanings).join(', ')
+                          : 'Chưa có nghĩa'}
                       </p>
                     </>
                   )}
@@ -311,13 +316,17 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                 <div className="bg-white border border-slate-200/80 rounded-xl px-3 py-2">
                   <span className="text-slate-400 text-[11px] block">Âm On</span>
                   <span className="font-mono font-medium text-slate-800">
-                    {item.onReadings.length > 0 ? item.onReadings.join(', ') : '—'}
+                    {cleanReadingsList(item.onReadings).length > 0
+                      ? cleanReadingsList(item.onReadings).join(', ')
+                      : '—'}
                   </span>
                 </div>
                 <div className="bg-white border border-slate-200/80 rounded-xl px-3 py-2">
                   <span className="text-slate-400 text-[11px] block">Âm Kun</span>
                   <span className="font-mono font-medium text-slate-800">
-                    {item.kunReadings.length > 0 ? item.kunReadings.join(', ') : '—'}
+                    {cleanReadingsList(item.kunReadings).length > 0
+                      ? cleanReadingsList(item.kunReadings).join(', ')
+                      : '—'}
                   </span>
                 </div>
               </div>
