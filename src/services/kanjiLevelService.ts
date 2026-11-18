@@ -18,9 +18,16 @@ export interface KanjiCatalogEntry {
 export interface KanjiExampleSentence {
   id: number;
   jp: string;
+  kana?: string;
   furigana?: string;
   vi: string;
-  source: string;
+  source: 'static' | 'dictionary';
+}
+
+export interface StaticSentencePair {
+  jp: string;
+  kana?: string;
+  vi: string;
 }
 
 export interface LevelTabMeta {
@@ -106,6 +113,63 @@ export async function loadKanjiJoyoCatalog(): Promise<KanjiCatalogEntry[]> {
   return catalogPromise;
 }
 
+// 100% Static Pre-Bundled Sentences (0ms runtime lookup, zero live API calls)
+let staticSentencesPromise: Promise<Record<string, StaticSentencePair[]>> | null = null;
+let cachedStaticSentences: Record<string, StaticSentencePair[]> | null = null;
+
+export async function loadKanjiSentencesStatic(): Promise<Record<string, StaticSentencePair[]>> {
+  if (cachedStaticSentences) return cachedStaticSentences;
+  if (!staticSentencesPromise) {
+    staticSentencesPromise = fetch('/data/kanji_sentences_static.json')
+      .then((res) => {
+        if (!res.ok) return {};
+        return res.json();
+      })
+      .then((data: Record<string, StaticSentencePair[]>) => {
+        cachedStaticSentences = data && typeof data === 'object' ? data : {};
+        return cachedStaticSentences;
+      })
+      .catch(() => {
+        staticSentencesPromise = null;
+        return {};
+      });
+  }
+  return staticSentencesPromise;
+}
+
+/**
+ * Synchronous 0ms lookup of pre-bundled Japanese–Vietnamese example sentences.
+ * Falls back cleanly to local compound phrases if an ultra-rare character lacks a sentence.
+ */
+export function getStaticSentencesForKanji(kanji: string, limit = 4): KanjiExampleSentence[] {
+  const cleanChar = Array.from(kanji.trim())[0] || '';
+  if (!cleanChar) return [];
+
+  const rows = cachedStaticSentences?.[cleanChar];
+  if (Array.isArray(rows) && rows.length > 0) {
+    return rows.slice(0, limit).map((pair, idx) => ({
+      id: idx + 1,
+      jp: pair.jp,
+      kana: pair.kana,
+      vi: pair.vi,
+      source: 'static',
+    }));
+  }
+
+  // Fallback to local KANJI_DICTIONARY compound examples if present
+  const local = getKanjiInfo(cleanChar);
+  if (local?.examples && local.examples.length > 0) {
+    return local.examples.slice(0, limit).map((ex, idx) => ({
+      id: 1000 + idx,
+      jp: `${ex.word} (${ex.reading})`,
+      vi: ex.meaning,
+      source: 'dictionary',
+    }));
+  }
+
+  return [];
+}
+
 export function catalogEntryToKanjiDetail(entry: KanjiCatalogEntry): KanjiDetail {
   const localDict = getKanjiInfo(entry.c);
   const hanViet = entry.hv || localDict?.hanViet || 'Chưa rõ';
@@ -138,143 +202,8 @@ export function catalogEntryToKanjiItem(entry: KanjiCatalogEntry, index: number)
   };
 }
 
-const EXAMPLE_STORAGE_KEY = 'kanji_example_sentences_v1';
-const MAX_CACHED_KANJI_EXAMPLES = 260;
-
-interface StoredExampleMap {
-  [kanji: string]: {
-    updatedAt: number;
-    sentences: KanjiExampleSentence[];
-  };
-}
-
-let memoryExampleMap: StoredExampleMap | null = null;
-const inflightExampleRequests = new Map<string, Promise<KanjiExampleSentence[]>>();
-
-function readStoredExamples(): StoredExampleMap {
-  if (memoryExampleMap) return memoryExampleMap;
-  try {
-    const raw = localStorage.getItem(EXAMPLE_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        memoryExampleMap = parsed;
-        return parsed;
-      }
-    }
-  } catch {
-    // Ignore storage read error
-  }
-  memoryExampleMap = {};
-  return memoryExampleMap;
-}
-
-function writeStoredExamples(map: StoredExampleMap): void {
-  const keys = Object.keys(map);
-  if (keys.length > MAX_CACHED_KANJI_EXAMPLES) {
-    // Keep most recently cached entries
-    const sorted = keys.sort((a, b) => (map[b]?.updatedAt || 0) - (map[a]?.updatedAt || 0));
-    const trimmed: StoredExampleMap = {};
-    for (const k of sorted.slice(0, MAX_CACHED_KANJI_EXAMPLES)) {
-      trimmed[k] = map[k];
-    }
-    memoryExampleMap = trimmed;
-  } else {
-    memoryExampleMap = map;
-  }
-
-  try {
-    localStorage.setItem(EXAMPLE_STORAGE_KEY, JSON.stringify(memoryExampleMap));
-  } catch {
-    // Ignore quota exceeded
-  }
-}
-
-export function getCachedKanjiExamples(kanji: string): KanjiExampleSentence[] | null {
-  const store = readStoredExamples();
-  const entry = store[kanji];
-  if (!entry || !Array.isArray(entry.sentences)) return null;
-  // Valid for 14 days if non-empty, 1 day if empty
-  const ttl = entry.sentences.length > 0 ? 14 * 86400_000 : 86400_000;
-  if (Date.now() - entry.updatedAt > ttl) return null;
-  return entry.sentences;
-}
-
-export async function fetchKanjiExampleSentences(
-  kanji: string,
-  limit = 4,
-  forceRefresh = false
-): Promise<KanjiExampleSentence[]> {
-  const cleanChar = Array.from(kanji.trim())[0] || '';
-  if (!cleanChar) return [];
-
-  if (!forceRefresh) {
-    const cached = getCachedKanjiExamples(cleanChar);
-    if (cached && cached.length > 0) return cached.slice(0, limit);
-  }
-
-  const inflightKey = `${cleanChar}:${limit}`;
-  const existingPromise = inflightExampleRequests.get(inflightKey);
-  if (existingPromise) return existingPromise;
-
-  const promise = (async () => {
-    try {
-      const res = await fetch(
-        `/api/translate?mode=examples&kanji=${encodeURIComponent(cleanChar)}&limit=${limit}`
-      );
-      if (!res.ok) throw new Error('Không thể tải câu ví dụ.');
-      const data = await res.json();
-      const sentences: KanjiExampleSentence[] = Array.isArray(data?.sentences)
-        ? data.sentences
-        : [];
-      const store = readStoredExamples();
-      writeStoredExamples({
-        ...store,
-        [cleanChar]: {
-          updatedAt: Date.now(),
-          sentences,
-        },
-      });
-      return sentences;
-    } catch {
-      return getCachedKanjiExamples(cleanChar) || [];
-    } finally {
-      inflightExampleRequests.delete(inflightKey);
-    }
-  })();
-
-  inflightExampleRequests.set(inflightKey, promise);
-  return promise;
-}
-
-export async function prefetchExamplesForChars(
-  chars: string[],
-  limitPerChar = 2,
-  concurrency = 3
-): Promise<Record<string, KanjiExampleSentence[]>> {
-  const unique = Array.from(new Set(chars.filter(Boolean)));
-  const result: Record<string, KanjiExampleSentence[]> = {};
-  let idx = 0;
-
-  const worker = async () => {
-    while (idx < unique.length) {
-      const ch = unique[idx++];
-      if (!ch) break;
-      const sentences = await fetchKanjiExampleSentences(ch, limitPerChar);
-      if (sentences.length > 0) {
-        result[ch] = sentences;
-      }
-    }
-  };
-
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, Math.max(1, unique.length)) }, () => worker())
-  );
-  return result;
-}
-
 /**
- * Parses Tatoeba Hrkt transcription like "[今日|こん|にち]は。"
+ * Parses Hrkt transcription like "[今日|こん|にち]は。"
  * into plain Japanese/reading chunks for clean UI display.
  */
 export function formatTatoebaFuriganaPlain(hrkt?: string): string {

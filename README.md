@@ -19,10 +19,10 @@ Bản cập nhật **v3.3.0** bổ sung lộ trình học Kanji hệ thống the
 
 - **🎓 Học Kanji theo cấp độ JLPT N5–N1 & 2.136 Jōyō Kanji (`/levels`):**
   - **Dữ liệu 2.136 chữ chuẩn:** Chia rõ theo từng cấp **N5** (111 chữ), **N4** (216 chữ), **N3** (376 chữ), **N2** (504 chữ), **N1** (929 chữ) và trọn bộ **Jōyō Kanji (2.136 chữ)** kèm âm Hán-Việt, On/Kun, nghĩa tiếng Việt và số nét.
-  - **Xem nét viết & Điều hướng liên tục:** Hiển thị dạng **Bảng**, **Thẻ (Mobile)** hoặc **Lưới thẻ** với hoạt ảnh SVG trực tiếp, lưới ô mễ, phiên âm Furigana; bấm mở **Modal luyện viết** và lướt **Trái / Phải (`←`/`→`)** sang chữ kế tiếp trong danh sách cấp độ.
+  - **Thẻ ngang 2–3 cột tối giản & Lưới gọn:** Hiển thị danh sách dạng **Thẻ chi tiết (2–3 cột)** cân đối gồm Kanji, Hán-Việt, hoạt ảnh SVG trực tiếp, âm On/Kun, nghĩa Việt, **1 câu ví dụ song ngữ đi kèm sẵn** và duy nhất nút `+ Bộ thẻ`; bấm trực tiếp vào chữ hoặc hình SVG để mở **Modal luyện viết** và lướt **Trái / Phải (`←`/`→`)**.
   - **Tải thêm (Load More) & Cuộn nhanh:** Phân trang tải thêm theo từng đợt 48 chữ kèm nút **Lên đầu trang** ở cuối danh sách và nút cuộn nổi.
-  - **Câu ví dụ thực tế Nhật – Việt:** Tích hợp tìm câu ví dụ chứa Kanji từ **Tatoeba** qua `/api/translate` (ưu tiên câu tiếng Việt chuẩn, tự động dịch dự phòng qua Google/MyMemory/Gemini nếu thiếu), phát âm `ja-JP` và lưu đệm cache ngoại tuyến ngay trên từng dòng hoặc trong **Modal Chi tiết**.
-  - **Quiz ôn tập 4 dạng + Tổng hợp:** Hỗ trợ *Kanji → Nghĩa Việt*, *Nghĩa / Hán-Việt → Kanji*, *Chọn âm On / Kun đúng*, và *Điền / Tự gõ Kanji vào câu ví dụ thực tế*. Cho phép chọn phạm vi linh hoạt, dùng phím tắt `1–4` / `Enter`, ôn lại ngay chữ làm sai và lưu nhanh chữ sai vào bộ thẻ.
+  - **Câu ví dụ thực tế Nhật – Việt 0ms (Nạp tĩnh 100%):** Đóng gói sẵn kho câu ví dụ Nhật–Việt từ **Tatoeba** ngay trong dữ liệu tĩnh của ứng dụng (`/data/kanji_sentences_static.json`), hiển thị tức thì không chờ gọi API, phát âm `ja-JP` và xem đầy đủ trong **Modal Chi tiết**.
+  - **Quiz ôn tập 4 dạng + Tổng hợp (0ms):** Hỗ trợ *Kanji → Nghĩa Việt*, *Nghĩa / Hán-Việt → Kanji*, *Chọn âm On / Kun đúng*, và *Điền / Tự gõ Kanji vào câu ví dụ* — mở đề ngay tức thì không chờ mạng, hỗ trợ phím tắt `1–4` / `Enter` và lưu nhanh chữ sai vào bộ thẻ.
   - **Chọn nhiều & Lưu thẳng vào Bộ thẻ Flashcard:** Tích chọn nhiều chữ cùng lúc để tạo bộ thẻ mới hoặc thêm vào thư mục bài học có sẵn với đầy đủ Hán-Việt, On/Kun và từ ghép.
 
 - **🤝 Cộng đồng Chia sẻ Bộ thẻ, Like, Follow & Hồ sơ Công khai (`/shares`, `/u/:userId`, `/share/:slug`):**
@@ -64,9 +64,9 @@ Version **v3.3.0** introduces structured level-based Kanji study, live Japanese�
 
 - **🎓 Kanji by Level (`/levels` — JLPT N5–N1 & 2,136 Jōyō Kanji):**
   - Complete **2,136 Jōyō Kanji** dataset grouped accurately into **N5** (111), **N4** (216), **N3** (376), **N2** (504), **N1** (929), and full **Jōyō (2,136)** with Sino-Vietnamese readings, On/Kun, Vietnamese meanings, and stroke counts.
-  - **Table, Mobile Cards & Compact Grid Views:** Built-in SVG stroke playback, dashed grid overlay, Furigana toggle, **Load More** pagination (48 chars/batch) with **Back to Top**, and direct **Practice Modal** launch with Left/Right (`←`/`→`) navigation across the level list.
-  - **Real Example Sentences (Tatoeba + Auto-Translation):** Fetches authentic Japanese sentences via `/api/translate?mode=examples`, prioritizes direct Vietnamese translations with Google/MyMemory/Gemini fallback, highlights target Kanji, speaks Japanese audio, and caches results offline.
-  - **4-Mode Interactive Quiz + Mixed Mode:** Covers *Kanji → Meaning*, *Meaning/Sino-Vietnamese → Kanji*, *On/Kun Readings*, and *Sentence Cloze* (both 4-choice click and direct Kanji typing), keyboard shortcuts (`1–4`, `Enter`), review of missed characters, and one-click saving of missed Kanji into Flashcard decks.
+  - **2–3 Column Horizontal Rich Cards & Compact Grid:** Clean card layout pairing Kanji, SVG stroke animation, On/Kun readings, Vietnamese meanings, an **inline bilingual example sentence**, and a single `+ Bộ thẻ` button; click any Kanji or SVG to launch the **Practice Modal** with Left/Right (`←`/`→`) level navigation.
+  - **0ms Static Japanese–Vietnamese Example Sentences:** Pre-bundled Tatoeba bilingual sentence corpus (`/data/kanji_sentences_static.json`) loads instantaneously with zero runtime API latency or loading spinners.
+  - **4-Mode Interactive Quiz + Mixed Mode (0ms):** Covers *Kanji → Meaning*, *Meaning/Sino-Vietnamese → Kanji*, *On/Kun Readings*, and *Sentence Cloze* (both 4-choice click and direct Kanji typing), keyboard shortcuts (`1–4`, `Enter`), review of missed characters, and one-click saving of missed Kanji into Flashcard decks.
   - **Multi-Select Export to Flashcards:** Select single or multiple characters across Load More batches and save directly into new or existing Study Folders.
 
 - **🤝 Community Sharing, Optimistic Likes & Follows, and Public Profiles (`/shares`, `/share/:slug`, `/u/:userId`, `/profile`):**
@@ -95,7 +95,7 @@ Version **v3.3.0** introduces structured level-based Kanji study, live Japanese�
 - **Graphics & Vector Animation:** KanjiVG SVG Vector Paths, HTML5 Canvas API, `requestAnimationFrame`
 - **OCR Engine:** Tesseract.js (Client-side WebAssembly OCR)
 - **Speech Synthesis:** Web Speech Synthesis API (`ja-JP`)
-- **Translation & Example Sentences:** Node.js Express / Vercel Serverless `/api/translate` (Tatoeba API, Google GTX, MyMemory, & `@google/genai` Gemini API)
+- **Translation & Example Corpus:** Node.js Express / Vercel Serverless `/api/translate` (Google GTX & `@google/genai` Gemini AI) + Pre-bundled static **Tatoeba** Japanese–Vietnamese sentence dataset (`/public/data/kanji_sentences_static.json`)
 
 ---
 

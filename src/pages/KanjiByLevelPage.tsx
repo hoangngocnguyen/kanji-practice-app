@@ -14,9 +14,6 @@ import {
   Square,
   Sparkles,
   BookOpen,
-  MessageSquareQuote,
-  ChevronDown,
-  ChevronUp,
   ArrowUp,
   Languages,
   Loader2,
@@ -31,18 +28,15 @@ import { KanjiLevelQuiz } from '../components/KanjiLevelQuiz';
 import { AddKanjiToDeckModal } from '../components/AddKanjiToDeckModal';
 import {
   KanjiCatalogEntry,
-  KanjiExampleSentence,
   KanjiLevelTab,
   LEVEL_METADATA,
   catalogEntryToKanjiDetail,
   catalogEntryToKanjiItem,
-  fetchKanjiExampleSentences,
-  formatTatoebaFuriganaPlain,
-  getCachedKanjiExamples,
+  getStaticSentencesForKanji,
   loadKanjiJoyoCatalog,
+  loadKanjiSentencesStatic,
 } from '../services/kanjiLevelService';
 import { speakJapanese } from '../utils/speech';
-import { getJlptBadgeClass } from '../utils/colorUtils';
 import { getPrimaryHiragana } from '../utils/kanji';
 
 const LOAD_MORE_BATCH = 48;
@@ -53,10 +47,11 @@ export const KanjiByLevelPage: React.FC = () => {
   const [catalog, setCatalog] = useState<KanjiCatalogEntry[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [staticSentencesLoaded, setStaticSentencesLoaded] = useState<boolean>(false);
 
   const [activeLevel, setActiveLevel] = useState<KanjiLevelTab>('N5');
   const [subMode, setSubMode] = useState<'list' | 'quiz'>('list');
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [viewMode, setViewMode] = useState<'rows' | 'grid'>('rows');
   const [showFurigana, setShowFurigana] = useState<boolean>(false);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -72,11 +67,6 @@ export const KanjiByLevelPage: React.FC = () => {
   const [isSelectMode, setIsSelectMode] = useState<boolean>(false);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
 
-  // Inline example sentences expansion state
-  const [expandedExampleChar, setExpandedExampleChar] = useState<string | null>(null);
-  const [examplesByChar, setExamplesByChar] = useState<Record<string, KanjiExampleSentence[]>>({});
-  const [loadingExampleChar, setLoadingExampleChar] = useState<string | null>(null);
-
   // Add to deck modal state
   const [deckModalEntries, setDeckModalEntries] = useState<KanjiDetail[]>([]);
   const [isDeckModalOpen, setIsDeckModalOpen] = useState<boolean>(false);
@@ -85,10 +75,12 @@ export const KanjiByLevelPage: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     setIsLoadingCatalog(true);
-    loadKanjiJoyoCatalog()
-      .then((data) => {
+
+    Promise.all([loadKanjiJoyoCatalog(), loadKanjiSentencesStatic()])
+      .then(([catalogData]) => {
         if (mounted) {
-          setCatalog(data);
+          setCatalog(catalogData);
+          setStaticSentencesLoaded(true);
           setCatalogError(null);
         }
       })
@@ -100,6 +92,7 @@ export const KanjiByLevelPage: React.FC = () => {
       .finally(() => {
         if (mounted) setIsLoadingCatalog(false);
       });
+
     return () => {
       mounted = false;
     };
@@ -146,13 +139,13 @@ export const KanjiByLevelPage: React.FC = () => {
     [filteredEntries, visibleCount]
   );
 
-  // Convert visible entries to KanjiItem objects for smooth table/grid rendering
+  // Convert visible entries to KanjiItem objects for SVG rendering
   const visibleItems = useMemo<KanjiItem[]>(
     () => visibleEntries.map((entry, idx) => catalogEntryToKanjiItem(entry, idx)),
     [visibleEntries]
   );
 
-  // Map char -> KanjiDetail & entry lookup
+  // Map char -> entry lookup
   const catalogByChar = useMemo(() => {
     const map = new Map<string, KanjiCatalogEntry>();
     for (const entry of catalog) {
@@ -217,9 +210,7 @@ export const KanjiByLevelPage: React.FC = () => {
   // Open PracticeModal with filtered level context so Left/Right works seamlessly
   const handleInspectEntryChar = useCallback(
     (char: string) => {
-      const contextList =
-        filteredEntries.length > 0 ? filteredEntries : levelPool;
-      // Keep window centered if list is huge (> 600) or full list cleanly up to 2136
+      const contextList = filteredEntries.length > 0 ? filteredEntries : levelPool;
       const chars = contextList.map((e) => e.c);
       const prefilledMap: Record<string, KanjiDetail> = {};
       for (const e of contextList) {
@@ -229,29 +220,6 @@ export const KanjiByLevelPage: React.FC = () => {
     },
     [filteredEntries, levelPool, openKanjiPracticeModal]
   );
-
-  // Toggle inline Tatoeba example sentences on row/card
-  const handleToggleInlineExamples = async (char: string) => {
-    if (expandedExampleChar === char) {
-      setExpandedExampleChar(null);
-      return;
-    }
-
-    setExpandedExampleChar(char);
-    const cached = examplesByChar[char] || getCachedKanjiExamples(char);
-    if (cached && cached.length > 0) {
-      setExamplesByChar((prev) => ({ ...prev, [char]: cached }));
-      return;
-    }
-
-    setLoadingExampleChar(char);
-    try {
-      const sentences = await fetchKanjiExampleSentences(char, 3);
-      setExamplesByChar((prev) => ({ ...prev, [char]: sentences }));
-    } finally {
-      setLoadingExampleChar((curr) => (curr === char ? null : curr));
-    }
-  };
 
   const toggleSelectChar = (char: string) => {
     setSelectedChars((prev) =>
@@ -363,7 +331,7 @@ export const KanjiByLevelPage: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-200/90 p-14 text-center space-y-3">
           <Loader2 className="w-8 h-8 animate-spin text-teal-700 mx-auto" />
           <p className="text-sm font-semibold text-slate-700">
-            Đang nạp danh mục 2.136 chữ Kanji chuẩn...
+            Đang nạp danh mục 2.136 chữ Kanji &amp; câu ví dụ tĩnh...
           </p>
         </div>
       ) : catalogError ? (
@@ -467,17 +435,17 @@ export const KanjiByLevelPage: React.FC = () => {
                   )}
                 </button>
 
-                {/* Table / Grid Switcher */}
+                {/* Rows / Grid Switcher */}
                 <div className="h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 ml-auto sm:ml-0">
                   <button
                     type="button"
-                    onClick={() => setViewMode('table')}
+                    onClick={() => setViewMode('rows')}
                     className={`h-full px-2.5 text-xs rounded-lg flex items-center gap-1 font-semibold cursor-pointer ${
-                      viewMode === 'table' ? 'bg-teal-800 text-white' : 'text-slate-600 hover:text-slate-900'
+                      viewMode === 'rows' ? 'bg-teal-800 text-white' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     <TableIcon className="w-3.5 h-3.5" />
-                    <span>Bảng</span>
+                    <span>Danh sách (1 hàng)</span>
                   </button>
                   <button
                     type="button"
@@ -501,6 +469,10 @@ export const KanjiByLevelPage: React.FC = () => {
                 {searchQuery || strokeFilter !== 'all'
                   ? ` (lọc trong ${currentLevelMeta.label})`
                   : ` · ${currentLevelMeta.label}`}
+                <span className="hidden sm:inline text-slate-400">
+                  {' '}
+                  · Nhấp vào chữ hoặc hình SVG để luyện viết nét
+                </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -562,38 +534,28 @@ export const KanjiByLevelPage: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-mono font-bold text-slate-400 tabular-nums">
+                      <span className="font-mono text-slate-400 tabular-nums">
                         #{idx + 1}
+                        {activeLevel === 'JOYO' ? ` · ${entry.lv}` : ''}
                       </span>
-                      <div className="flex items-center gap-1">
-                        {activeLevel === 'JOYO' && (
-                          <span
-                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${getJlptBadgeClass(
-                              entry.lv
-                            )}`}
-                          >
-                            {entry.lv}
-                          </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectChar(entry.c)}
+                        className={`p-0.5 rounded cursor-pointer ${
+                          isSelected ? 'text-teal-700' : 'text-slate-300 hover:text-teal-700'
+                        }`}
+                        title={isSelected ? 'Bỏ chọn chữ này' : 'Chọn để thêm vào bộ thẻ'}
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4" />
                         )}
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectChar(entry.c)}
-                          className={`p-0.5 rounded cursor-pointer ${
-                            isSelected ? 'text-teal-700' : 'text-slate-300 hover:text-teal-700'
-                          }`}
-                          title={isSelected ? 'Bỏ chọn chữ này' : 'Chọn để thêm vào bộ thẻ'}
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
+                      </button>
                     </div>
 
                     {/* Stroke SVG Box */}
-                    <div className="relative mx-auto w-24 h-24">
+                    <div className="relative mx-auto w-22 h-22">
                       <div
                         onClick={() => handleInspectEntryChar(entry.c)}
                         className="relative w-full h-full bg-white rounded-xl border border-slate-200 p-1.5 hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden"
@@ -615,18 +577,27 @@ export const KanjiByLevelPage: React.FC = () => {
                     </div>
 
                     <div className="text-center space-y-0.5 min-w-0">
+                      {showFurigana && primaryKana && (
+                        <div className="text-[10px] font-semibold text-teal-700">
+                          {primaryKana}
+                        </div>
+                      )}
                       <div className="flex items-center justify-center gap-1">
-                        {showFurigana && primaryKana && (
-                          <span className="text-[10px] font-semibold text-teal-700">
-                            {primaryKana}
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        onClick={() => handleInspectEntryChar(entry.c)}
-                        className="text-xs font-extrabold text-teal-900 truncate cursor-pointer hover:underline"
-                      >
-                        {entry.hv}
+                        <button
+                          type="button"
+                          onClick={() => handleInspectEntryChar(entry.c)}
+                          className="text-xs font-extrabold text-teal-900 truncate cursor-pointer hover:underline"
+                        >
+                          {entry.hv}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => speakJapanese(entry.c)}
+                          className="text-slate-400 hover:text-teal-700 cursor-pointer shrink-0"
+                          title="Nghe phát âm"
+                        >
+                          <Volume2 className="w-3 h-3" />
+                        </button>
                       </div>
                       <div className="text-[11px] text-slate-600 truncate">
                         {entry.vi.join(', ')}
@@ -636,496 +607,194 @@ export const KanjiByLevelPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 pt-1 border-t border-slate-100 mt-auto">
-                      <button
-                        type="button"
-                        onClick={() => speakJapanese(entry.c)}
-                        className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded-lg cursor-pointer"
-                        title="Nghe phát âm"
-                      >
-                        <Volume2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
-                        className="flex-1 py-1 px-1.5 text-[11px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg cursor-pointer flex items-center justify-center gap-1"
-                        title="Thêm vào bộ thẻ Flashcard"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Bộ thẻ</span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
+                      className="mt-auto w-full py-1 px-2 text-[11px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg cursor-pointer flex items-center justify-center gap-1"
+                      title="Thêm vào bộ thẻ Flashcard"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Bộ thẻ</span>
+                    </button>
                   </div>
                 );
               })}
             </div>
           ) : (
-            /* TABLE (Desktop) + RICH CARDS (Mobile) */
-            <>
-              {/* Mobile Rich Cards */}
-              <div className="md:hidden space-y-3">
-                {visibleEntries.map((entry, idx) => {
-                  const item = visibleItems[idx];
-                  const isSelected = selectedCharSet.has(entry.c);
-                  const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
-                  const isExpanded = expandedExampleChar === entry.c;
-                  const examples = examplesByChar[entry.c] || getCachedKanjiExamples(entry.c) || [];
-                  const isLoadingEx = loadingExampleChar === entry.c;
-                  const primaryKana = item.detail ? getPrimaryHiragana(item.detail) : '';
+            /* 1 CARD PER ROW (Full-width horizontal card list view, 1 item per row) */
+            <div className="space-y-3">
+              {visibleEntries.map((entry, idx) => {
+                const item = visibleItems[idx];
+                const isSelected = selectedCharSet.has(entry.c);
+                const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
+                const primaryKana = item.detail ? getPrimaryHiragana(item.detail) : '';
+                const staticExamples = staticSentencesLoaded
+                  ? getStaticSentencesForKanji(entry.c, 1)
+                  : [];
+                const topExample = staticExamples[0];
 
-                  return (
-                    <div
-                      key={`mob-${entry.c}`}
-                      className={`bg-white rounded-2xl border p-4 space-y-3 transition-all ${
-                        isSelected
-                          ? 'border-teal-600 ring-1 ring-teal-500/30 bg-teal-50/15'
-                          : 'border-slate-200/90'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <div className="flex items-center gap-2 text-xs">
+                return (
+                  <article
+                    key={entry.c}
+                    className={`bg-white rounded-2xl border p-4 sm:p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all ${
+                      isSelected
+                        ? 'border-teal-600 ring-1 ring-teal-500/30 bg-teal-50/15'
+                        : 'border-slate-200/90 hover:border-teal-400'
+                    }`}
+                  >
+                    {/* Left Column: Checkbox, # & Level & Stroke count stacked */}
+                    <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectChar(entry.c)}
+                        className={`p-1 rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? 'text-teal-700 bg-teal-50' : 'text-slate-300 hover:text-teal-700'
+                        }`}
+                        title={isSelected ? 'Bỏ chọn' : 'Chọn vào Bộ thẻ'}
+                      >
+                        {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                      </button>
+
+                      <div className="flex flex-col items-center justify-center font-mono text-xs font-bold text-slate-400 tabular-nums bg-slate-50 px-2 py-1.5 rounded-xl border border-slate-200/80 min-w-[48px]">
+                        <span>#{idx + 1}</span>
+                        <span className="text-teal-800 font-extrabold mt-0.5">{entry.lv}</span>
+                        <span className="text-[10px] text-slate-500 font-sans font-medium mt-0.5">{entry.st} nét</span>
+                      </div>
+
+                      {/* Kanji Character + Hán-Việt below + Audio */}
+                      <div className="flex flex-col items-center text-center">
+                        <div className="flex items-center gap-1.5">
+                          <ruby
+                            onClick={() => handleInspectEntryChar(entry.c)}
+                            className="font-kanji font-black text-4xl sm:text-5xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors inline-flex flex-col items-center"
+                            title="Nhấp để mở modal luyện viết nét"
+                          >
+                            {showFurigana && primaryKana && (
+                              <rt className="text-[11px] font-semibold text-teal-700 pb-0.5">
+                                {primaryKana}
+                              </rt>
+                            )}
+                            <span>{entry.c}</span>
+                          </ruby>
                           <button
                             type="button"
-                            onClick={() => toggleSelectChar(entry.c)}
-                            className={`p-0.5 rounded cursor-pointer ${
-                              isSelected ? 'text-teal-700' : 'text-slate-400'
-                            }`}
+                            onClick={() => speakJapanese(entry.c)}
+                            className="p-1 text-slate-400 hover:text-teal-700 rounded cursor-pointer"
+                            title="Nghe phát âm"
                           >
-                            {isSelected ? (
-                              <CheckSquare className="w-4 h-4" />
-                            ) : (
-                              <Square className="w-4 h-4" />
-                            )}
+                            <Volume2 className="w-4 h-4" />
                           </button>
-                          <span className="font-mono font-bold text-slate-500 tabular-nums">
-                            #{idx + 1}
-                          </span>
-                          <span className="font-bold text-teal-900">{entry.hv}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 tabular-nums">
-                          <span
-                            className={`px-1.5 py-0.5 rounded font-bold border ${getJlptBadgeClass(
-                              entry.lv
-                            )}`}
+                        <span className="text-xs sm:text-sm font-extrabold text-teal-900 mt-1">
+                          {entry.hv}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* SVG Stroke Order Box (Larger size) */}
+                    <div className="relative shrink-0 mx-auto lg:mx-0">
+                      <div
+                        onClick={() => handleInspectEntryChar(entry.c)}
+                        className="relative w-28 h-28 sm:w-32 sm:h-32 bg-white rounded-xl border border-slate-200 p-2 hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden shadow-2xs"
+                        title="Nhấp để xem chi tiết & luyện viết"
+                      >
+                        {includeGrid && <KanjiGridOverlay dashed={true} type="mi" />}
+                        <KanjiSvgView
+                          svgUrl={item.svgUrl}
+                          kanji={entry.c}
+                          animKey={animState.animKey}
+                          loopMode={animState.mode}
+                          className="w-full h-full object-contain relative z-0"
+                        />
+                        <div className="absolute bottom-1 right-1 bg-white/90 rounded p-0.5 border border-slate-200 text-teal-700">
+                          <PlayCircle className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                      {renderReloadButton(item.hex, animState.mode)}
+                    </div>
+
+                    {/* Middle Section: Meanings & On / Kun Readings & Larger Example Sentence */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <p className="text-sm sm:text-base font-bold text-slate-900">
+                        {entry.vi.join(', ')}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-1 text-xs text-slate-700">
+                        {entry.on.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.2 rounded font-bold text-[10px] text-blue-800 bg-blue-50 border border-blue-200">
+                              On
+                            </span>
+                            <span className="font-kanji font-medium text-slate-800">
+                              {entry.on.join('、 ')}
+                            </span>
+                          </div>
+                        )}
+                        {entry.kun.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.2 rounded font-bold text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200">
+                              Kun
+                            </span>
+                            <span className="font-kanji font-medium text-slate-800">
+                              {entry.kun.join('、 ')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Inline Example Sentence with speaker on the left */}
+                      {topExample && (
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 flex items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => speakJapanese(topExample.jp)}
+                            className="p-2 text-slate-400 hover:text-teal-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer shrink-0 mt-0.5 shadow-2xs"
+                            title="Nghe câu ví dụ"
                           >
-                            {entry.lv}
-                          </span>
-                          <span>·</span>
-                          <span>{entry.st} nét</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3.5">
-                        <div className="relative inline-block shrink-0">
-                          <div
-                            onClick={() => handleInspectEntryChar(entry.c)}
-                            className="relative w-24 h-24 bg-white rounded-xl border-2 border-slate-200 p-1.5 hover:border-teal-500 cursor-pointer flex items-center justify-center overflow-hidden"
-                          >
-                            {includeGrid && <KanjiGridOverlay dashed={true} type="mi" />}
-                            <KanjiSvgView
-                              svgUrl={item.svgUrl}
-                              kanji={entry.c}
-                              animKey={animState.animKey}
-                              loopMode={animState.mode}
-                              className="w-full h-full object-contain relative z-0"
-                            />
-                          </div>
-                          {renderReloadButton(item.hex, animState.mode)}
-                        </div>
-
-                        <div className="flex-1 min-w-0 space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <ruby
-                              onClick={() => handleInspectEntryChar(entry.c)}
-                              className="font-kanji font-black text-3xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 inline-flex flex-col items-start"
-                            >
-                              {showFurigana && primaryKana && (
-                                <rt className="text-[10px] font-semibold text-teal-700 pb-0.5">
-                                  {primaryKana}
-                                </rt>
-                              )}
-                              <span>{entry.c}</span>
-                            </ruby>
-                            <button
-                              type="button"
-                              onClick={() => speakJapanese(entry.c)}
-                              className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
-                              title="Nghe phát âm"
-                            >
-                              <Volume2 className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <p className="text-xs text-slate-800 font-semibold">
-                            {entry.vi.join(', ')}
-                          </p>
-
-                          <div className="text-[11px] text-slate-600 space-y-0.5">
-                            {entry.on.length > 0 && (
-                              <div className="truncate">
-                                <strong className="text-blue-800">On:</strong> {entry.on.join('、 ')}
-                              </div>
+                            <Volume2 className="w-4 h-4" />
+                          </button>
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <p className="font-kanji text-sm sm:text-base font-medium text-slate-900 leading-relaxed break-words">
+                              {topExample.jp.split(entry.c).map((seg, sIdx, arr) => (
+                                <React.Fragment key={sIdx}>
+                                  {seg}
+                                  {sIdx < arr.length - 1 && (
+                                    <span className="text-teal-700 font-black underline decoration-teal-300 underline-offset-2">
+                                      {entry.c}
+                                    </span>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </p>
+                            {topExample.kana && (
+                              <p className="text-xs font-kanji text-teal-800 font-semibold leading-none">
+                                {topExample.kana}
+                              </p>
                             )}
-                            {entry.kun.length > 0 && (
-                              <div className="truncate">
-                                <strong className="text-emerald-800">Kun:</strong>{' '}
-                                {entry.kun.join('、 ')}
-                              </div>
-                            )}
+                            <p className="text-xs text-slate-600 leading-snug">
+                              {topExample.vi}
+                            </p>
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => void handleToggleInlineExamples(entry.c)}
-                          className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1 cursor-pointer"
-                        >
-                          <MessageSquareQuote className="w-3.5 h-3.5 text-teal-700" />
-                          <span>Câu ví dụ</span>
-                          {isExpanded ? (
-                            <ChevronUp className="w-3 h-3" />
-                          ) : (
-                            <ChevronDown className="w-3 h-3" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
-                          className="px-2.5 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl flex items-center gap-1 cursor-pointer"
-                        >
-                          <FolderPlus className="w-3.5 h-3.5" />
-                          <span>+ Bộ thẻ</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleInspectEntryChar(entry.c)}
-                          className="ml-auto px-3 py-1.5 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl cursor-pointer"
-                        >
-                          Luyện nét
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
-                          {isLoadingEx ? (
-                            <div className="flex items-center gap-2 text-slate-500">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-700" />
-                              <span>Đang tải câu ví dụ thực tế...</span>
-                            </div>
-                          ) : examples.length > 0 ? (
-                            examples.map((sent) => (
-                              <div
-                                key={sent.id}
-                                className="flex items-start justify-between gap-2 pb-2 last:pb-0 border-b last:border-b-0 border-slate-200/60"
-                              >
-                                <div className="space-y-0.5 min-w-0">
-                                  <p className="font-kanji font-semibold text-slate-900">
-                                    {sent.jp}
-                                  </p>
-                                  <p className="text-slate-600">{sent.vi}</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => speakJapanese(sent.jp)}
-                                  className="p-1 text-slate-400 hover:text-teal-700 cursor-pointer shrink-0"
-                                >
-                                  <Volume2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-slate-400">Chưa có câu ví dụ cho chữ này.</p>
-                          )}
                         </div>
                       )}
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200/90 shadow-xs bg-white">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/90 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      <th scope="col" className="py-3.5 px-3 w-20 text-center">
-                        STT
-                      </th>
-                      <th scope="col" className="py-3.5 px-4 w-44 text-center">
-                        Chữ Kanji / Hán-Việt
-                      </th>
-                      <th scope="col" className="py-3.5 px-4 w-36 text-center">
-                        Nét vẽ SVG
-                      </th>
-                      <th scope="col" className="py-3.5 px-5 min-w-[300px]">
-                        Âm đọc On / Kun &amp; Nghĩa tiếng Việt
-                      </th>
-                      <th scope="col" className="py-3.5 px-4 w-48 text-center">
-                        Ví dụ &amp; Bộ thẻ
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm">
-                    {visibleEntries.map((entry, idx) => {
-                      const item = visibleItems[idx];
-                      const isSelected = selectedCharSet.has(entry.c);
-                      const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
-                      const isExpanded = expandedExampleChar === entry.c;
-                      const examples =
-                        examplesByChar[entry.c] || getCachedKanjiExamples(entry.c) || [];
-                      const isLoadingEx = loadingExampleChar === entry.c;
-                      const primaryKana = item.detail ? getPrimaryHiragana(item.detail) : '';
-
-                      return (
-                        <React.Fragment key={entry.c}>
-                          <tr
-                            className={`transition-colors group ${
-                              isSelected ? 'bg-teal-50/40' : 'hover:bg-slate-50/70'
-                            }`}
-                          >
-                            {/* Col 1: Index + Select + Level */}
-                            <td className="py-4 px-3 text-center align-middle">
-                              <div className="flex flex-col items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleSelectChar(entry.c)}
-                                  className={`p-1 rounded-lg cursor-pointer transition-colors ${
-                                    isSelected
-                                      ? 'text-teal-700 bg-teal-50'
-                                      : 'text-slate-300 hover:text-teal-700 hover:bg-slate-100'
-                                  }`}
-                                  title={isSelected ? 'Bỏ chọn' : 'Chọn vào Bộ thẻ / Quiz'}
-                                >
-                                  {isSelected ? (
-                                    <CheckSquare className="w-4 h-4" />
-                                  ) : (
-                                    <Square className="w-4 h-4" />
-                                  )}
-                                </button>
-                                <span className="text-xs font-mono font-bold text-slate-500 tabular-nums">
-                                  #{idx + 1}
-                                </span>
-                                <span
-                                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold border ${getJlptBadgeClass(
-                                    entry.lv
-                                  )}`}
-                                >
-                                  {entry.lv}
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* Col 2: Kanji + Han-Viet */}
-                            <td className="py-4 px-4 text-center align-middle">
-                              <div className="flex flex-col items-center gap-1.5">
-                                <ruby
-                                  onClick={() => handleInspectEntryChar(entry.c)}
-                                  className="font-kanji font-black text-4xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors inline-flex flex-col items-center"
-                                  title="Click để mở bảng luyện viết chi tiết"
-                                >
-                                  {showFurigana && primaryKana && (
-                                    <rt className="text-[11px] font-semibold text-teal-700 pb-0.5">
-                                      {primaryKana}
-                                    </rt>
-                                  )}
-                                  <span>{entry.c}</span>
-                                </ruby>
-                                <span className="text-xs font-extrabold text-teal-900">
-                                  {entry.hv}
-                                </span>
-                                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                                  <span className="tabular-nums">{entry.st} nét</span>
-                                  <span>·</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => speakJapanese(entry.c)}
-                                    className="p-1 text-slate-400 hover:text-teal-700 rounded cursor-pointer"
-                                    title="Nghe phát âm"
-                                  >
-                                    <Volume2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Col 3: Stroke Order SVG Preview */}
-                            <td className="py-4 px-4 text-center align-middle">
-                              <div className="relative inline-block">
-                                <div
-                                  onClick={() => handleInspectEntryChar(entry.c)}
-                                  className="relative w-24 h-24 bg-white rounded-xl border-2 border-slate-200/90 p-1.5 hover:border-teal-500 transition-all cursor-pointer flex items-center justify-center overflow-hidden shadow-2xs"
-                                  title="Click để xem chi tiết & luyện viết"
-                                >
-                                  {includeGrid && <KanjiGridOverlay dashed={true} type="mi" />}
-                                  <KanjiSvgView
-                                    svgUrl={item.svgUrl}
-                                    kanji={entry.c}
-                                    animKey={animState.animKey}
-                                    loopMode={animState.mode}
-                                    className="w-full h-full object-contain relative z-0"
-                                  />
-                                  <div className="absolute bottom-1 right-1 bg-white/90 rounded p-0.5 border border-slate-200 text-teal-700">
-                                    <PlayCircle className="w-3.5 h-3.5" />
-                                  </div>
-                                </div>
-                                {renderReloadButton(item.hex, animState.mode)}
-                              </div>
-                            </td>
-
-                            {/* Col 4: Meanings + Readings */}
-                            <td className="py-4 px-5 align-middle">
-                              <div className="space-y-2">
-                                <p className="text-sm font-bold text-slate-900">
-                                  {entry.vi.join(', ')}
-                                </p>
-
-                                <div className="flex flex-col gap-1 text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-1.5 py-0.2 rounded font-bold text-[10px] text-blue-800 bg-blue-50 border border-blue-200 shrink-0 w-9 text-center">
-                                      On
-                                    </span>
-                                    <span className="font-kanji font-medium text-slate-800">
-                                      {entry.on.length > 0 ? entry.on.join('、 ') : '—'}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-1.5 py-0.2 rounded font-bold text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200 shrink-0 w-9 text-center">
-                                      Kun
-                                    </span>
-                                    <span className="font-kanji font-medium text-slate-800">
-                                      {entry.kun.length > 0 ? entry.kun.join('、 ') : '—'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Col 5: Actions */}
-                            <td className="py-4 px-4 align-middle">
-                              <div className="flex flex-col gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => void handleToggleInlineExamples(entry.c)}
-                                  className={`w-full py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer border transition-colors ${
-                                    isExpanded
-                                      ? 'bg-teal-700 text-white border-teal-800'
-                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                                  }`}
-                                >
-                                  <MessageSquareQuote className="w-3.5 h-3.5 shrink-0" />
-                                  <span>{isExpanded ? 'Ẩn ví dụ' : 'Câu ví dụ'}</span>
-                                </button>
-
-                                <div className="grid grid-cols-2 gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)
-                                    }
-                                    className="py-1.5 px-2 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center gap-1 cursor-pointer"
-                                    title="Lưu chữ này vào bộ thẻ Flashcard"
-                                  >
-                                    <FolderPlus className="w-3.5 h-3.5 shrink-0" />
-                                    <span>Bộ thẻ</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleInspectEntryChar(entry.c)}
-                                    className="py-1.5 px-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center gap-1 cursor-pointer"
-                                    title="Xem chi tiết và luyện nét viết"
-                                  >
-                                    <span>Luyện nét</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-
-                          {/* Expandable Inline Example Sentences Row */}
-                          {isExpanded && (
-                            <tr className="bg-slate-50/75">
-                              <td colSpan={5} className="px-6 py-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                                      <MessageSquareQuote className="w-4 h-4 text-teal-700" />
-                                      Câu ví dụ thực tế chứa chữ "{entry.c}" (Tatoeba)
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedExampleChar(null)}
-                                      className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                                    >
-                                      Thu gọn
-                                    </button>
-                                  </div>
-
-                                  {isLoadingEx ? (
-                                    <div className="py-3 flex items-center gap-2 text-xs text-slate-500">
-                                      <Loader2 className="w-4 h-4 animate-spin text-teal-700" />
-                                      <span>Đang tìm câu ví dụ &amp; bản dịch tiếng Việt...</span>
-                                    </div>
-                                  ) : examples.length > 0 ? (
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
-                                      {examples.map((sent) => {
-                                        const parts = sent.jp.split(entry.c);
-                                        const furi = formatTatoebaFuriganaPlain(sent.furigana);
-                                        return (
-                                          <div
-                                            key={sent.id}
-                                            className="p-3 rounded-xl bg-white border border-slate-200/90 flex items-start justify-between gap-2"
-                                          >
-                                            <div className="space-y-1 min-w-0">
-                                              <p className="font-kanji text-sm font-medium text-slate-900 leading-relaxed break-words">
-                                                {parts.map((part, pIdx) => (
-                                                  <React.Fragment key={pIdx}>
-                                                    {part}
-                                                    {pIdx < parts.length - 1 && (
-                                                      <span className="text-teal-700 font-black underline decoration-teal-300 decoration-2 underline-offset-4">
-                                                        {entry.c}
-                                                      </span>
-                                                    )}
-                                                  </React.Fragment>
-                                                ))}
-                                              </p>
-                                              {furi && furi !== sent.jp && (
-                                                <p className="text-[11px] text-slate-500 truncate">
-                                                  {furi}
-                                                </p>
-                                              )}
-                                              <p className="text-xs text-slate-700">{sent.vi}</p>
-                                            </div>
-                                            <button
-                                              type="button"
-                                              onClick={() => speakJapanese(sent.jp)}
-                                              className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer shrink-0"
-                                              title="Nghe câu tiếng Nhật"
-                                            >
-                                              <Volume2 className="w-4 h-4" />
-                                            </button>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-slate-400">
-                                      Chưa tìm thấy câu ví dụ ngắn phù hợp cho chữ "{entry.c}".
-                                    </p>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
+                    {/* Right Section: ONLY "+ Bộ thẻ" Button */}
+                    <div className="shrink-0 flex items-center justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
+                        className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                        title="Thêm chữ này vào bộ thẻ Flashcard"
+                      >
+                        <Plus className="w-4 h-4 shrink-0" />
+                        <span>Bộ thẻ</span>
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           )}
 
           {/* Load More & Back to Top Footer */}

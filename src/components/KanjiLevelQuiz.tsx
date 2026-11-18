@@ -7,7 +7,6 @@ import {
   RotateCcw,
   FolderPlus,
   Sparkles,
-  Loader2,
   Award,
   PenTool,
   Flame,
@@ -19,8 +18,8 @@ import {
   KanjiCatalogEntry,
   KanjiExampleSentence,
   catalogEntryToKanjiDetail,
-  getCachedKanjiExamples,
-  prefetchExamplesForChars,
+  getStaticSentencesForKanji,
+  loadKanjiSentencesStatic,
 } from '../services/kanjiLevelService';
 import { speakJapanese } from '../utils/speech';
 
@@ -100,9 +99,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
   const [clozeInputStyle, setClozeInputStyle] = useState<'choice' | 'type'>('choice');
   const [typedKanjiAnswer, setTypedKanjiAnswer] = useState<string>('');
 
-  const [sessionState, setSessionState] = useState<'setup' | 'loading' | 'active' | 'summary'>(
-    'setup'
-  );
+  const [sessionState, setSessionState] = useState<'setup' | 'active' | 'summary'>('setup');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
@@ -111,7 +108,11 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
   const [streak, setStreak] = useState<number>(0);
   const [bestStreak, setBestStreak] = useState<number>(0);
   const [wrongEntries, setWrongEntries] = useState<KanjiCatalogEntry[]>([]);
-  const [loadingStatus, setLoadingStatus] = useState<string>('');
+
+  // Ensure static sentence dictionary is loaded in background (no-op if already loaded on /levels)
+  useEffect(() => {
+    void loadKanjiSentencesStatic();
+  }, []);
 
   // Keep scope valid if selectedPool empties
   useEffect(() => {
@@ -134,12 +135,22 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
     (
       pool: KanjiCatalogEntry[],
       desiredMode: QuizModeType,
-      count: number,
-      sentencesMap: Record<string, KanjiExampleSentence[]>
+      count: number
     ): QuizQuestion[] => {
-      const shuffledTargets = shuffleArray(pool).slice(
+      // For sentence-cloze mode, prefer items that have static sentences containing the target character
+      const candidatePool =
+        desiredMode === 'sentence-cloze'
+          ? (() => {
+              const withSent = pool.filter((e) =>
+                getStaticSentencesForKanji(e.c, 2).some((s) => s.jp.includes(e.c))
+              );
+              return withSent.length > 0 ? withSent : pool;
+            })()
+          : pool;
+
+      const shuffledTargets = shuffleArray(candidatePool).slice(
         0,
-        count === -1 ? pool.length : Math.min(count, pool.length)
+        count === -1 ? candidatePool.length : Math.min(count, candidatePool.length)
       );
 
       const concreteModes: ConcreteQuizMode[] = [
@@ -158,11 +169,11 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             ? concreteModes[i % concreteModes.length]
             : desiredMode;
 
-        const cachedSentences =
-          sentencesMap[target.c] || getCachedKanjiExamples(target.c) || [];
+        const staticSentences = getStaticSentencesForKanji(target.c, 2).filter((s) =>
+          s.jp.includes(target.c)
+        );
 
-        if (mode === 'sentence-cloze' && cachedSentences.length === 0) {
-          // Graceful fallback if Tatoeba had no short sentence for a rare Kanji
+        if (mode === 'sentence-cloze' && staticSentences.length === 0) {
           mode = 'kanji-to-meaning';
         }
 
@@ -253,8 +264,8 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             correctOptionId: correctOptId,
           });
         } else {
-          // sentence-cloze
-          const sent = cachedSentences[0];
+          // sentence-cloze (0ms static corpus)
+          const sent = staticSentences[0];
           const correctOptId = `opt-${i}-${target.c}`;
           built.push({
             id: `q-${i}-${target.c}`,
@@ -281,25 +292,14 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
   );
 
   const startQuiz = useCallback(
-    async (customPool?: KanjiCatalogEntry[]) => {
+    (customPool?: KanjiCatalogEntry[]) => {
       const pool = customPool && customPool.length > 0 ? customPool : activeSourcePool;
       if (pool.length === 0) return;
 
       const actualCount =
-        questionCount === -1 ? pool.length : Math.min(questionCount, pool.length);
+        questionCount === -1 ? Math.min(pool.length, 200) : Math.min(questionCount, pool.length);
 
-      let sentencesMap: Record<string, KanjiExampleSentence[]> = {};
-
-      if (quizMode === 'sentence-cloze' || quizMode === 'mixed') {
-        setSessionState('loading');
-        setLoadingStatus('Đang tải câu ví dụ thực tế (Tatoeba) cho bộ câu hỏi...');
-        const candidateChars = shuffleArray(pool)
-          .slice(0, Math.min(actualCount + 6, pool.length))
-          .map((e) => e.c);
-        sentencesMap = await prefetchExamplesForChars(candidateChars, 2, 3);
-      }
-
-      const generated = buildQuestions(pool, quizMode, actualCount, sentencesMap);
+      const generated = buildQuestions(pool, quizMode, actualCount);
       setQuestions(generated);
       setCurrentIdx(0);
       setSelectedOptionId(null);
@@ -445,7 +445,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
     {
       key: 'sentence-cloze',
       title: 'Điền Kanji vào câu ví dụ',
-      desc: 'Hoàn thiện câu tiếng Nhật thực tế từ Tatoeba.',
+      desc: 'Hoàn thiện câu tiếng Nhật thực tế — mở ngay lập tức (0ms).',
     },
     {
       key: 'mixed',
@@ -586,7 +586,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           <button
             type="button"
             disabled={activeSourcePool.length === 0}
-            onClick={() => void startQuiz()}
+            onClick={() => startQuiz()}
             className="px-6 py-2.5 min-h-[42px] bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm rounded-xl shadow-xs cursor-pointer flex items-center gap-2 transition-all active:scale-95"
           >
             <Sparkles className="w-4 h-4" />
@@ -597,20 +597,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
     );
   }
 
-  // 2. LOADING STATE (for Tatoeba sentence prefetch)
-  if (sessionState === 'loading') {
-    return (
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-10 text-center space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-700 mx-auto" />
-        <p className="text-sm font-bold text-slate-800">{loadingStatus || 'Đang chuẩn bị đề thi...'}</p>
-        <p className="text-xs text-slate-500">
-          Các câu ví dụ Nhật - Việt được lưu đệm tự động để những lần ôn sau mở ngay tức thì.
-        </p>
-      </div>
-    );
-  }
-
-  // 3. SUMMARY VIEW
+  // 2. SUMMARY VIEW
   if (sessionState === 'summary') {
     const accuracy = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
     const wrongDetails = wrongEntries.map(catalogEntryToKanjiDetail);
@@ -653,7 +640,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => void startQuiz(wrongEntries)}
+                  onClick={() => startQuiz(wrongEntries)}
                   className="px-3 py-1.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl cursor-pointer flex items-center gap-1.5"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -722,7 +709,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => void startQuiz()}
+            onClick={() => startQuiz()}
             className="px-5 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl cursor-pointer flex items-center gap-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />

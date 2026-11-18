@@ -18,8 +18,7 @@ import {
   ChevronRight,
   RotateCcw,
   Target,
-  MessageSquareQuote,
-  Loader2
+  MessageSquareQuote
 } from 'lucide-react';
 import { KanjiItem, KanjiDetail } from '../types/kanji';
 import { StrokeAnimation, MAZII_STROKE_COLORS } from './StrokeAnimation';
@@ -36,8 +35,8 @@ import { KanjiDecomposition } from '../types/radical';
 import { KanjiSvgView } from './KanjiSvgView';
 import { evaluateUserStroke, sampleSvgPathPoints, Point, StrokeEvaluationResult } from '../utils/strokeMatcher';
 import {
-  fetchKanjiExampleSentences,
-  getCachedKanjiExamples,
+  getStaticSentencesForKanji,
+  loadKanjiSentencesStatic,
   formatTatoebaFuriganaPlain,
   KanjiExampleSentence,
 } from '../services/kanjiLevelService';
@@ -71,7 +70,6 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   const [detail, setDetail] = useState<KanjiDetail | null>(null);
   const [decomposition, setDecomposition] = useState<KanjiDecomposition | null>(null);
   const [exampleSentences, setExampleSentences] = useState<KanjiExampleSentence[]>([]);
-  const [isLoadingExamples, setIsLoadingExamples] = useState(false);
 
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -147,23 +145,17 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       })
       .catch(() => {});
 
-    // Preload or restore cached example sentences
-    const cachedEx = getCachedKanjiExamples(item.kanji);
-    if (cachedEx) {
-      setExampleSentences(cachedEx);
-      setIsLoadingExamples(false);
-    } else {
-      setExampleSentences([]);
-      setIsLoadingExamples(true);
-      fetchKanjiExampleSentences(item.kanji, 4)
-        .then((sentences) => {
+    // Load pre-bundled static sentences instantaneously (0ms once JSON is cached)
+    const immediateEx = getStaticSentencesForKanji(item.kanji, 4);
+    setExampleSentences(immediateEx);
+    if (immediateEx.length === 0) {
+      loadKanjiSentencesStatic()
+        .then(() => {
           if (isMounted) {
-            setExampleSentences(sentences);
+            setExampleSentences(getStaticSentencesForKanji(item.kanji, 4));
           }
         })
-        .finally(() => {
-          if (isMounted) setIsLoadingExamples(false);
-        });
+        .catch(() => {});
     }
 
     clearCanvas();
@@ -746,36 +738,17 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                 )}
               </div>
 
-              {/* Real Example Sentences (Tatoeba Nhật - Việt) */}
+              {/* Real Example Sentences (Pre-bundled Static Nhật - Việt) */}
               <div className="space-y-2.5 pt-2 border-t border-slate-200/70">
                 <div className="flex items-center justify-between gap-2">
                   <h5 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                     <MessageSquareQuote className="w-4 h-4 text-teal-600" />
                     <span>Câu ví dụ thực tế ({exampleSentences.length})</span>
                   </h5>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLoadingExamples(true);
-                      fetchKanjiExampleSentences(item.kanji, 4, true)
-                        .then((s) => setExampleSentences(s))
-                        .finally(() => setIsLoadingExamples(false));
-                    }}
-                    disabled={isLoadingExamples}
-                    className="text-[11px] font-medium text-slate-500 hover:text-teal-700 inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                    title="Tải lại câu ví dụ mới"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isLoadingExamples ? 'animate-spin' : ''}`} />
-                    <span>Làm mới</span>
-                  </button>
+                  <span className="text-[11px] text-slate-400">Click loa để nghe</span>
                 </div>
 
-                {isLoadingExamples ? (
-                  <div className="py-4 px-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-center gap-2 text-xs text-slate-500">
-                    <Loader2 className="w-4 h-4 animate-spin text-teal-700" />
-                    <span>Đang tìm câu ví dụ chứa chữ "{item.kanji}"...</span>
-                  </div>
-                ) : exampleSentences.length > 0 ? (
+                {exampleSentences.length > 0 ? (
                   <div className="space-y-2">
                     {exampleSentences.map((sent) => {
                       const parts = sent.jp.split(item.kanji);
@@ -801,6 +774,11 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                             {furiganaNote && furiganaNote !== sent.jp && (
                               <p className="text-[11px] text-slate-500 font-sans truncate">
                                 {furiganaNote}
+                              </p>
+                            )}
+                            {sent.kana && (
+                              <p className="text-[11px] font-kanji text-teal-800 font-semibold leading-none">
+                                {sent.kana}
                               </p>
                             )}
                             <p className="text-xs text-slate-700 leading-relaxed">
