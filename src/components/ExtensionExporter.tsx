@@ -218,7 +218,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         kunyomi: d.kunyomi || d.kun || ['-'],
         jlpt: d.jlpt || 'N3',
         strokeCount: d.strokeCount || 8,
-        meaning: d.meaning || (Array.isArray(d.meanings) ? d.meanings.join(', ') : '') || (SINO_VIETNAMESE_MAP && SINO_VIETNAMESE_MAP[k] ? ('Âm Hán Việt: ' + SINO_VIETNAMESE_MAP[k] + '. Bấm nút Mazii ↗ để xem chi tiết.') : ('Chữ Kanji ' + k)),
+        meaning: d.meaning || (Array.isArray(d.meanings) ? d.meanings.join(', ') : '') || (SINO_VIETNAMESE_MAP && SINO_VIETNAMESE_MAP[k] ? ('Âm Hán Việt: ' + SINO_VIETNAMESE_MAP[k] + '. Bấm "Luyện nét" để xem chi tiết.') : ('Chữ Kanji ' + k)),
         radical: d.radical || 'Bộ thủ',
         examples: d.examples || []
       };
@@ -227,11 +227,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (hv) {
       return {
         hanviet: hv,
-        onyomi: ['Tra Mazii ↗'],
-        kunyomi: ['Tra Mazii ↗'],
+        onyomi: ['-'],
+        kunyomi: ['-'],
         jlpt: 'N3',
         strokeCount: 8,
-        meaning: 'Âm Hán Việt: ' + hv + '. Bấm "Luyện nét" hoặc nút Mazii ↗ để xem nghĩa chi tiết.',
+        meaning: 'Âm Hán Việt: ' + hv + '. Bấm "Luyện nét" để xem chi tiết.',
         radical: 'Bộ thủ',
         examples: []
       };
@@ -336,8 +336,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     ".lk-jlpt-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #ccfbf1; color: #115e59; border: 1px solid #99f6e4; } " +
     ".lk-kanji-big { font-size: 42px; font-weight: 900; color: #0f172a; margin: 2px 0; } " +
     ".lk-hanviet-badge { font-size: 12px; font-weight: 700; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 6px; margin-bottom: 4px; } " +
-    ".lk-mazii-link { font-size: 11px; color: #94a3b8; text-decoration: none; font-weight: 500; } " +
-    ".lk-mazii-link:hover { color: #0f766e; text-decoration: underline; } " +
     ".lk-kanji-col2 { width: 88px; height: 88px; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 16px; padding: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; position: relative; overflow: hidden; } " +
     ".lk-kanji-col2:hover { border-color: #0d9488; } " +
     ".lk-kanji-col2::after { content: '▶ Xem nét'; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.75); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s ease; } " +
@@ -764,7 +762,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           '<div style="display:flex; gap:4px; align-items:center; margin-bottom:2px;"><span class="lk-stt-badge">#' + (idx + 1) + '</span><span class="lk-jlpt-badge">' + info.jlpt + '</span></div>' +
           '<div class="lk-kanji-big">' + k + '</div>' +
           '<div class="lk-hanviet-badge">' + info.hanviet + '</div>' +
-          '<a class="lk-mazii-link" href="https://mazii.net/vi-VN/search/kanji/' + encodeURIComponent(k) + '" target="_blank">Mazii ↗</a>' +
         '</div>' +
         '<div class="lk-kanji-col2 lk-btn-open-practice" data-char="' + k + '" id="lk-col2-svg-' + idx + '"></div>' +
         '<div class="lk-kanji-col3">' +

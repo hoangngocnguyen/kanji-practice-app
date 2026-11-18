@@ -132,7 +132,8 @@ export const KanjiCompareView: React.FC = () => {
         !currentDetail.meanings ||
         currentDetail.meanings.length === 0 ||
         currentDetail.meanings[0].includes('Tra Mazii') ||
-        currentDetail.meanings[0].includes('Bấm "Xem nét');
+        currentDetail.meanings[0].includes('Bấm "Xem nét') ||
+        currentDetail.meanings[0].includes('Đang cập nhật');
 
       if (needsDetailFetch) {
         getFullKanjiDetail(char)
@@ -509,12 +510,19 @@ export const KanjiCompareView: React.FC = () => {
                   detail?.meanings &&
                   detail.meanings.length > 0 &&
                   !detail.meanings[0].includes('Tra Mazii') &&
-                  !detail.meanings[0].includes('Bấm "Xem nét');
+                  !detail.meanings[0].includes('Bấm "Xem nét') &&
+                  !detail.meanings[0].includes('Đang cập nhật');
 
                 const hasValidOn =
-                  detail?.on && detail.on.length > 0 && !detail.on[0].includes('Tra Mazii');
+                  detail?.on &&
+                  detail.on.length > 0 &&
+                  !detail.on[0].includes('Tra Mazii') &&
+                  !detail.on[0].startsWith('Đang cập nhật');
                 const hasValidKun =
-                  detail?.kun && detail.kun.length > 0 && !detail.kun[0].includes('Tra Mazii');
+                  detail?.kun &&
+                  detail.kun.length > 0 &&
+                  !detail.kun[0].includes('Tra Mazii') &&
+                  !detail.kun[0].startsWith('Đang cập nhật');
 
                 return (
                   <div

@@ -21,7 +21,8 @@ import {
   Globe,
   User,
   LogIn,
-  Cloud
+  Cloud,
+  GraduationCap
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 import { useDecks } from '../context/DeckContext';
@@ -68,6 +69,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       icon: PenTool,
       badge: extractedKanjiList.length > 0 ? extractedKanjiList.length : null,
       desc: 'Bảng nét & hoạt ảnh SVG động',
+    },
+    {
+      to: '/levels',
+      label: 'Kanji theo cấp độ',
+      icon: GraduationCap,
+      badge: '2.136',
+      desc: 'JLPT N5–N1, 2.136 Jōyō, Quiz & Ví dụ',
     },
     {
       to: '/decks',

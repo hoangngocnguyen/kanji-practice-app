@@ -20,7 +20,11 @@ interface KanjiContextType {
   practiceContextList: KanjiItem[] | null;
   handleInspectKanji: (item: KanjiItem) => void;
   handleSelectRecentKanji: (char: string) => void;
-  openKanjiPracticeModal: (char: string, contextChars?: string[]) => void;
+  openKanjiPracticeModal: (
+    char: string,
+    contextChars?: string[],
+    prefilledDetailsMap?: Record<string, KanjiDetail>
+  ) => void;
   copyStatus: Record<string, CopyStatus>;
   handleCopyImage: (item: KanjiItem) => Promise<void>;
   handleDownloadPng: (item: KanjiItem) => Promise<void>;
@@ -250,12 +254,20 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const openKanjiPracticeModal = useCallback(
-    (char: string, contextChars?: string[]) => {
-      const uniqueChars = contextChars && contextChars.length > 0
-        ? Array.from(new Set(contextChars.filter(Boolean)))
-        : [char];
+    (
+      char: string,
+      contextChars?: string[],
+      prefilledDetailsMap?: Record<string, KanjiDetail>
+    ) => {
+      const uniqueChars =
+        contextChars && contextChars.length > 0
+          ? Array.from(new Set(contextChars.filter(Boolean)))
+          : [char];
       const builtList = extractUniqueKanji(uniqueChars.join('')).map((item) => {
-        const enriched = enrichedDetails[item.kanji] || getKanjiInfo(item.kanji);
+        const enriched =
+          prefilledDetailsMap?.[item.kanji] ||
+          enrichedDetails[item.kanji] ||
+          getKanjiInfo(item.kanji);
         return enriched ? { ...item, detail: enriched } : item;
       });
 
@@ -265,12 +277,23 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           builtList.find((k) => k.kanji === char) ||
           extractUniqueKanji(char)[0] ||
           builtList[0];
-        handleInspectKanji(target);
+        fetchKanjiSvg(target.svgUrl, target.hex).catch(() => {});
+        const resolvedTarget = target.detail
+          ? target
+          : {
+              ...target,
+              detail:
+                prefilledDetailsMap?.[target.kanji] ||
+                enrichedDetails[target.kanji] ||
+                getKanjiInfo(target.kanji),
+            };
+        setInspectedKanjiState(resolvedTarget);
+        saveToRecentHistory(resolvedTarget);
       } else {
         handleSelectRecentKanji(char);
       }
     },
-    [enrichedDetails, handleInspectKanji, handleSelectRecentKanji]
+    [enrichedDetails, saveToRecentHistory, handleSelectRecentKanji]
   );
 
   // Copy image to clipboard

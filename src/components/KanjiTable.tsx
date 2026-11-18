@@ -4,7 +4,6 @@ import {
   CheckCheck,
   RefreshCw,
   Download,
-  ExternalLink,
   Volume2,
   PlayCircle,
   RotateCcw,
@@ -216,14 +215,6 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                     >
                       <Volume2 className="w-4 h-4" />
                     </button>
-                    <a
-                      href={`https://mazii.net/vi-VN/search/kanji/${encodeURIComponent(item.kanji)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-slate-400 hover:text-teal-700 font-medium inline-flex items-center gap-0.5 ml-auto hover:underline"
-                    >
-                      Mazii <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
                   </div>
 
                   {/* Meanings */}
@@ -415,17 +406,6 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                           {detail.hanViet}
                         </span>
                       )}
-
-                      <div className="flex items-center gap-1.5">
-                        <a
-                          href={`https://mazii.net/vi-VN/search/kanji/${encodeURIComponent(item.kanji)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[11px] text-slate-400 hover:text-teal-700 font-medium inline-flex items-center gap-0.5 hover:underline"
-                        >
-                          Mazii <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
-                      </div>
                     </div>
                   </td>
 

@@ -71,11 +71,11 @@
     }
     return {
       hanviet: 'HÁN VIỆT',
-      onyomi: ['Tra Mazii ↗'],
-      kunyomi: ['Tra Mazii ↗'],
+      onyomi: ['-'],
+      kunyomi: ['-'],
       jlpt: 'N3',
       strokeCount: 8,
-      meaning: `Âm Hán Việt & nghĩa chữ ${k}. Bấm nút Mazii ↗ để xem chi tiết.`,
+      meaning: `Âm Hán Việt & nghĩa chữ ${k}. Bấm "Luyện nét" để xem chi tiết.`,
       radical: 'Bộ thủ'
     };
   }
@@ -203,8 +203,6 @@
     .lk-jlpt-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: #ccfbf1; color: #115e59; }
     .lk-kanji-big { font-size: 40px; font-weight: 900; color: #0f172a; margin: 2px 0; font-family: "Noto Sans JP", sans-serif; }
     .lk-hanviet-badge { font-size: 11px; font-weight: 700; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 1px 6px; border-radius: 6px; margin-bottom: 4px; }
-    .lk-mazii-link { font-size: 11px; color: #94a3b8; text-decoration: none; font-weight: 500; }
-    .lk-mazii-link:hover { color: #0f766e; text-decoration: underline; }
 
     .lk-kanji-col2 {
       width: 84px; height: 84px; background: #f8fafc; border: 2px solid #e2e8f0;
@@ -851,7 +849,6 @@
             </div>
             <div class="lk-kanji-big">${k}</div>
             <div class="lk-hanviet-badge">${info.hanviet}</div>
-            <a class="lk-mazii-link" href="https://mazii.net/vi-VN/search/kanji/${encodeURIComponent(k)}" target="_blank">Mazii ↗</a>
           </div>
 
           <div class="lk-kanji-col2 lk-btn-open-practice" data-char="${k}">

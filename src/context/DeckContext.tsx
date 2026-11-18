@@ -18,6 +18,7 @@ import {
   SrsRating,
   StudyFolder,
 } from '../types/deck';
+import { KanjiDetail } from '../types/kanji';
 import {
   calculateNextSrsState,
   createInitialSrsState,
@@ -229,6 +230,10 @@ interface DeckContextValue {
 
   // Kanji & Compound Word CRUD
   addKanjiListToFolder: (folderId: string, rawText: string) => Promise<number>;
+  addCatalogKanjiToFolder: (
+    folderId: string,
+    entries: KanjiDetail[]
+  ) => { addedCount: number; skippedCount: number };
   batchImportItemsToFolder: (
     folderId: string,
     parsedItems: ParsedLessonItemInput[]
@@ -954,6 +959,78 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       void enrichKanjiItems(newItems, true);
 
       return newItems.length;
+    },
+    [items, markLocalMutation, enrichKanjiItems]
+  );
+
+  const addCatalogKanjiToFolder = useCallback(
+    (
+      folderId: string,
+      entries: KanjiDetail[]
+    ): { addedCount: number; skippedCount: number } => {
+      if (!folderId || entries.length === 0) {
+        return { addedCount: 0, skippedCount: 0 };
+      }
+
+      const existingInFolder = new Set(
+        items.filter((i) => i.folderId === folderId).map((i) => i.kanji)
+      );
+      const uniqueMap = new Map<string, KanjiDetail>();
+      let skippedCount = 0;
+
+      for (const entry of entries) {
+        if (!entry?.kanji) continue;
+        if (existingInFolder.has(entry.kanji) || uniqueMap.has(entry.kanji)) {
+          skippedCount += 1;
+          continue;
+        }
+        uniqueMap.set(entry.kanji, entry);
+      }
+
+      const toInsert = Array.from(uniqueMap.values());
+      if (toInsert.length === 0) {
+        return { addedCount: 0, skippedCount };
+      }
+
+      const now = Date.now();
+      const newItems: FolderKanjiItem[] = toInsert.map((entry, idx) => {
+        const localDict = getKanjiInfo(entry.kanji);
+        const compoundSources =
+          entry.examples && entry.examples.length > 0
+            ? entry.examples
+            : localDict?.examples || [];
+        return {
+          id: genId(),
+          folderId,
+          kanji: entry.kanji,
+          hanViet: entry.hanViet || localDict?.hanViet || '',
+          onReadings: cleanReadingsList(entry.on?.length ? entry.on : localDict?.on),
+          kunReadings: cleanReadingsList(entry.kun?.length ? entry.kun : localDict?.kun),
+          meanings: cleanMeaningsList(entry.meanings?.length ? entry.meanings : localDict?.meanings),
+          strokeCount: entry.strokeCount || localDict?.strokeCount,
+          srsState: createInitialSrsState(now + idx),
+          compoundWords: compoundSources.slice(0, 6).map((cw) => ({
+            id: genId(),
+            word: cw.word,
+            reading: cw.reading,
+            hanViet: cw.hanViet,
+            meaning: cw.meaning,
+            srsState: createInitialSrsState(now + idx),
+          })),
+          createdAt: now + idx,
+        };
+      });
+
+      setItems((prev) => [...prev, ...newItems]);
+      markLocalMutation();
+
+      // Only enrich items that still miss data
+      const missingItems = newItems.filter((it) => hasMissingKanjiData(it));
+      if (missingItems.length > 0) {
+        void enrichKanjiItems(missingItems, true);
+      }
+
+      return { addedCount: newItems.length, skippedCount };
     },
     [items, markLocalMutation, enrichKanjiItems]
   );
@@ -1996,6 +2073,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         moveFolder,
         deleteFolder,
         addKanjiListToFolder,
+        addCatalogKanjiToFolder,
         batchImportItemsToFolder,
         updateKanjiItem,
         deleteKanjiItem,

@@ -17,7 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
-  Target
+  Target,
+  MessageSquareQuote,
+  Loader2
 } from 'lucide-react';
 import { KanjiItem, KanjiDetail } from '../types/kanji';
 import { StrokeAnimation, MAZII_STROKE_COLORS } from './StrokeAnimation';
@@ -33,6 +35,12 @@ import { fetchAndDecomposeKanji } from '../utils/kanjiSubElementParser';
 import { KanjiDecomposition } from '../types/radical';
 import { KanjiSvgView } from './KanjiSvgView';
 import { evaluateUserStroke, sampleSvgPathPoints, Point, StrokeEvaluationResult } from '../utils/strokeMatcher';
+import {
+  fetchKanjiExampleSentences,
+  getCachedKanjiExamples,
+  formatTatoebaFuriganaPlain,
+  KanjiExampleSentence,
+} from '../services/kanjiLevelService';
 
 interface PracticeModalProps {
   item: KanjiItem | null;
@@ -62,6 +70,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('animation');
   const [detail, setDetail] = useState<KanjiDetail | null>(null);
   const [decomposition, setDecomposition] = useState<KanjiDecomposition | null>(null);
+  const [exampleSentences, setExampleSentences] = useState<KanjiExampleSentence[]>([]);
+  const [isLoadingExamples, setIsLoadingExamples] = useState(false);
 
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -105,15 +115,56 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
     setActiveTab('animation');
     resetPracticeTest();
+    // Seed immediately with any catalog detail already attached to item
+    if (item.detail) {
+      setDetail(item.detail);
+    }
 
     let isMounted = true;
     getFullKanjiDetail(item.kanji)
       .then((res) => {
         if (isMounted) {
-          setDetail(res);
+          setDetail((prev) => {
+            if (!res) return prev;
+            const fallback = item.detail;
+            return {
+              ...res,
+              hanViet:
+                res.hanViet && res.hanViet !== 'Chưa rõ'
+                  ? res.hanViet
+                  : fallback?.hanViet || res.hanViet,
+              meanings:
+                res.meanings && res.meanings.length > 0
+                  ? res.meanings
+                  : fallback?.meanings || [],
+              on: res.on && res.on.length > 0 ? res.on : fallback?.on || [],
+              kun: res.kun && res.kun.length > 0 ? res.kun : fallback?.kun || [],
+              jlpt: res.jlpt || fallback?.jlpt,
+              strokeCount: res.strokeCount || fallback?.strokeCount,
+            };
+          });
         }
       })
       .catch(() => {});
+
+    // Preload or restore cached example sentences
+    const cachedEx = getCachedKanjiExamples(item.kanji);
+    if (cachedEx) {
+      setExampleSentences(cachedEx);
+      setIsLoadingExamples(false);
+    } else {
+      setExampleSentences([]);
+      setIsLoadingExamples(true);
+      fetchKanjiExampleSentences(item.kanji, 4)
+        .then((sentences) => {
+          if (isMounted) {
+            setExampleSentences(sentences);
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingExamples(false);
+        });
+    }
 
     clearCanvas();
 
@@ -690,22 +741,94 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                   </div>
                 ) : (
                   <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl">
-                    Chưa có từ ghép mẫu trong danh mục này. Bạn có thể tra nhanh trên Mazii hoặc Jisho bên dưới.
+                    Chưa có từ ghép mẫu trong danh mục này. Bạn có thể tham khảo câu ví dụ hoặc tra cứu thêm trên Jisho bên dưới.
                   </div>
                 )}
               </div>
 
-              {/* Fast Online Dictionaries Links */}
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs">
-                <a
-                  href={`https://mazii.net/vi-VN/search/kanji/${encodeURIComponent(item.kanji)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium inline-flex items-center gap-1 border border-slate-200 transition-colors"
-                >
-                  Tra từ điển Mazii <ExternalLink className="w-3 h-3" />
-                </a>
+              {/* Real Example Sentences (Tatoeba Nhật - Việt) */}
+              <div className="space-y-2.5 pt-2 border-t border-slate-200/70">
+                <div className="flex items-center justify-between gap-2">
+                  <h5 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <MessageSquareQuote className="w-4 h-4 text-teal-600" />
+                    <span>Câu ví dụ thực tế ({exampleSentences.length})</span>
+                  </h5>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLoadingExamples(true);
+                      fetchKanjiExampleSentences(item.kanji, 4, true)
+                        .then((s) => setExampleSentences(s))
+                        .finally(() => setIsLoadingExamples(false));
+                    }}
+                    disabled={isLoadingExamples}
+                    className="text-[11px] font-medium text-slate-500 hover:text-teal-700 inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    title="Tải lại câu ví dụ mới"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingExamples ? 'animate-spin' : ''}`} />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
 
+                {isLoadingExamples ? (
+                  <div className="py-4 px-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-center gap-2 text-xs text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin text-teal-700" />
+                    <span>Đang tìm câu ví dụ chứa chữ "{item.kanji}"...</span>
+                  </div>
+                ) : exampleSentences.length > 0 ? (
+                  <div className="space-y-2">
+                    {exampleSentences.map((sent) => {
+                      const parts = sent.jp.split(item.kanji);
+                      const furiganaNote = formatTatoebaFuriganaPlain(sent.furigana);
+                      return (
+                        <div
+                          key={sent.id}
+                          className="p-3 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3 transition-colors"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <p className="font-kanji text-sm sm:text-[15px] text-slate-900 font-medium leading-relaxed break-words">
+                              {parts.map((part, pIdx) => (
+                                <React.Fragment key={pIdx}>
+                                  {part}
+                                  {pIdx < parts.length - 1 && (
+                                    <span className="text-teal-700 font-black underline decoration-teal-300 decoration-2 underline-offset-4">
+                                      {item.kanji}
+                                    </span>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </p>
+                            {furiganaNote && furiganaNote !== sent.jp && (
+                              <p className="text-[11px] text-slate-500 font-sans truncate">
+                                {furiganaNote}
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-700 leading-relaxed">
+                              {sent.vi}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => speakJapanese(sent.jp)}
+                            className="p-2 text-slate-400 hover:text-teal-700 hover:bg-white rounded-lg transition-colors cursor-pointer shrink-0 border border-transparent hover:border-slate-200"
+                            title="Nghe câu ví dụ"
+                          >
+                            <Volume2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-slate-200/60">
+                    Chưa tìm thấy câu ví dụ ngắn phù hợp cho chữ "{item.kanji}".
+                  </div>
+                )}
+              </div>
+
+              {/* Fast Online Dictionary Link */}
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs">
                 <a
                   href={`https://jisho.org/search/${encodeURIComponent(item.kanji)}%20%23kanji`}
                   target="_blank"

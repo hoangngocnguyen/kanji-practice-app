@@ -11,6 +11,7 @@ export function isPlaceholderKanjiText(text?: string | null): boolean {
     trimmed.includes('Tra Mazii') ||
     trimmed.includes('Bấm "Xem nét') ||
     trimmed.includes('Bấm nút Mazii') ||
+    trimmed.startsWith('Đang cập nhật') ||
     trimmed === 'Chữ Hán tiếng Nhật' ||
     trimmed === 'HÁN VIỆT'
   );

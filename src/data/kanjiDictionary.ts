@@ -11375,10 +11375,10 @@ export function getKanjiInfo(kanji: string): KanjiDetail {
     kanji,
     hanViet,
     meanings: hanViet !== 'HÁN VIỆT'
-      ? [`Âm Hán Việt: ${hanViet}. Bấm "Xem nét & Luyện viết" hoặc nút Mazii ↗ để xem nghĩa chi tiết.`]
-      : [`Chữ Kanji ${kanji}. Bấm nút Mazii ↗ để xem nghĩa chi tiết.`],
-    on: ['Tra Mazii ↗'],
-    kun: ['Tra Mazii ↗'],
+      ? [`Âm Hán Việt: ${hanViet}. Bấm "Xem nét & Luyện viết" để xem nghĩa chi tiết.`]
+      : [`Chữ Kanji ${kanji}. Đang cập nhật dữ liệu...`],
+    on: ['Đang cập nhật...'],
+    kun: ['Đang cập nhật...'],
     jlpt: 'N3',
     radical: 'Bộ thủ',
     strokeCount: 8,
