@@ -132,7 +132,10 @@ export async function apiRecordDeckDownload(
   });
 }
 
-export async function apiToggleDeckLike(slug: string): Promise<{
+export async function apiToggleDeckLike(
+  slug: string,
+  desiredState?: boolean
+): Promise<{
   liked: boolean;
   likesCount: number;
   likedBy: DeckLikerInfo[];
@@ -140,7 +143,11 @@ export async function apiToggleDeckLike(slug: string): Promise<{
   return communityRequest('/api/community', {
     method: 'POST',
     requireAuth: true,
-    body: JSON.stringify({ action: 'toggle_like', slug }),
+    body: JSON.stringify({
+      action: 'toggle_like',
+      slug,
+      ...(typeof desiredState === 'boolean' ? { desiredState } : {}),
+    }),
   });
 }
 
@@ -161,14 +168,21 @@ export async function apiUnpublishShareBySlug(
   });
 }
 
-export async function apiToggleFollowUser(targetUserId: string): Promise<{
+export async function apiToggleFollowUser(
+  targetUserId: string,
+  desiredState?: boolean
+): Promise<{
   isFollowing: boolean;
   followersCount: number;
 }> {
   return communityRequest('/api/community', {
     method: 'POST',
     requireAuth: true,
-    body: JSON.stringify({ action: 'toggle_follow', targetUserId }),
+    body: JSON.stringify({
+      action: 'toggle_follow',
+      targetUserId,
+      ...(typeof desiredState === 'boolean' ? { desiredState } : {}),
+    }),
   });
 }
 

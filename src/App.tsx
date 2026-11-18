@@ -18,6 +18,7 @@ import { DeckDetailView } from './components/DeckDetailView';
 import { PublicShareView } from './components/PublicShareView';
 import { ProfilePage } from './pages/ProfilePage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
+import { SharedDecksPage } from './pages/SharedDecksPage';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthGuardModal } from './components/auth/AuthGuardModal';
 import { SyncConflictModal } from './components/auth/SyncConflictModal';
@@ -124,6 +125,7 @@ function AppLayout() {
               <Route path="/decks/:folderId" element={<DeckDetailView />} />
               <Route path="/share/:slug" element={<PublicShareView />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/shares" element={<SharedDecksPage />} />
               <Route path="/u/:userId" element={<PublicProfilePage />} />
               <Route path="/romaji" element={<RomajiReaderView />} />
               <Route path="/translate" element={<TranslationView />} />

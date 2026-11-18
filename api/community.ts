@@ -306,43 +306,73 @@ export default async function handler(
     const auth = await requireAuth(req, res);
     if (!auth) return;
     const { user, supabaseAdmin } = auth;
-    await ensureUserProfile(supabaseAdmin, user);
 
     if (req.method === 'POST' && action === 'toggle_like') {
       const slug = String(req.body?.slug || '').trim();
       if (!slug) {
         return res.status(400).json({ error: 'Thiếu slug bộ thẻ chia sẻ.' });
       }
-
-      const { data: existingLike } = await supabaseAdmin
-        .from('shared_deck_likes')
-        .select('user_id')
-        .eq('deck_slug', slug)
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const hasDesiredState = typeof req.body?.desiredState === 'boolean';
+      const desiredState = hasDesiredState ? Boolean(req.body.desiredState) : undefined;
 
       let liked = false;
-      if (existingLike) {
-        const { error: delErr } = await supabaseAdmin
-          .from('shared_deck_likes')
-          .delete()
-          .eq('deck_slug', slug)
-          .eq('user_id', user.id);
-        if (delErr) throw delErr;
-        liked = false;
+      if (hasDesiredState) {
+        if (desiredState) {
+          const [{ error: insErr }] = await Promise.all([
+            supabaseAdmin
+              .from('shared_deck_likes')
+              .upsert(
+                { deck_slug: slug, user_id: user.id },
+                { onConflict: 'deck_slug,user_id', ignoreDuplicates: true }
+              ),
+            ensureUserProfile(supabaseAdmin, user).catch(() => null),
+          ]);
+          if (insErr) throw insErr;
+          liked = true;
+        } else {
+          const { error: delErr } = await supabaseAdmin
+            .from('shared_deck_likes')
+            .delete()
+            .eq('deck_slug', slug)
+            .eq('user_id', user.id);
+          if (delErr) throw delErr;
+          liked = false;
+        }
       } else {
-        const { error: insErr } = await supabaseAdmin
-          .from('shared_deck_likes')
-          .insert({ deck_slug: slug, user_id: user.id });
-        if (insErr) throw insErr;
-        liked = true;
+        const [{ data: existingLike }] = await Promise.all([
+          supabaseAdmin
+            .from('shared_deck_likes')
+            .select('user_id')
+            .eq('deck_slug', slug)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          ensureUserProfile(supabaseAdmin, user).catch(() => null),
+        ]);
+
+        if (existingLike) {
+          const { error: delErr } = await supabaseAdmin
+            .from('shared_deck_likes')
+            .delete()
+            .eq('deck_slug', slug)
+            .eq('user_id', user.id);
+          if (delErr) throw delErr;
+          liked = false;
+        } else {
+          const { error: insErr } = await supabaseAdmin
+            .from('shared_deck_likes')
+            .insert({ deck_slug: slug, user_id: user.id });
+          if (insErr) throw insErr;
+          liked = true;
+        }
       }
 
-      const likedBy = await getDeckLikesList(supabaseAdmin, slug);
-      const { count: exactCount } = await supabaseAdmin
-        .from('shared_deck_likes')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('deck_slug', slug);
+      const [likedBy, { count: exactCount }] = await Promise.all([
+        getDeckLikesList(supabaseAdmin, slug),
+        supabaseAdmin
+          .from('shared_deck_likes')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('deck_slug', slug),
+      ]);
 
       const likesCount = exactCount ?? likedBy.length;
       await supabaseAdmin
@@ -356,6 +386,8 @@ export default async function handler(
         likedBy,
       });
     }
+
+    await ensureUserProfile(supabaseAdmin, user);
 
     if (req.method === 'GET' && action === 'my_shares') {
       const { data: rows, error } = await supabaseAdmin
@@ -445,29 +477,52 @@ export default async function handler(
       if (targetUserId === user.id) {
         return res.status(400).json({ error: 'Bạn không thể tự theo dõi chính mình.' });
       }
-
-      const { data: existingFollow } = await supabaseAdmin
-        .from('user_follows')
-        .select('follower_id')
-        .eq('follower_id', user.id)
-        .eq('following_id', targetUserId)
-        .maybeSingle();
+      const hasDesiredState = typeof req.body?.desiredState === 'boolean';
+      const desiredState = hasDesiredState ? Boolean(req.body.desiredState) : undefined;
 
       let isFollowing = false;
-      if (existingFollow) {
-        const { error: delErr } = await supabaseAdmin
-          .from('user_follows')
-          .delete()
-          .eq('follower_id', user.id)
-          .eq('following_id', targetUserId);
-        if (delErr) throw delErr;
-        isFollowing = false;
+      if (hasDesiredState) {
+        if (desiredState) {
+          const { error: insErr } = await supabaseAdmin
+            .from('user_follows')
+            .upsert(
+              { follower_id: user.id, following_id: targetUserId },
+              { onConflict: 'follower_id,following_id', ignoreDuplicates: true }
+            );
+          if (insErr) throw insErr;
+          isFollowing = true;
+        } else {
+          const { error: delErr } = await supabaseAdmin
+            .from('user_follows')
+            .delete()
+            .eq('follower_id', user.id)
+            .eq('following_id', targetUserId);
+          if (delErr) throw delErr;
+          isFollowing = false;
+        }
       } else {
-        const { error: insErr } = await supabaseAdmin
+        const { data: existingFollow } = await supabaseAdmin
           .from('user_follows')
-          .insert({ follower_id: user.id, following_id: targetUserId });
-        if (insErr) throw insErr;
-        isFollowing = true;
+          .select('follower_id')
+          .eq('follower_id', user.id)
+          .eq('following_id', targetUserId)
+          .maybeSingle();
+
+        if (existingFollow) {
+          const { error: delErr } = await supabaseAdmin
+            .from('user_follows')
+            .delete()
+            .eq('follower_id', user.id)
+            .eq('following_id', targetUserId);
+          if (delErr) throw delErr;
+          isFollowing = false;
+        } else {
+          const { error: insErr } = await supabaseAdmin
+            .from('user_follows')
+            .insert({ follower_id: user.id, following_id: targetUserId });
+          if (insErr) throw insErr;
+          isFollowing = true;
+        }
       }
 
       const { count: followersCount } = await supabaseAdmin

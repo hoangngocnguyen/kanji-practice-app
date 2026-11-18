@@ -17,10 +17,15 @@ import {
   PanelLeftOpen,
   Menu,
   Columns3,
-  FolderKanban
+  FolderKanban,
+  Globe,
+  User,
+  LogIn,
+  Cloud
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 import { useDecks } from '../context/DeckContext';
+import { useAuth } from '../context/AuthContext';
 
 interface AppSidebarProps {
   isCollapsed: boolean;
@@ -41,7 +46,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     setIsPrintModalOpen,
     setIsSettingsOpen
   } = useKanji();
-  const { folders, getDueCountForFolderRecursive } = useDecks();
+  const { folders, getDueCountForFolderRecursive, openCloudInspector } = useDecks();
+  const { user, displayName, avatarInitials, openAuthModal, supabaseEnabled } = useAuth();
   const totalDueCount = folders
     .filter((f) => f.parentId === null)
     .reduce((sum, f) => sum + getDueCountForFolderRecursive(f.id), 0);
@@ -236,6 +242,74 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Bottom Utility Actions */}
       <div className="p-2 border-t border-slate-200/90 bg-slate-50/60 space-y-1">
+        {/* Mobile Drawer Account / Share / Cloud Shortcuts */}
+        {isMobileOpen && (
+          <div className="pb-1.5 mb-1.5 border-b border-slate-200/80 space-y-1">
+            {user ? (
+              <>
+                <NavLink
+                  to="/profile"
+                  onClick={onCloseMobile}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-teal-700 text-white font-bold shadow-xs'
+                        : 'text-slate-700 hover:bg-slate-100 font-semibold'
+                    }`
+                  }
+                >
+                  <span className="w-5 h-5 rounded-full bg-teal-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0 ring-1 ring-white/40">
+                    {avatarInitials}
+                  </span>
+                  <span className="truncate flex-1">{displayName}</span>
+                  <User className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                </NavLink>
+
+                <NavLink
+                  to="/shares"
+                  onClick={onCloseMobile}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-teal-700 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
+                    }`
+                  }
+                >
+                  <Globe className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Bộ thẻ đã chia sẻ</span>
+                </NavLink>
+
+                {supabaseEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openCloudInspector();
+                      onCloseMobile();
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+                  >
+                    <Cloud className="w-4 h-4 shrink-0 text-teal-700" />
+                    <span className="truncate">Xem dữ liệu Cloud</span>
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onCloseMobile();
+                  openAuthModal('login');
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 transition-all cursor-pointer"
+              >
+                <LogIn className="w-4 h-4 shrink-0" />
+                <span className="truncate">Đăng nhập / Đồng bộ</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Print Page NavLink */}
         <NavLink
           to="/print"
