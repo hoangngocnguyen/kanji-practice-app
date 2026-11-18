@@ -1,6 +1,6 @@
 {
   "name": "Luyện Kanji Pro",
-  "description": "Luyện Kanji Pro - Tra cứu thứ tự nét viết chữ Hán SVG động, phiên âm Romaji, dịch câu song ngữ, 214 bộ thủ Khang Hy và xuất phiếu luyện viết cho Anki & Word.",
+  "description": "Luyện Kanji Pro - Học Kanji JLPT N5–N1 & 2.136 Jōyō Kanji, 0ms ví dụ tĩnh, Quiz 4 dạng, Flashcard SRS & Cộng đồng chia sẻ bộ thẻ tiếng Nhật.",
   "requestFramePermissions": ["clipboard-write", "clipboard-read"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
