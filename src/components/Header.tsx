@@ -11,8 +11,10 @@ import {
   LogOut,
   Users,
   ExternalLink,
+  Search,
+  X,
 } from 'lucide-react';
-import { useLocation, NavLink, useNavigate } from 'react-router-dom';
+import { useLocation, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useKanji } from '../context/KanjiContext';
 import { useAuth } from '../context/AuthContext';
 import { useDecks } from '../context/DeckContext';
@@ -41,14 +43,43 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
     openCloudInspector,
   } = useDecks();
 
+  const [searchParams] = useSearchParams();
+  const [headerSearchQuery, setHeaderSearchQuery] = useState<string>(() =>
+    location.pathname === '/search' ? searchParams.get('q') || '' : ''
+  );
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState<boolean>(false);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
+
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const [isFindBuddiesOpen, setIsFindBuddiesOpen] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Close dropdown on route change
+  // Close dropdown & mobile search on route change, sync search query on /search
   useEffect(() => {
     setIsAvatarMenuOpen(false);
-  }, [location.pathname]);
+    setIsMobileSearchOpen(false);
+    if (location.pathname === '/search') {
+      setHeaderSearchQuery(searchParams.get('q') || '');
+    }
+  }, [location.pathname, searchParams]);
+
+  // Focus mobile search input when expanded
+  useEffect(() => {
+    if (isMobileSearchOpen) {
+      mobileSearchInputRef.current?.focus();
+    }
+  }, [isMobileSearchOpen]);
+
+  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = headerSearchQuery.trim();
+    setIsMobileSearchOpen(false);
+    if (trimmed) {
+      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    } else {
+      navigate('/search');
+    }
+  };
 
   // Close dropdown on outside click or Escape
   useEffect(() => {
@@ -77,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs print:hidden">
         <div className="w-full px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Left: Mobile Menu Toggle & Brand Logo (min-w-0 so it never collides with Login/Avatar on small phones) */}
-          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1">
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1 md:flex-initial shrink-0">
             {onOpenMobileMenu && (
               <button
                 type="button"
@@ -117,8 +148,67 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             </NavLink>
           </div>
 
-          {/* Right: Auth / Print / Avatar Dropdown / Settings */}
+          {/* Center (Desktop): Inline Search by Meaning / Han-Viet */}
+          <form
+            onSubmit={handleHeaderSearchSubmit}
+            className="hidden md:flex items-center flex-1 max-w-md mx-2 lg:mx-4"
+            role="search"
+            aria-label="Tìm Kanji theo nghĩa hoặc Hán-Việt"
+          >
+            <div className="relative w-full flex items-center">
+              <Search className="w-4 h-4 absolute left-3 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={headerSearchQuery}
+                onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                placeholder="Tìm Kanji theo nghĩa, Hán-Việt (vd: nam, con trai)..."
+                aria-label="Tìm Kanji theo nghĩa hoặc Hán-Việt"
+                className="w-full h-9 pl-9 pr-16 text-xs bg-slate-100/80 hover:bg-slate-100 focus:bg-white text-slate-800 rounded-xl border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition-all"
+              />
+              <div className="absolute right-1 flex items-center gap-0.5">
+                {headerSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setHeaderSearchQuery('')}
+                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                    title="Xóa từ khóa"
+                    aria-label="Xóa từ khóa"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="px-2 py-1 text-[11px] font-bold text-teal-800 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  title="Đi tới trang tìm kiếm Kanji"
+                >
+                  Tìm
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {/* Right: Mobile Search Toggle / Auth / Print / Avatar Dropdown / Settings */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mobile Magnifying Glass Search Button */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+              className={`md:hidden inline-flex p-2 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl border transition-all cursor-pointer active:scale-95 shrink-0 ${
+                isMobileSearchOpen || location.pathname === '/search'
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'text-slate-600 bg-slate-100 hover:bg-slate-200 border-slate-200/90'
+              }`}
+              title="Tìm Kanji theo nghĩa hoặc Hán-Việt"
+              aria-label="Mở tìm kiếm Kanji"
+              aria-expanded={isMobileSearchOpen}
+            >
+              {isMobileSearchOpen ? (
+                <X className="w-4 h-4 shrink-0" />
+              ) : (
+                <Search className="w-4 h-4 shrink-0" />
+              )}
+            </button>
             {!user && (
               <button
                 type="button"
@@ -332,6 +422,49 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
             )}
           </div>
         </div>
+
+        {/* Mobile Expandable Quick Search Row */}
+        {isMobileSearchOpen && (
+          <div className="md:hidden border-t border-slate-200/80 bg-white px-3 py-2.5 animate-in fade-in slide-in-from-top-1 duration-150">
+            <form
+              onSubmit={handleHeaderSearchSubmit}
+              className="flex items-center gap-2"
+              role="search"
+            >
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  ref={mobileSearchInputRef}
+                  type="text"
+                  value={headerSearchQuery}
+                  onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setIsMobileSearchOpen(false);
+                  }}
+                  placeholder="Nhập nghĩa hoặc Hán-Việt (vd: nam, con trai)..."
+                  aria-label="Tìm Kanji theo nghĩa hoặc Hán-Việt"
+                  className="w-full h-10 pl-9 pr-8 text-sm bg-slate-50 focus:bg-white text-slate-900 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700"
+                />
+                {headerSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setHeaderSearchQuery('')}
+                    className="p-1 text-slate-400 hover:text-slate-700 absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer"
+                    aria-label="Xóa từ khóa"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="h-10 px-4 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer whitespace-nowrap"
+              >
+                Tìm
+              </button>
+            </form>
+          </div>
+        )}
       </header>
 
       {/* Quick Find Buddies / Follow Modal reachable directly from Avatar dropdown */}

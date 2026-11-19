@@ -22,7 +22,8 @@ import {
   User,
   LogIn,
   Cloud,
-  GraduationCap
+  GraduationCap,
+  Search
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 import { useDecks } from '../context/DeckContext';
@@ -76,6 +77,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       icon: GraduationCap,
       badge: '2.136',
       desc: 'JLPT N5–N1, 2.136 Jōyō, Quiz & Ví dụ',
+    },
+    {
+      to: '/search',
+      label: 'Tra cứu theo nghĩa',
+      icon: Search,
+      badge: null,
+      desc: 'Tìm ngược theo nghĩa Việt & Hán-Việt',
     },
     {
       to: '/decks',

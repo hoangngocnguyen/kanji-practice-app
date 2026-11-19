@@ -20,6 +20,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
 import { SharedDecksPage } from './pages/SharedDecksPage';
 import { KanjiByLevelPage } from './pages/KanjiByLevelPage';
+import { KanjiSearchPage } from './pages/KanjiSearchPage';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthGuardModal } from './components/auth/AuthGuardModal';
 import { SyncConflictModal } from './components/auth/SyncConflictModal';
@@ -123,6 +124,7 @@ function AppLayout() {
               <Route path="/input" element={<InputSection />} />
               <Route path="/kanji" element={<KanjiStrokesView />} />
               <Route path="/levels" element={<KanjiByLevelPage />} />
+              <Route path="/search" element={<KanjiSearchPage />} />
               <Route path="/decks" element={<DecksView />} />
               <Route path="/decks/:folderId" element={<DeckDetailView />} />
               <Route path="/share/:slug" element={<PublicShareView />} />
