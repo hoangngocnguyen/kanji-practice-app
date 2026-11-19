@@ -452,10 +452,10 @@ export const KanjiSearchPage: React.FC = () => {
             e.preventDefault();
             commitQueryToUrl(queryInput);
           }}
-          className="flex items-center gap-2"
+          className="flex items-center gap-0"
         >
           <div className="relative flex-1">
-            <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={queryInput}
@@ -463,25 +463,27 @@ export const KanjiSearchPage: React.FC = () => {
               placeholder="Nhập nghĩa hoặc Hán-Việt (vd: nam, con trai, đàn ông, ánh sáng...)"
               aria-label="Tìm kiếm Kanji theo nghĩa hoặc âm Hán-Việt"
               autoFocus
-              className="w-full h-11 sm:h-12 pl-10 sm:pl-11 pr-10 text-sm sm:text-base bg-slate-50 focus:bg-white text-slate-900 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 font-medium transition-all"
+              className="w-full h-10 pl-10 pr-9 text-[14px]! bg-slate-50 focus:bg-white text-slate-900 rounded-l-xl rounded-r-none border border-r-0 border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 focus:relative focus:z-10 font-medium transition-all"
             />
             {queryInput && (
               <button
                 type="button"
                 onClick={() => commitQueryToUrl('')}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 rounded-lg absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer transition-colors"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 rounded-lg absolute right-1.5 top-1/2 -translate-y-1/2 z-10 cursor-pointer transition-colors"
                 title="Xóa từ khóa"
                 aria-label="Xóa từ khóa"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           <button
             type="submit"
-            className="h-11 sm:h-12 px-4 sm:px-5 bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-[13px] font-bold rounded-xl transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-xs"
+            className="h-10 w-10 sm:w-11 bg-teal-700 hover:bg-teal-800 text-white rounded-r-xl rounded-l-none border border-teal-700 transition-colors cursor-pointer shrink-0 flex items-center justify-center shadow-xs"
+            title="Tìm Kanji"
+            aria-label="Tìm Kanji"
           >
-            Tìm Kanji
+            <Search className="w-4 h-4" />
           </button>
         </form>
 

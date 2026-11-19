@@ -179,10 +179,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                 )}
                 <button
                   type="submit"
-                  className="px-2 py-1 text-[11px] font-bold text-teal-800 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  className="p-1.5 text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
                   title="Đi tới trang tìm kiếm Kanji"
+                  aria-label="Tìm kiếm Kanji"
                 >
-                  Tìm
+                  <Search className="w-4 h-4" />
                 </button>
               </div>
             </div>
