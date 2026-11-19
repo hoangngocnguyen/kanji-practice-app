@@ -118,6 +118,35 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   const effectiveCollapsed = isMobileOpen ? false : isCollapsed;
 
+  const [collapsedTooltip, setCollapsedTooltip] = useState<{
+    label: string;
+    badge: string | number | null;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  const showCollapsedTooltip = useCallback(
+    (e: React.MouseEvent<HTMLElement>, label: string, badge: string | number | null = null) => {
+      if (!effectiveCollapsed) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      setCollapsedTooltip({
+        label,
+        badge,
+        top: rect.top + rect.height / 2,
+        left: rect.right + 8,
+      });
+    },
+    [effectiveCollapsed]
+  );
+
+  const hideCollapsedTooltip = useCallback(() => {
+    setCollapsedTooltip(null);
+  }, []);
+
+  useEffect(() => {
+    setCollapsedTooltip(null);
+  }, [effectiveCollapsed, location.pathname]);
+
   const navGroups: SidebarNavGroup[] = [
     {
       id: 'study',
@@ -267,9 +296,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   }, []);
 
   const sidebarContent = (
-    <div className="h-full flex flex-col justify-between select-none">
+    <div className="h-full flex flex-col overflow-hidden select-none">
       {/* Top Header + Grouped Scrollable Navigation */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="h-16 shrink-0 flex items-center justify-between px-3 border-b border-slate-200/90 bg-white">
           <button
             type="button"
@@ -318,8 +347,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {/* Grouped Navigation List */}
         <nav
           aria-label="Danh mục chính"
-          className={`flex-1 min-h-0 p-2 ${
-            effectiveCollapsed ? 'space-y-1.5 overflow-visible' : 'space-y-2 overflow-y-auto'
+          onScroll={hideCollapsedTooltip}
+          className={`flex-1 min-h-0 p-2 overflow-y-auto overflow-x-hidden ${
+            effectiveCollapsed ? 'space-y-1' : 'space-y-2'
           }`}
         >
           {navGroups.map((group, groupIdx) => {
@@ -335,7 +365,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 className={
                   groupIdx > 0
                     ? effectiveCollapsed
-                      ? 'pt-1.5 border-t border-slate-200/80'
+                      ? 'pt-1 border-t border-slate-200/80'
                       : 'pt-1.5 border-t border-slate-100'
                     : ''
                 }
@@ -382,19 +412,22 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                           key={item.to}
                           to={item.to}
                           onClick={() => {
+                            hideCollapsedTooltip();
                             if (isMobileOpen) onCloseMobile();
                           }}
+                          onMouseEnter={(e) => showCollapsedTooltip(e, item.label, item.badge)}
+                          onMouseLeave={hideCollapsedTooltip}
                           className={({ isActive }) => {
                             const active = isActive || isHomeInputMatch;
                             return `w-full group relative flex items-center ${
-                              effectiveCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
-                            } py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer ${
+                              effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
+                            } rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer ${
                               active
                                 ? 'bg-teal-700 text-white font-bold shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
                             }`;
                           }}
-                          title={effectiveCollapsed ? `${item.label} (${item.desc})` : undefined}
+                          aria-label={item.label}
                         >
                           {({ isActive }) => {
                             const active = isActive || isHomeInputMatch;
@@ -419,17 +452,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                                             : 'bg-slate-100 text-slate-600 group-hover:bg-teal-100 group-hover:text-teal-800'
                                         }`}
                                       >
-                                        {item.badge}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-
-                                {effectiveCollapsed && (
-                                  <div className="hidden md:group-hover:flex absolute left-full ml-2 z-50 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap items-center gap-1.5 pointer-events-none animate-in fade-in zoom-in-95 duration-100">
-                                    <span>{item.label}</span>
-                                    {item.badge !== null && (
-                                      <span className="px-1.5 py-0.2 bg-teal-500 text-white text-[10px] rounded-full font-bold tabular-nums">
                                         {item.badge}
                                       </span>
                                     )}
@@ -523,8 +545,11 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         <NavLink
           to="/print"
           onClick={() => {
+            hideCollapsedTooltip();
             if (isMobileOpen) onCloseMobile();
           }}
+          onMouseEnter={(e) => showCollapsedTooltip(e, 'In trang tập viết A4')}
+          onMouseLeave={hideCollapsedTooltip}
           className={({ isActive }) =>
             `w-full group relative flex items-center ${
               effectiveCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
@@ -534,7 +559,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
             }`
           }
-          title={effectiveCollapsed ? 'In trang tập viết A4' : undefined}
+          aria-label="In trang tập viết"
         >
           {({ isActive }) => (
             <>
@@ -552,8 +577,11 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         <NavLink
           to="/guide"
           onClick={() => {
+            hideCollapsedTooltip();
             if (isMobileOpen) onCloseMobile();
           }}
+          onMouseEnter={(e) => showCollapsedTooltip(e, 'Hướng dẫn sử dụng')}
+          onMouseLeave={hideCollapsedTooltip}
           className={({ isActive }) =>
             `w-full group relative flex items-center ${
               effectiveCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
@@ -563,7 +591,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
             }`
           }
-          title={effectiveCollapsed ? 'Hướng dẫn & Mẹo học' : undefined}
+          aria-label="Hướng dẫn sử dụng"
         >
           {({ isActive }) => (
             <>
@@ -577,13 +605,16 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         <button
           type="button"
           onClick={() => {
+            hideCollapsedTooltip();
             setIsSettingsOpen(true);
             if (isMobileOpen) onCloseMobile();
           }}
+          onMouseEnter={(e) => showCollapsedTooltip(e, 'Cài đặt ứng dụng')}
+          onMouseLeave={hideCollapsedTooltip}
           className={`w-full group relative flex items-center ${
             effectiveCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
           } py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer`}
-          title={effectiveCollapsed ? 'Cài đặt giao diện & Màu nét' : undefined}
+          aria-label="Cài đặt ứng dụng"
         >
           <Settings className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-teal-700" />
           {!effectiveCollapsed && <span className="truncate">Cài đặt ứng dụng</span>}
@@ -597,11 +628,26 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={`hidden md:flex flex-col shrink-0 sticky top-0 h-screen border-r border-slate-200/90 bg-white transition-all duration-300 z-20 ${
-          effectiveCollapsed ? 'w-[68px] overflow-visible' : 'w-[250px] lg:w-[260px]'
+          effectiveCollapsed ? 'w-[68px]' : 'w-[250px] lg:w-[260px]'
         }`}
       >
         {sidebarContent}
       </aside>
+
+      {/* Fixed Floating Tooltip for Collapsed Desktop Sidebar */}
+      {effectiveCollapsed && collapsedTooltip && (
+        <div
+          style={{ top: collapsedTooltip.top, left: collapsedTooltip.left }}
+          className="hidden md:flex fixed -translate-y-1/2 z-50 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap items-center gap-1.5 pointer-events-none"
+        >
+          <span>{collapsedTooltip.label}</span>
+          {collapsedTooltip.badge !== null && (
+            <span className="px-1.5 py-0.5 bg-teal-500 text-white text-[10px] rounded-full font-bold tabular-nums">
+              {collapsedTooltip.badge}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Mobile Drawer Overlay */}
       {isMobileOpen && (
