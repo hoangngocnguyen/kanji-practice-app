@@ -587,7 +587,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             type="button"
             disabled={activeSourcePool.length === 0}
             onClick={() => startQuiz()}
-            className="px-6 py-2.5 min-h-[42px] bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm rounded-xl shadow-xs cursor-pointer flex items-center gap-2 transition-all active:scale-95"
+            className="px-6 py-2.5 min-h-[42px] bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs sm:text-[13px] rounded-xl shadow-xs cursor-pointer flex items-center gap-2 transition-all active:scale-95"
           >
             <Sparkles className="w-4 h-4" />
             <span>Bắt đầu Quiz ngay</span>
@@ -879,7 +879,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           <button
             type="submit"
             disabled={isAnswered || !typedKanjiAnswer.trim()}
-            className="px-5 py-3 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl cursor-pointer"
+            className="px-5 py-3 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl cursor-pointer"
           >
             Kiểm tra
           </button>

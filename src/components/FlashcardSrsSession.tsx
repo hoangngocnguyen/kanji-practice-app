@@ -583,7 +583,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsFlipped(true)}
-                  className="flex-1 h-11 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer"
+                  className="flex-1 h-11 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-[13px] rounded-xl transition-colors cursor-pointer"
                 >
                   Hiện đáp án (Space)
                 </button>

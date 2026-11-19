@@ -264,7 +264,7 @@ export const RomajiConverterView: React.FC = () => {
           type="button"
           onClick={handleConvertToHiragana}
           disabled={!inputText.trim()}
-          className="px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-sm rounded-xl border border-teal-800 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-[13px] rounded-xl border border-teal-800 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <span>Đổi sang Hiragana (あ)</span>
         </button>
@@ -273,7 +273,7 @@ export const RomajiConverterView: React.FC = () => {
           type="button"
           onClick={handleConvertToKatakana}
           disabled={!inputText.trim()}
-          className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm rounded-xl border border-emerald-800 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-[13px] rounded-xl border border-emerald-800 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <span>Đổi sang Katakana (ア)</span>
         </button>
@@ -282,7 +282,7 @@ export const RomajiConverterView: React.FC = () => {
           type="button"
           onClick={handleSwap}
           disabled={!inputText.trim() && !outputText.trim()}
-          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl border border-slate-200 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-[13px] rounded-xl border border-slate-200 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
           title="Hoán đổi nội dung giữa 2 ô"
         >
           <ArrowRightLeft className="w-4 h-4 text-slate-600" />
@@ -293,7 +293,7 @@ export const RomajiConverterView: React.FC = () => {
           type="button"
           onClick={handleConvertToRomaji}
           disabled={!outputText.trim()}
-          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl border border-slate-200 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-[13px] rounded-xl border border-slate-200 transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
           title="Đổi chữ Kana ngược lại thành Romaji"
         >
           <span>Đổi Kana sang Romaji</span>

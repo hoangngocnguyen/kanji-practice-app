@@ -92,7 +92,7 @@ export const KanjiPrintView: React.FC = () => {
         <div className="pt-2">
           <Link
             to="/input"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer active:scale-95"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-[13px] font-semibold rounded-xl shadow-xs transition-all cursor-pointer active:scale-95"
           >
             <FileText className="w-4 h-4" />
             <span>Đi tới Nhập văn bản</span>
@@ -127,7 +127,7 @@ export const KanjiPrintView: React.FC = () => {
                 type="button"
                 onClick={handlePrint}
                 disabled={printableList.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs hover:shadow-md disabled:cursor-not-allowed cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs sm:text-[13px] font-bold rounded-xl transition-all shadow-xs hover:shadow-md disabled:cursor-not-allowed cursor-pointer active:scale-95"
               >
                 <Printer className="w-4 h-4" />
                 <span>In / Xuất PDF ngay</span>

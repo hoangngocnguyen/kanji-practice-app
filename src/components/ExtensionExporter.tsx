@@ -1394,7 +1394,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           type="button"
           onClick={handleDownloadZip}
           disabled={isExporting}
-          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2.5 cursor-pointer shrink-0 disabled:opacity-50 text-sm active:scale-95"
+          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2.5 cursor-pointer shrink-0 disabled:opacity-50 text-xs sm:text-[13px] active:scale-95"
         >
           {isExporting ? (
             <>

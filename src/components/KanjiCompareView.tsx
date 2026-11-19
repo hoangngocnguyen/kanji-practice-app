@@ -412,7 +412,7 @@ export const KanjiCompareView: React.FC = () => {
             type="button"
             onClick={() => handleAddKanji(inputChar)}
             disabled={!inputChar.trim() || compareChars.length >= 6}
-            className="h-10 px-4 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-100 disabled:text-slate-400 border border-teal-800 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs flex items-center justify-center gap-1.5 shrink-0"
+            className="h-10 px-4 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-100 disabled:text-slate-400 border border-teal-800 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs flex items-center justify-center gap-1.5 shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Thêm chữ</span>

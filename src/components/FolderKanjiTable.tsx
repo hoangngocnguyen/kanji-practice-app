@@ -95,7 +95,6 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [compoundImportItemId, setCompoundImportItemId] = useState<string | null>(null);
   const [openKanjiMenuId, setOpenKanjiMenuId] = useState<string | null>(null);
-  const kanjiMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [editingKanjiId, setEditingKanjiId] = useState<string | null>(null);
   const [editHv, setEditHv] = useState('');
@@ -204,9 +203,9 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent) => {
-      if (kanjiMenuRef.current && !kanjiMenuRef.current.contains(e.target as Node)) {
-        setOpenKanjiMenuId(null);
-      }
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-kanji-menu]')) return;
+      setOpenKanjiMenuId(null);
     };
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -480,13 +479,13 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center flex-wrap gap-2 shrink-0">
+          <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 shrink-0">
             {folderItems.length > 0 && (
               <>
                 <button
                   type="button"
                   onClick={handleCopyKanjiList}
-                  className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                   title="Sao chép toàn bộ chữ Kanji trong bộ thẻ"
                 >
                   {copiedBanner ? (
@@ -500,7 +499,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenStrokeWritingPage}
-                  className="px-3 py-2 text-xs font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                   title="Nạp các chữ Kanji này vào trang Nét viết Kanji để học viết"
                 >
                   <PenTool className="w-3.5 h-3.5 text-teal-700" />
@@ -512,7 +511,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             <button
               type="button"
               onClick={() => onExportFolder(selectedFolder.id)}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
               <span>Xuất JSON</span>
@@ -521,7 +520,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             <button
               type="button"
               onClick={() => onOpenShareModal(selectedFolder.id)}
-              className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
                 selectedFolder.isPublic
                   ? 'bg-teal-50 text-teal-800 border-teal-300'
                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
@@ -539,7 +538,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               type="button"
               disabled={totalCards === 0}
               onClick={() => onStartReview('all', dueCards.length > 0)}
-              className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+              className="px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shrink-0"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>
@@ -559,78 +558,82 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             type="text"
             value={kanjiInput}
             onChange={(e) => setKanjiInput(e.target.value)}
-            placeholder="Nhập hoặc dán danh sách chữ Kanji vào bài này (vd: 漢字勉強 hoặc cả đoạn văn)..."
-            className="flex-1 h-10 px-3.5 text-xs sm:text-sm bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all"
+            placeholder="Nhập hoặc dán danh sách chữ Kanji (vd: 漢字勉強)..."
+            className="flex-1 h-10 px-3.5 text-sm bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all"
           />
-          <button
-            type="submit"
-            disabled={!kanjiInput.trim() || isAdding}
-            className="h-10 px-4 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:bg-slate-100 disabled:text-slate-400 border border-teal-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isAdding ? 'Đang thêm...' : 'Thêm vào bảng'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsBatchImportOpen(true)}
-            className="h-10 px-3.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
-            title="Nhập hàng loạt Kanji kèm từ ghép bằng Text hoặc JSON"
-          >
-            <ListPlus className="w-4 h-4 text-teal-700" />
-            <span>Nhập hàng loạt</span>
-          </button>
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
+            <button
+              type="submit"
+              disabled={!kanjiInput.trim() || isAdding}
+              className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:bg-slate-100 disabled:text-slate-400 border border-teal-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span>{isAdding ? 'Đang thêm...' : 'Thêm vào bảng'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsBatchImportOpen(true)}
+              className="h-9 sm:h-10 px-3 sm:px-3.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              title="Nhập hàng loạt Kanji kèm từ ghép bằng Text hoặc JSON"
+            >
+              <ListPlus className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span>Nhập hàng loạt</span>
+            </button>
+          </div>
         </form>
 
         {/* View Mode Switcher & Missing Data Retry */}
         {folderItems.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-            <div className="inline-flex p-1 bg-slate-100 rounded-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <div className="grid grid-cols-2 sm:inline-flex w-full sm:w-auto p-1 bg-slate-100 rounded-xl gap-1">
               <button
                 type="button"
                 onClick={() => setViewMode('kanji')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   viewMode === 'kanji'
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <LayoutList className="w-3.5 h-3.5 text-teal-700" />
-                <span className="tabular-nums">Theo chữ Kanji ({folderItems.length})</span>
+                <LayoutList className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                <span className="tabular-nums truncate">Kanji ({folderItems.length})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('cards')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   viewMode === 'cards'
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-teal-700" />
-                <span className="tabular-nums">Tất cả thẻ Flashcard ({totalCards})</span>
+                <Layers className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                <span className="tabular-nums truncate">Tất cả thẻ ({totalCards})</span>
               </button>
             </div>
 
-            <div className="flex items-center flex-wrap gap-2">
-              {tableNotice && (
-                <span className="text-xs font-medium text-teal-800">{tableNotice}</span>
-              )}
-              {missingDataItems.length > 0 && (
-                <button
-                  type="button"
-                  disabled={enrichingCount > 0}
-                  onClick={handleRetryMissingAll}
-                  className="px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 disabled:opacity-60 border border-amber-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${enrichingCount > 0 ? 'animate-spin' : ''}`} />
-                  <span className="tabular-nums">
-                    {enrichingCount > 0
-                      ? `Đang tải (${enrichingCount})...`
-                      : `Tải lại thẻ thiếu (${missingDataItems.length})`}
-                  </span>
-                </button>
-              )}
-            </div>
+            {(tableNotice || missingDataItems.length > 0) && (
+              <div className="flex items-center flex-wrap gap-2">
+                {tableNotice && (
+                  <span className="text-xs font-medium text-teal-800">{tableNotice}</span>
+                )}
+                {missingDataItems.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={enrichingCount > 0}
+                    onClick={handleRetryMissingAll}
+                    className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 disabled:opacity-60 border border-amber-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${enrichingCount > 0 ? 'animate-spin' : ''}`} />
+                    <span className="tabular-nums">
+                      {enrichingCount > 0
+                        ? `Đang tải (${enrichingCount})...`
+                        : `Tải lại thẻ thiếu (${missingDataItems.length})`}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -671,11 +674,11 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center flex-wrap gap-2 shrink-0">
+                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={handleCopyKanjiList}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                    className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <Copy className="w-3.5 h-3.5 text-slate-500" />
                     <span>Chép Kanji</span>
@@ -684,7 +687,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   <button
                     type="button"
                     onClick={handleOpenStrokeWritingPage}
-                    className="px-3 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                    className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <PenTool className="w-3.5 h-3.5 text-teal-700" />
                     <span>Viết nét</span>
@@ -694,7 +697,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                     <button
                       type="button"
                       onClick={() => setMoveModalItemIds(movableKanjiIdsFromSelection)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                      className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                     >
                       <FolderInput className="w-3.5 h-3.5 text-teal-700" />
                       <span>Di chuyển ({movableKanjiIdsFromSelection.length})</span>
@@ -706,7 +709,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                     onClick={() =>
                       viewMode === 'kanji' ? setSelectedItemIds([]) : setSelectedFlatKeys([])
                     }
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
                   >
                     Bỏ chọn
                   </button>
@@ -714,7 +717,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsBulkDeleteModalOpen(true)}
-                    className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                    className="px-3 py-1.5 text-xs sm:text-[13px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Xóa ({activeSelectionCount})</span>
@@ -788,7 +791,277 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                         isSelected ? 'bg-teal-50/50 hover:bg-teal-50/70' : 'hover:bg-slate-50/50'
                       }`}
                     >
-                      <div className="flex items-center gap-3 px-4 py-3">
+                      {/* Compact Mobile Card (< md) */}
+                      <div className="md:hidden p-3.5 space-y-2 relative">
+                        <div className="flex items-start justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectItem(item.id)}
+                              aria-label={`Chọn thẻ ${item.kanji}`}
+                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
+                              className="w-11 h-11 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 flex items-center justify-center font-kanji text-2xl font-black text-slate-900 hover:text-teal-800 transition-colors cursor-pointer shrink-0"
+                              title="Xem nét viết & bộ thủ"
+                            >
+                              {item.kanji}
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              {editingKanjiId === item.id ? (
+                                <input
+                                  type="text"
+                                  value={editHv}
+                                  onChange={(e) => setEditHv(e.target.value)}
+                                  placeholder="Hán-Việt"
+                                  className="w-full px-2 py-1 text-xs border border-teal-400 rounded-lg focus:outline-none"
+                                />
+                              ) : (
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-sm font-extrabold text-slate-900 truncate">
+                                    {item.hanViet || '—'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => speakJapanese(item.kanji)}
+                                    className="p-1 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-md cursor-pointer shrink-0"
+                                    title="Nghe phát âm"
+                                    aria-label="Nghe phát âm"
+                                  >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                              <div className="text-[11px] text-slate-500 flex items-center flex-wrap gap-x-2 gap-y-0.5 tabular-nums">
+                                {isDue ? (
+                                  <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
+                                ) : (
+                                  <span className="text-emerald-700">
+                                    ✓ Ôn sau {formatIntervalLabel(item.srsState.intervalMinutes)}
+                                  </span>
+                                )}
+                                {belongFolderName && (
+                                  <>
+                                    <span className="text-slate-300" aria-hidden="true">·</span>
+                                    <span className="truncate max-w-[130px]">{belongFolderName}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Top-Right Compact Action Control */}
+                          <div className="relative shrink-0" data-kanji-menu>
+                            {editingKanjiId === item.id ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditKanji(item.id)}
+                                  className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg cursor-pointer"
+                                  title="Lưu"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingKanjiId(null)}
+                                  className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg cursor-pointer"
+                                  title="Hủy"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenKanjiMenuId((prev) =>
+                                      prev === item.id ? null : item.id
+                                    )
+                                  }
+                                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                    openKanjiMenuId === item.id
+                                      ? 'bg-slate-100 border-slate-300 text-slate-900'
+                                      : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-slate-800'
+                                  }`}
+                                  title="Thao tác chữ Kanji"
+                                  aria-label="Thao tác chữ Kanji"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {openKanjiMenuId === item.id && (
+                                  <div className="absolute right-0 top-full pt-1 z-30">
+                                    <div className="w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 text-xs">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenKanjiMenuId(null);
+                                          setDetailItemId(item.id);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer font-medium"
+                                      >
+                                        <BookOpen className="w-3.5 h-3.5 text-teal-700" />
+                                        <span>Xem chi tiết &amp; Từ ghép</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenKanjiMenuId(null);
+                                          openKanjiPracticeModal(item.kanji, deckKanjiChars);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                        <span>Xem nét viết &amp; Bộ thủ</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenKanjiMenuId(null);
+                                          handleStartEditKanji(item);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                                        <span>Sửa Hán-Việt &amp; Nghĩa</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenKanjiMenuId(null);
+                                          setCompoundImportItemId(item.id);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                                      >
+                                        <ListPlus className="w-3.5 h-3.5 text-teal-700" />
+                                        <span>Nhập từ ghép (Text / JSON)</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenKanjiMenuId(null);
+                                          setMoveModalItemIds([item.id]);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                                      >
+                                        <FolderInput className="w-3.5 h-3.5 text-teal-700" />
+                                        <span>Di chuyển sang bộ khác</span>
+                                      </button>
+
+                                      {hasMissingKanjiData(item) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenKanjiMenuId(null);
+                                            void enrichKanjiItems([item], true);
+                                          }}
+                                          className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                                        >
+                                          <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
+                                          <span>Tải lại dữ liệu từ điển</span>
+                                        </button>
+                                      )}
+
+                                      <div className="my-1 border-t border-slate-100" />
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenKanjiMenuId(null);
+                                          deleteKanjiItem(item.id);
+                                        }}
+                                        className="w-full px-3.5 py-2 text-left text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span>Xóa khỏi bài</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Compact Details Body (pl-6 aligns neatly under Kanji box) */}
+                        <div className="pl-6 space-y-1.5">
+                          {/* Inline On / Kun */}
+                          {isEnriching && cleanOn.length === 0 && cleanKun.length === 0 ? (
+                            <div className="h-3 w-36 rounded bg-slate-200/80 animate-pulse" />
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs font-mono text-slate-700">
+                              <span>
+                                <span className="text-slate-400 text-[10px]">On:</span>{' '}
+                                {cleanOn.length > 0 ? cleanOn.slice(0, 2).join(', ') : '—'}
+                              </span>
+                              <span className="text-slate-300" aria-hidden="true">·</span>
+                              <span>
+                                <span className="text-slate-400 text-[10px]">Kun:</span>{' '}
+                                {cleanKun.length > 0 ? cleanKun.slice(0, 2).join(', ') : '—'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Meanings */}
+                          {editingKanjiId === item.id ? (
+                            <input
+                              type="text"
+                              value={editMeanings}
+                              onChange={(e) => setEditMeanings(e.target.value)}
+                              placeholder="Nghĩa (phân cách bằng dấu phẩy)"
+                              className="w-full px-2 py-1 text-xs border border-teal-400 rounded-lg focus:outline-none"
+                            />
+                          ) : isEnriching && cleanMeanings.length === 0 ? (
+                            <div className="h-3 w-3/4 rounded bg-slate-200/80 animate-pulse" />
+                          ) : cleanMeanings.length > 0 ? (
+                            <div className="flex items-baseline justify-between gap-2">
+                              <p className="text-xs text-slate-700 line-clamp-2 flex-1">
+                                {cleanMeanings.join(', ')}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(item.id)}
+                                className="inline-flex items-center gap-0.5 text-xs font-semibold text-teal-800 hover:underline cursor-pointer shrink-0"
+                              >
+                                <span className="tabular-nums">{cwCount} từ ghép</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void enrichKanjiItems([item], true)}
+                                className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 cursor-pointer"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Chưa có nghĩa · Tải lại</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(item.id)}
+                                className="inline-flex items-center gap-0.5 text-xs font-semibold text-teal-800 hover:underline cursor-pointer shrink-0"
+                              >
+                                <span className="tabular-nums">{cwCount} từ ghép</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Desktop 12-Column Row (>= md) */}
+                      <div className="hidden md:flex items-center gap-3 px-4 py-3">
                         <label
                           className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0"
                           title={isSelected ? 'Bỏ chọn thẻ' : 'Chọn thẻ'}
@@ -801,9 +1074,9 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
                           />
                         </label>
-                        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                        <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
                           {/* Kanji Character + Pronunciation button right next to it */}
-                          <div className="md:col-span-2 flex items-center gap-2">
+                          <div className="col-span-2 flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
@@ -824,7 +1097,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </div>
 
                           {/* Hán Việt & Source folder if viewing parent */}
-                          <div className="md:col-span-2 min-w-0">
+                          <div className="col-span-2 min-w-0">
                             {editingKanjiId === item.id ? (
                               <input
                                 type="text"
@@ -848,7 +1121,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </div>
 
                           {/* On / Kun */}
-                          <div className="md:col-span-2 text-xs space-y-1 min-w-0">
+                          <div className="col-span-2 text-xs space-y-1 min-w-0">
                             {isEnriching && cleanOn.length === 0 && cleanKun.length === 0 ? (
                               <div className="space-y-1.5 py-0.5" aria-label="Đang tải âm On/Kun">
                                 <div className="h-3 w-20 rounded bg-slate-200/80 animate-pulse" />
@@ -869,7 +1142,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </div>
 
                           {/* Meanings */}
-                          <div className="md:col-span-3 min-w-0">
+                          <div className="col-span-3 min-w-0">
                             {editingKanjiId === item.id ? (
                               <input
                                 type="text"
@@ -900,7 +1173,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </div>
 
                           {/* Compound Words Count & SRS Status -> Click opens Detail Modal */}
-                          <div className="md:col-span-2 space-y-1">
+                          <div className="col-span-2 space-y-1">
                             <button
                               type="button"
                               onClick={() => setDetailItemId(item.id)}
@@ -922,7 +1195,8 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
                           {/* Actions: 3-dot menu */}
                           <div
-                            className="md:col-span-1 flex items-center justify-end gap-1 relative"
+                            data-kanji-menu
+                            className="col-span-1 flex items-center justify-end gap-1 relative"
                             onMouseLeave={() => {
                               if (openKanjiMenuId === item.id) {
                                 setOpenKanjiMenuId(null);
@@ -969,10 +1243,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                                 </button>
 
                                 {openKanjiMenuId === item.id && (
-                                  <div
-                                    ref={kanjiMenuRef}
-                                    className="absolute right-0 top-full pt-1 z-30"
-                                  >
+                                  <div className="absolute right-0 top-full pt-1 z-30">
                                     <div className="w-56 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 text-xs">
                                       <button
                                         type="button"
@@ -1135,7 +1406,93 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           isRowSelected ? 'bg-teal-50/50 hover:bg-teal-50/70' : 'hover:bg-slate-50/50'
                         }`}
                       >
-                        <div className="flex items-center gap-3 px-4 py-3">
+                        {/* Compact Mobile Flat Card (< md) */}
+                        <div className="md:hidden p-3.5 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={isRowSelected}
+                                onChange={() => toggleSelectFlatRow(row.rowKey)}
+                                aria-label={`Chọn thẻ Kanji ${item.kanji}`}
+                                className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
+                                className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 flex items-center justify-center font-kanji text-xl font-black text-slate-900 cursor-pointer shrink-0"
+                              >
+                                {item.kanji}
+                              </button>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-sm font-bold text-slate-900 truncate">
+                                    {item.hanViet || '—'}
+                                  </span>
+                                  <span className="text-[11px] text-teal-800 font-semibold shrink-0">
+                                    · Kanji
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => speakJapanese(item.kanji)}
+                                    className="p-1 text-slate-400 hover:text-teal-700 rounded-md cursor-pointer shrink-0"
+                                    aria-label="Phát âm"
+                                  >
+                                    <Volume2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="text-[11px] tabular-nums">
+                                  {isDue ? (
+                                    <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
+                                  ) : (
+                                    <span className="text-emerald-700">
+                                      ✓ Ôn sau {formatIntervalLabel(item.srsState.intervalMinutes)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(item.id)}
+                                className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
+                                title="Chi tiết & từ ghép"
+                              >
+                                <BookOpen className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMoveModalItemIds([item.id])}
+                                className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
+                                title="Di chuyển sang bộ khác"
+                              >
+                                <FolderInput className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteKanjiItem(item.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
+                                title="Xóa thẻ Kanji"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="pl-6 space-y-0.5 text-xs">
+                            <div className="font-mono text-slate-600 truncate">
+                              {[...cleanOn, ...cleanKun].slice(0, 3).join(', ') || '—'}
+                            </div>
+                            <div className="text-slate-700 line-clamp-2">
+                              {cleanMeanings.length > 0 ? cleanMeanings.join(', ') : 'Chưa có nghĩa'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Desktop Row (>= md) */}
+                        <div className="hidden md:flex items-center gap-3 px-4 py-3">
                           <label className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0">
                             <input
                               type="checkbox"
@@ -1145,8 +1502,8 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
                             />
                           </label>
-                          <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                            <div className="md:col-span-3 flex items-center gap-2.5 min-w-0">
+                          <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
+                            <div className="col-span-3 flex items-center gap-2.5 min-w-0">
                               <button
                                 type="button"
                                 onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
@@ -1170,7 +1527,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               </div>
                             </div>
 
-                            <div className="md:col-span-3 min-w-0 text-xs">
+                            <div className="col-span-3 min-w-0 text-xs">
                               <div className="font-bold text-slate-900 truncate">
                                 {item.hanViet || '—'}
                               </div>
@@ -1183,7 +1540,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               )}
                             </div>
 
-                            <div className="md:col-span-3 min-w-0 text-xs text-slate-700">
+                            <div className="col-span-3 min-w-0 text-xs text-slate-700">
                               {isEnriching && cleanMeanings.length === 0 ? (
                                 <div className="h-3 w-3/4 rounded bg-slate-200/80 animate-pulse" />
                               ) : (
@@ -1193,7 +1550,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               )}
                             </div>
 
-                            <div className="md:col-span-2 text-[11px] tabular-nums">
+                            <div className="col-span-2 text-[11px] tabular-nums">
                               {isDue ? (
                                 <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
                               ) : (
@@ -1203,7 +1560,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               )}
                             </div>
 
-                            <div className="md:col-span-1 flex items-center justify-end gap-1">
+                            <div className="col-span-1 flex items-center justify-end gap-1">
                               <button
                                 type="button"
                                 onClick={() => setDetailItemId(item.id)}
@@ -1245,7 +1602,80 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                         isRowSelected ? 'bg-teal-50/50 hover:bg-teal-50/70' : 'hover:bg-slate-50/50'
                       }`}
                     >
-                      <div className="flex items-center gap-3 px-4 py-3">
+                      {/* Compact Mobile Compound Card (< md) */}
+                      <div className="md:hidden p-3.5 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isRowSelected}
+                              onChange={() => toggleSelectFlatRow(row.rowKey)}
+                              aria-label={`Chọn từ ghép ${cw.word}`}
+                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => openKanjiPracticeModal(kanjiItem.kanji, deckKanjiChars)}
+                              className="px-2.5 h-10 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 flex items-center justify-center font-kanji text-base font-bold text-slate-900 cursor-pointer shrink-0"
+                            >
+                              {cw.word}
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-sm font-bold text-slate-900 truncate">
+                                  {cw.hanViet || '—'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => speakJapanese(cw.word)}
+                                  className="p-1 text-slate-400 hover:text-teal-700 rounded-md cursor-pointer shrink-0"
+                                  aria-label="Phát âm"
+                                >
+                                  <Volume2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              <div className="text-[11px] tabular-nums flex items-center gap-1.5">
+                                {isDue ? (
+                                  <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
+                                ) : (
+                                  <span className="text-emerald-700">
+                                    ✓ Ôn sau {formatIntervalLabel(cw.srsState.intervalMinutes)}
+                                  </span>
+                                )}
+                                <span className="text-slate-300" aria-hidden="true">·</span>
+                                <span className="text-slate-500 font-kanji">{kanjiItem.kanji}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setDetailItemId(kanjiItem.id)}
+                              className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
+                              title="Sửa từ ghép"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteCompoundWord(kanjiItem.id, cw.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
+                              title="Xóa từ ghép"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pl-6 space-y-0.5 text-xs">
+                          <div className="font-mono text-slate-600 truncate">{cw.reading || '—'}</div>
+                          <div className="text-slate-700 line-clamp-2">{cw.meaning || '—'}</div>
+                        </div>
+                      </div>
+
+                      {/* Desktop Row (>= md) */}
+                      <div className="hidden md:flex items-center gap-3 px-4 py-3">
                         <label className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0">
                           <input
                             type="checkbox"
@@ -1255,8 +1685,8 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
                           />
                         </label>
-                        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                          <div className="md:col-span-3 flex items-center gap-2.5 min-w-0">
+                        <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
+                          <div className="col-span-3 flex items-center gap-2.5 min-w-0">
                             <button
                               type="button"
                               onClick={() => openKanjiPracticeModal(kanjiItem.kanji, deckKanjiChars)}
@@ -1280,7 +1710,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             </div>
                           </div>
 
-                          <div className="md:col-span-3 min-w-0 text-xs">
+                          <div className="col-span-3 min-w-0 text-xs">
                             <div className="font-bold text-slate-900 truncate">
                               {cw.hanViet || '—'}
                             </div>
@@ -1289,11 +1719,11 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             </div>
                           </div>
 
-                          <div className="md:col-span-3 min-w-0 text-xs text-slate-700">
+                          <div className="col-span-3 min-w-0 text-xs text-slate-700">
                             <span className="line-clamp-2">{cw.meaning || '—'}</span>
                           </div>
 
-                          <div className="md:col-span-2 text-[11px] tabular-nums">
+                          <div className="col-span-2 text-[11px] tabular-nums">
                             {isDue ? (
                               <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
                             ) : (
@@ -1303,7 +1733,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             )}
                           </div>
 
-                          <div className="md:col-span-1 flex items-center justify-end gap-1">
+                          <div className="col-span-1 flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => setDetailItemId(kanjiItem.id)}

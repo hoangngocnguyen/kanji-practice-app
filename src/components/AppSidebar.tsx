@@ -205,7 +205,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   if (isMobileOpen) onCloseMobile();
                 }}
                 className={({ isActive }) =>
-                  `w-full group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer ${
+                  `w-full group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer ${
                     isActive
                       ? 'bg-teal-700 text-white font-bold shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'

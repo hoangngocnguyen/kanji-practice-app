@@ -306,7 +306,7 @@ export const KanjiStrokesView: React.FC = () => {
                 type="button"
                 onClick={handleQuickAdd}
                 disabled={!quickInput.trim()}
-                className="h-10 px-4 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-teal-800 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
+                className="h-10 px-4 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 border border-teal-800 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
                 title="Thêm ngay chữ này vào danh sách tra cứu"
               >
                 <Plus className="w-4 h-4" />

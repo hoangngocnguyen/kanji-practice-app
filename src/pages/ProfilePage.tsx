@@ -135,7 +135,7 @@ export const ProfilePage: React.FC = () => {
         <button
           type="button"
           onClick={() => openAuthModal('login')}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors cursor-pointer min-h-[42px]"
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors cursor-pointer min-h-[42px]"
         >
           <LogIn className="w-4 h-4" />
           <span>Đăng nhập / Đăng ký</span>

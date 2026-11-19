@@ -124,7 +124,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition-all border-b-2 whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-[13px] font-semibold rounded-t-xl transition-all border-b-2 whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-white text-teal-800 border-teal-600 shadow-xs'
                     : 'text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/80'
@@ -483,7 +483,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
 
           <button
             onClick={handleClose}
-            className="px-5 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 rounded-xl shadow-md shadow-teal-900/15 transition-all cursor-pointer flex items-center gap-1.5 active:scale-98"
+            className="px-5 py-2 text-xs sm:text-[13px] font-bold text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 rounded-xl shadow-md shadow-teal-900/15 transition-all cursor-pointer flex items-center gap-1.5 active:scale-98"
           >
             <span>Đã hiểu, Bắt đầu</span>
             <ChevronRight className="w-4 h-4" />

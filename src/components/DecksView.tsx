@@ -872,7 +872,7 @@ export const DecksView: React.FC = () => {
             type="button"
             disabled={isSyncing}
             onClick={() => triggerAnkiSync()}
-            className={`px-3 py-2 text-xs font-semibold border rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60 ${
+            className={`px-3 py-2 text-xs sm:text-[13px] font-semibold border rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60 ${
               cloudUser
                 ? 'text-teal-800 bg-teal-50/80 hover:bg-teal-100 border-teal-200'
                 : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
@@ -905,7 +905,7 @@ export const DecksView: React.FC = () => {
             type="button"
             disabled={isSyncing}
             onClick={() => openCloudInspector()}
-            className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
+            className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
             title="Xem dữ liệu hiện có trên Cloud và so sánh khác biệt trước/sau khi sync"
           >
             <Eye className="w-3.5 h-3.5 text-teal-700" />
@@ -915,7 +915,7 @@ export const DecksView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsImportOpen(true)}
-            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <Upload className="w-3.5 h-3.5 text-teal-700" />
             <span>Nhập JSON</span>
@@ -925,7 +925,7 @@ export const DecksView: React.FC = () => {
             type="button"
             onClick={handleExportAllFolders}
             disabled={folders.length === 0}
-            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+            className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
             title="Xuất toàn bộ cây thư mục và thẻ Kanji ra 1 file JSON"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -942,7 +942,7 @@ export const DecksView: React.FC = () => {
                 folder: null,
               })
             }
-            className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            className="px-4 py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
             <FolderPlus className="w-4 h-4" />
             <span>Thư mục mới</span>
@@ -974,7 +974,7 @@ export const DecksView: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('folders')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'folders'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
@@ -986,7 +986,7 @@ export const DecksView: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('shares')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'shares'
                 ? 'bg-white text-slate-900 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'

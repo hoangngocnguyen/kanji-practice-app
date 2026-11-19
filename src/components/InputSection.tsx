@@ -336,7 +336,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('off')}
-              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-xs sm:text-[13px] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'off' ? 'bg-white text-slate-800 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -345,7 +345,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('kanji')}
-              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-xs sm:text-[13px] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'kanji' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
               title="Gõ Romaji -> bấm Space hoặc Tab để chọn Kanji"
@@ -355,7 +355,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('hiragana')}
-              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-xs sm:text-[13px] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'hiragana' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
             >
@@ -364,7 +364,7 @@ export const InputSection: React.FC = () => {
             <button
               type="button"
               onClick={() => setKanaMode('katakana')}
-              className={`px-3 py-1 rounded-lg transition-all text-sm cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1 rounded-lg transition-all text-xs sm:text-[13px] cursor-pointer whitespace-nowrap ${
                 kanaMode === 'katakana' ? 'bg-teal-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-teal-900'
               }`}
             >
@@ -477,7 +477,7 @@ export const InputSection: React.FC = () => {
               type="button"
               onClick={() => navigate('/kanji')}
               disabled={extractedKanjiList.length === 0}
-              className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center gap-1.5"
+              className="px-4 py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs hover:shadow-xs active:scale-95 flex items-center gap-1.5"
             >
               <span>Chi tiết nét vẽ</span>
               <ArrowRight className="w-4 h-4" />

@@ -152,6 +152,16 @@
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  button {
+    font-size: 12px;
+  }
+
+  @media (min-width: 640px) {
+    button {
+      font-size: 13px;
+    }
+  }
 }
 
 .font-kanji {
@@ -176,7 +186,7 @@
 
 /* Touch & Mobile UX Optimizations */
 @media (max-width: 640px) {
-  input, textarea, select, button {
+  input, textarea, select {
     font-size: 14px; /* Prevents auto-zoom on iOS Safari */
   }
 }

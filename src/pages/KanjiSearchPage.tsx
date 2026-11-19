@@ -479,7 +479,7 @@ export const KanjiSearchPage: React.FC = () => {
           </div>
           <button
             type="submit"
-            className="h-11 sm:h-12 px-4 sm:px-5 bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-bold rounded-xl transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-xs"
+            className="h-11 sm:h-12 px-4 sm:px-5 bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-[13px] font-bold rounded-xl transition-colors cursor-pointer shrink-0 whitespace-nowrap shadow-xs"
           >
             Tìm Kanji
           </button>
@@ -1061,7 +1061,7 @@ export const KanjiSearchPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setVisibleLimit((prev) => prev + BATCH_SIZE)}
-                className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs sm:text-sm font-bold rounded-xl shadow-2xs transition-colors cursor-pointer tabular-nums"
+                className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs sm:text-[13px] font-bold rounded-xl shadow-2xs transition-colors cursor-pointer tabular-nums"
               >
                 Xem thêm {Math.min(BATCH_SIZE, results.length - visibleResults.length)} kết quả (còn{' '}
                 {results.length - visibleResults.length})

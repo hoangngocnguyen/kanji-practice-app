@@ -453,44 +453,46 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Header with Kanji & Sino-Vietnamese Reading */}
-          <div className="flex items-center justify-between px-3 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="flex items-start sm:items-center justify-between gap-2 px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/80">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <span
                 onClick={() => speakJapanese(item.kanji)}
-                className="font-kanji font-black text-3xl sm:text-5xl text-teal-700 leading-none cursor-pointer hover:scale-105 transition-transform shrink-0"
+                className="font-kanji font-black text-4xl sm:text-5xl text-teal-700 leading-none cursor-pointer hover:scale-105 transition-transform shrink-0"
                 title="Click để nghe phát âm tiếng Nhật"
               >
                 {item.kanji}
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  <h4 className="text-sm sm:text-lg font-black text-slate-900 tracking-wide truncate">
+                  <h4 className="text-base sm:text-lg font-black text-slate-900 tracking-wide leading-snug break-words">
                     {detail?.hanViet ? `Hán-Việt: ${detail.hanViet}` : `Chữ ${item.kanji}`}
                   </h4>
                   {detail?.jlpt && (
-                    <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md border ${getJlptBadgeClass(detail.jlpt)}`}>
+                    <span className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md border shrink-0 ${getJlptBadgeClass(detail.jlpt)}`}>
                       {detail.jlpt}
                     </span>
                   )}
                   <button
+                    type="button"
                     onClick={() => speakJapanese(item.kanji)}
-                    className="p-1 rounded-lg text-teal-700 hover:bg-teal-100 transition-colors cursor-pointer"
+                    className="p-1 rounded-lg text-teal-700 hover:bg-teal-100 transition-colors cursor-pointer shrink-0"
                     title="Nghe phát âm"
+                    aria-label="Nghe phát âm"
                   >
-                    <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <Volume2 className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-[11px] sm:text-xs font-mono text-slate-400 truncate">
+                <p className="text-[11px] sm:text-xs font-mono text-slate-400 mt-0.5 truncate">
                   U+{item.hex.toUpperCase()} • #{item.id}
                   {detail?.strokeCount ? ` • ${detail.strokeCount} nét` : ''}
                 </p>
               </div>
             </div>
 
-            {/* Header Right Actions: 5-Kanji Carousel Strip & Close */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Header Right Actions: Desktop 5-Kanji Carousel Strip & Close */}
+            <div className="flex items-center gap-2 shrink-0">
               {kanjiList && kanjiList.length > 1 && currentIndex >= 0 && (
-                <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-100/90 border border-slate-200/90 rounded-2xl p-1 shadow-inner">
+                <div className="hidden md:flex items-center gap-1.5 bg-slate-100/90 border border-slate-200/90 rounded-2xl p-1 shadow-inner">
                   {/* Prev Button */}
                   <button
                     type="button"
@@ -499,7 +501,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                     className="p-1 text-slate-500 hover:text-teal-800 hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
                     title="Chữ Kanji trước (Phím mũi tên Trái ←)"
                   >
-                    <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
 
                   {/* 5-Kanji Chips Window with Middle Highlight */}
@@ -513,14 +515,14 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                           key={kItem.kanji}
                           type="button"
                           onClick={() => onNavigateKanji && onNavigateKanji(kItem)}
-                          className={`flex items-center justify-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl transition-all cursor-pointer font-bold ${
+                          className={`flex items-center justify-center px-2.5 py-1 rounded-xl transition-all cursor-pointer font-bold ${
                             isSelected
-                              ? 'bg-teal-700 text-white shadow-md border border-teal-800 scale-105 ring-2 ring-teal-500/30 font-black min-w-[34px] sm:min-w-[38px]'
-                              : 'bg-white hover:bg-teal-50 text-slate-700 border border-slate-200/90 hover:border-teal-300 min-w-[28px] sm:min-w-[34px]'
+                              ? 'bg-teal-700 text-white shadow-md border border-teal-800 scale-105 ring-2 ring-teal-500/30 font-black min-w-[38px]'
+                              : 'bg-white hover:bg-teal-50 text-slate-700 border border-slate-200/90 hover:border-teal-300 min-w-[34px]'
                           }`}
                           title={`Chuyển tới chữ ${kItem.kanji}${hanViet ? ` (${hanViet})` : ''}`}
                         >
-                          <span className="font-kanji text-sm sm:text-base leading-none">
+                          <span className="font-kanji text-base leading-none">
                             {kItem.kanji}
                           </span>
                         </button>
@@ -536,77 +538,141 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                     className="p-1 text-slate-500 hover:text-teal-800 hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
                     title="Chữ Kanji tiếp theo (Phím mũi tên Phải →)"
                   >
-                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
 
-                  <span className="hidden sm:inline-block pl-1 pr-1.5 text-[10px] sm:text-xs font-mono font-bold text-slate-500 border-l border-slate-200 select-none">
+                  <span className="pl-1 pr-1.5 text-xs font-mono font-bold text-slate-500 border-l border-slate-200 select-none tabular-nums">
                     {currentIndex + 1}/{kanjiList.length}
                   </span>
                 </div>
               )}
 
               <button
+                type="button"
                 onClick={onClose}
                 className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer shrink-0"
                 title="Đóng (Phím Esc)"
+                aria-label="Đóng cửa sổ"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
+          {/* Mobile 5-Kanji Carousel Strip (Placed cleanly below Kanji header and above Tabs) */}
+          {kanjiList && kanjiList.length > 1 && currentIndex >= 0 && (
+            <div className="md:hidden flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 bg-white">
+              <div className="flex items-center gap-1 flex-1 min-w-0 justify-center bg-slate-100/90 border border-slate-200/80 rounded-xl p-1">
+                <button
+                  type="button"
+                  onClick={goToPrev}
+                  disabled={!hasPrev}
+                  className="p-1.5 text-slate-500 hover:text-teal-800 hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
+                  title="Chữ Kanji trước"
+                  aria-label="Chữ Kanji trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center justify-center gap-1 overflow-x-auto scrollbar-none">
+                  {surroundingKanjiWindow.map((kItem) => {
+                    const isSelected = kItem.kanji === item.kanji;
+                    const hanViet = kItem.detail?.hanViet;
+
+                    return (
+                      <button
+                        key={kItem.kanji}
+                        type="button"
+                        onClick={() => onNavigateKanji && onNavigateKanji(kItem)}
+                        className={`flex items-center justify-center px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold shrink-0 ${
+                          isSelected
+                            ? 'bg-teal-700 text-white shadow-xs border border-teal-800 font-black min-w-[34px]'
+                            : 'bg-white hover:bg-teal-50 text-slate-700 border border-slate-200/90 min-w-[32px]'
+                        }`}
+                        title={`Chuyển tới chữ ${kItem.kanji}${hanViet ? ` (${hanViet})` : ''}`}
+                      >
+                        <span className="font-kanji text-sm leading-none">
+                          {kItem.kanji}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={goToNext}
+                  disabled={!hasNext}
+                  className="p-1.5 text-slate-500 hover:text-teal-800 hover:bg-white disabled:opacity-25 disabled:hover:bg-transparent rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
+                  title="Chữ Kanji tiếp theo"
+                  aria-label="Chữ Kanji tiếp theo"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <span className="text-[11px] font-mono font-bold text-slate-500 shrink-0 tabular-nums px-1">
+                {currentIndex + 1}/{kanjiList.length}
+              </span>
+            </div>
+          )}
+
         {/* Tab Navigation with color indicators */}
         <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold overflow-x-auto scrollbar-none">
           <button
+            type="button"
             onClick={() => setActiveTab('animation')}
-            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-0 sm:min-w-[90px] py-2 px-1 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'animation'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <PlayCircle className="w-4 h-4 text-teal-600 shrink-0" />
+            <PlayCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 shrink-0" />
             <span className="hidden sm:inline">Hoạt ảnh nét vẽ</span>
-            <span className="sm:hidden text-[11px]">Hoạt ảnh</span>
+            <span className="sm:hidden text-[11px] truncate">Hoạt ảnh</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('dictionary')}
-            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-0 sm:min-w-[90px] py-2 px-1 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'dictionary'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BookOpen className="w-4 h-4 text-teal-600 shrink-0" />
-            <span className="hidden sm:inline">Nghĩa & Từ ghép</span>
-            <span className="sm:hidden text-[11px]">Tra nghĩa</span>
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 shrink-0" />
+            <span className="hidden sm:inline">Nghĩa &amp; Từ ghép</span>
+            <span className="sm:hidden text-[11px] truncate">Tra nghĩa</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('radicals')}
-            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-0 sm:min-w-[90px] py-2 px-1 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'radicals'
                 ? 'bg-cyan-600 text-white shadow-xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Layers3 className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span className="hidden sm:inline">Bộ thủ & Mẹo nhớ</span>
-            <span className="sm:hidden text-[11px]">Bộ thủ</span>
+            <Layers3 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === 'radicals' ? 'text-cyan-100' : 'text-cyan-500'}`} />
+            <span className="hidden sm:inline">Bộ thủ &amp; Mẹo nhớ</span>
+            <span className="sm:hidden text-[11px] truncate">Bộ thủ</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('practice')}
-            className={`flex-1 min-w-[90px] py-2 px-1.5 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 min-w-0 sm:min-w-[90px] py-2 px-1 sm:px-3 rounded-xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'practice'
                 ? 'bg-white text-teal-900 shadow-xs font-bold ring-1 ring-slate-200'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <PenTool className="w-4 h-4 text-teal-600 shrink-0" />
+            <PenTool className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 shrink-0" />
             <span className="hidden sm:inline">Tập viết tay</span>
-            <span className="sm:hidden text-[11px]">Viết tay</span>
+            <span className="sm:hidden text-[11px] truncate">Viết tay</span>
           </button>
         </div>
 

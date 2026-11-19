@@ -784,7 +784,7 @@ export const KanjiByLevelPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
-                        className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                        className="px-4 py-2.5 rounded-xl text-xs sm:text-[13px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                         title="Thêm chữ này vào bộ thẻ Flashcard"
                       >
                         <Plus className="w-4 h-4 shrink-0" />
@@ -811,7 +811,7 @@ export const KanjiByLevelPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setVisibleCount((c) => c + LOAD_MORE_BATCH)}
-                    className="px-5 py-2.5 min-h-[40px] bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs cursor-pointer tabular-nums transition-all active:scale-95"
+                    className="px-5 py-2.5 min-h-[40px] bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-[13px] font-bold rounded-xl shadow-xs cursor-pointer tabular-nums transition-all active:scale-95"
                   >
                     Tải thêm {Math.min(LOAD_MORE_BATCH, remainingCount)} chữ (Còn {remainingCount})
                   </button>
