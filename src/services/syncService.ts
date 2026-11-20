@@ -1,4 +1,9 @@
-import { FolderKanjiItem, SrsState, StudyFolder } from '../types/deck';
+import {
+  CardExampleSentence,
+  FolderKanjiItem,
+  SrsState,
+  StudyFolder,
+} from '../types/deck';
 import { getSupabaseAccessToken } from '../utils/supabaseClient';
 
 export const STORAGE_SYNC_META_KEY = 'kanji_sync_meta_v1';
@@ -118,6 +123,17 @@ function normalizeSrsState(srs: Partial<SrsState> | undefined) {
   };
 }
 
+function normalizeCanonicalExamples(examples: CardExampleSentence[] | undefined) {
+  if (!Array.isArray(examples)) return [];
+  return examples
+    .map((ex) => ({
+      jp: String(ex?.jp || '').trim(),
+      kana: String(ex?.kana || '').trim(),
+      vi: String(ex?.vi || '').trim(),
+    }))
+    .filter((ex) => ex.jp && ex.vi);
+}
+
 export function buildClientCanonicalPayload(
   folders: StudyFolder[],
   items: FolderKanjiItem[]
@@ -136,27 +152,41 @@ export function buildClientCanonicalPayload(
 
   const normalizedItems = [...items]
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map((it) => ({
-      id: it.id,
-      folderId: it.folderId,
-      kanji: it.kanji,
-      hanViet: it.hanViet || '',
-      onReadings: Array.isArray(it.onReadings) ? it.onReadings : [],
-      kunReadings: Array.isArray(it.kunReadings) ? it.kunReadings : [],
-      meanings: Array.isArray(it.meanings) ? it.meanings : [],
-      strokeCount: it.strokeCount ?? null,
-      srsState: normalizeSrsState(it.srsState),
-      compoundWords: [...(Array.isArray(it.compoundWords) ? it.compoundWords : [])]
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map((cw) => ({
-          id: cw.id,
-          word: cw.word,
-          reading: cw.reading || '',
-          hanViet: cw.hanViet || '',
-          meaning: cw.meaning || '',
-          srsState: normalizeSrsState(cw.srsState),
-        })),
-    }));
+    .map((it) => {
+      const itemExamples = normalizeCanonicalExamples(it.examples);
+      const baseObj: Record<string, any> = {
+        id: it.id,
+        folderId: it.folderId,
+        kanji: it.kanji,
+        hanViet: it.hanViet || '',
+        onReadings: Array.isArray(it.onReadings) ? it.onReadings : [],
+        kunReadings: Array.isArray(it.kunReadings) ? it.kunReadings : [],
+        meanings: Array.isArray(it.meanings) ? it.meanings : [],
+        strokeCount: it.strokeCount ?? null,
+        srsState: normalizeSrsState(it.srsState),
+        compoundWords: [...(Array.isArray(it.compoundWords) ? it.compoundWords : [])]
+          .sort((a, b) => a.id.localeCompare(b.id))
+          .map((cw) => {
+            const cwExamples = normalizeCanonicalExamples(cw.examples);
+            const cwObj: Record<string, any> = {
+              id: cw.id,
+              word: cw.word,
+              reading: cw.reading || '',
+              hanViet: cw.hanViet || '',
+              meaning: cw.meaning || '',
+              srsState: normalizeSrsState(cw.srsState),
+            };
+            if (cwExamples.length > 0) {
+              cwObj.examples = cwExamples;
+            }
+            return cwObj;
+          }),
+      };
+      if (itemExamples.length > 0) {
+        baseObj.examples = itemExamples;
+      }
+      return baseObj;
+    });
 
   return JSON.stringify({
     folders: normalizedFolders,

@@ -59,14 +59,18 @@ export const BatchImportCompoundModal: React.FC<BatchImportCompoundModalProps> =
   const previewStats = useMemo(() => {
     let newCount = 0;
     let duplicateCount = 0;
+    let updateExamplesCount = 0;
     for (const w of parsed.words) {
       if (existingWords.has(w.word.trim())) {
         duplicateCount += 1;
+        if (w.examples && w.examples.length > 0) {
+          updateExamplesCount += 1;
+        }
       } else {
         newCount += 1;
       }
     }
-    return { newCount, duplicateCount };
+    return { newCount, duplicateCount, updateExamplesCount };
   }, [parsed.words, existingWords]);
 
   if (!item) return null;
@@ -114,9 +118,17 @@ export const BatchImportCompoundModal: React.FC<BatchImportCompoundModalProps> =
   };
 
   const handleSubmit = () => {
-    if (previewStats.newCount === 0) return;
+    if (previewStats.newCount === 0 && previewStats.updateExamplesCount === 0) return;
     const added = batchAddCompoundWords(item.id, parsed.words);
-    setSuccessMsg(`Đã thêm ${added} từ ghép mới cho chữ ${item.kanji}!`);
+    if (added > 0 && previewStats.updateExamplesCount > 0) {
+      setSuccessMsg(
+        `Đã thêm ${added} từ ghép mới và cập nhật ví dụ cho chữ ${item.kanji}!`
+      );
+    } else if (added > 0) {
+      setSuccessMsg(`Đã thêm ${added} từ ghép mới cho chữ ${item.kanji}!`);
+    } else {
+      setSuccessMsg(`Đã bổ sung câu ví dụ cho các từ ghép có sẵn của chữ ${item.kanji}!`);
+    }
     setTimeout(() => {
       setTextInput('');
       setJsonInput('');
@@ -319,7 +331,10 @@ export const BatchImportCompoundModal: React.FC<BatchImportCompoundModalProps> =
                     <>
                       <span aria-hidden="true">·</span>
                       <span className="text-slate-500">
-                        {previewStats.duplicateCount} từ đã có (bỏ qua)
+                        {previewStats.duplicateCount} từ đã có
+                        {previewStats.updateExamplesCount > 0
+                          ? ` (${previewStats.updateExamplesCount} từ bổ sung ví dụ)`
+                          : ' (bỏ qua)'}
                       </span>
                     </>
                   )}
@@ -329,11 +344,12 @@ export const BatchImportCompoundModal: React.FC<BatchImportCompoundModalProps> =
               <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto bg-white">
                 {parsed.words.map((cw) => {
                   const isDup = existingWords.has(cw.word.trim());
+                  const hasEx = (cw.examples?.length || 0) > 0;
                   return (
                     <div
                       key={cw.word}
                       className={`px-3.5 py-2 flex items-center justify-between gap-3 text-xs ${
-                        isDup ? 'opacity-55' : ''
+                        isDup && !hasEx ? 'opacity-55' : ''
                       }`}
                     >
                       <div className="flex items-center flex-wrap gap-2.5 min-w-0">
@@ -347,13 +363,22 @@ export const BatchImportCompoundModal: React.FC<BatchImportCompoundModalProps> =
                           <span className="font-semibold text-slate-800">{cw.hanViet}</span>
                         )}
                         <span className="text-slate-600">{cw.meaning}</span>
+                        {hasEx && (
+                          <span className="text-[11px] font-medium text-teal-700">
+                            · {cw.examples!.length} ví dụ
+                          </span>
+                        )}
                       </div>
                       <span
                         className={`text-[11px] font-semibold shrink-0 ${
-                          isDup ? 'text-slate-400' : 'text-teal-700'
+                          isDup
+                            ? hasEx
+                              ? 'text-amber-700'
+                              : 'text-slate-400'
+                            : 'text-teal-700'
                         }`}
                       >
-                        {isDup ? 'Đã có' : 'Mới'}
+                        {isDup ? (hasEx ? 'Cập nhật ví dụ' : 'Đã có') : 'Mới'}
                       </span>
                     </div>
                   );
@@ -389,13 +414,18 @@ export const BatchImportCompoundModal: React.FC<BatchImportCompoundModalProps> =
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={previewStats.newCount === 0 || !!successMsg}
+            disabled={
+              (previewStats.newCount === 0 && previewStats.updateExamplesCount === 0) ||
+              !!successMsg
+            }
             className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <ListPlus className="w-4 h-4" />
             <span>
               {previewStats.newCount > 0
                 ? `Thêm ${previewStats.newCount} từ ghép`
+                : previewStats.updateExamplesCount > 0
+                ? `Cập nhật ví dụ (${previewStats.updateExamplesCount} từ)`
                 : 'Thêm từ ghép'}
             </span>
           </button>

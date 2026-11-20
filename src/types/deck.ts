@@ -15,12 +15,20 @@ export interface SrsConfig {
   easyDays: number; // Default: 4 days
 }
 
+export interface CardExampleSentence {
+  id: string;
+  jp: string;
+  kana: string;
+  vi: string;
+}
+
 export interface CompoundWordCard {
   id: string;
   word: string;
   reading: string;
   hanViet: string;
   meaning: string;
+  examples?: CardExampleSentence[];
   srsState: SrsState;
   updatedAt?: number;
 }
@@ -34,6 +42,7 @@ export interface FolderKanjiItem {
   kunReadings: string[];
   meanings: string[];
   strokeCount?: number;
+  examples?: CardExampleSentence[];
   srsState: SrsState;
   compoundWords: CompoundWordCard[];
   createdAt: number;
@@ -73,6 +82,7 @@ export interface FlashcardReviewItem {
   reading?: string;
   wordMeaning?: string;
   wordHanViet?: string;
+  examples?: CardExampleSentence[];
   srsState: SrsState;
 }
 

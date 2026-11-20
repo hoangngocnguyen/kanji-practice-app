@@ -71,8 +71,14 @@ export const BatchImportLessonModal: React.FC<BatchImportLessonModalProps> = ({
     let newKanji = 0;
     let mergeKanji = 0;
     let newCompoundWords = 0;
+    let totalExamples = 0;
 
     for (const entry of parsed.items) {
+      totalExamples += entry.examples?.length || 0;
+      for (const cw of entry.compoundWords) {
+        totalExamples += cw.examples?.length || 0;
+      }
+
       const existingWords = existingByKanji.get(entry.kanji);
       if (!existingWords) {
         newKanji += 1;
@@ -87,7 +93,7 @@ export const BatchImportLessonModal: React.FC<BatchImportLessonModalProps> = ({
       }
     }
 
-    return { newKanji, mergeKanji, newCompoundWords };
+    return { newKanji, mergeKanji, newCompoundWords, totalExamples };
   }, [parsed.items, existingByKanji]);
 
   if (!isOpen) return null;
@@ -143,8 +149,12 @@ export const BatchImportLessonModal: React.FC<BatchImportLessonModalProps> = ({
 
     try {
       const result = await batchImportItemsToFolder(folderId, parsed.items);
+      const exNote =
+        result.addedExamples && result.addedExamples > 0
+          ? ` và ${result.addedExamples} câu ví dụ`
+          : '';
       setSuccessMsg(
-        `Đã thêm ${result.addedKanji} Kanji mới, gộp ${result.mergedKanji} Kanji có sẵn và ${result.addedCompoundWords} từ ghép mới!`
+        `Đã thêm ${result.addedKanji} Kanji mới, gộp ${result.mergedKanji} Kanji có sẵn, ${result.addedCompoundWords} từ ghép mới${exNote}!`
       );
       setTimeout(() => {
         setTextInput('');
@@ -372,12 +382,26 @@ export const BatchImportLessonModal: React.FC<BatchImportLessonModalProps> = ({
                   <span>
                     <strong className="text-teal-700">+{previewStats.newCompoundWords}</strong> từ ghép
                   </span>
+                  {previewStats.totalExamples > 0 && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        <strong className="text-teal-700">{previewStats.totalExamples}</strong> câu ví dụ
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto bg-white">
                 {previewSlice.map((entry) => {
                   const isMerge = existingByKanji.has(entry.kanji);
+                  const entryExCount =
+                    (entry.examples?.length || 0) +
+                    entry.compoundWords.reduce(
+                      (sum, cw) => sum + (cw.examples?.length || 0),
+                      0
+                    );
                   return (
                     <div
                       key={entry.kanji}
@@ -393,7 +417,7 @@ export const BatchImportLessonModal: React.FC<BatchImportLessonModalProps> = ({
                               isMerge ? 'text-amber-700' : 'text-teal-700'
                             }`}
                           >
-                            {isMerge ? 'Gộp vào thẻ có sẵn' : 'Tạo thẻ mới'}
+                            {isMerge ? 'Gộp / cập nhật thẻ có sẵn' : 'Tạo thẻ mới'}
                           </span>
                           <span aria-hidden="true" className="text-slate-300">
                             ·
@@ -401,6 +425,16 @@ export const BatchImportLessonModal: React.FC<BatchImportLessonModalProps> = ({
                           <span className="text-slate-500 tabular-nums">
                             {entry.compoundWords.length} từ ghép
                           </span>
+                          {entryExCount > 0 && (
+                            <>
+                              <span aria-hidden="true" className="text-slate-300">
+                                ·
+                              </span>
+                              <span className="text-teal-700 font-medium tabular-nums">
+                                {entryExCount} ví dụ
+                              </span>
+                            </>
+                          )}
                         </div>
                         {entry.compoundWords.length > 0 && (
                           <p className="text-[11px] text-slate-600 truncate">

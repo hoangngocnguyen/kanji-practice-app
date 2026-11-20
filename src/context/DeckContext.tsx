@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { User } from '@supabase/supabase-js';
 import {
+  CardExampleSentence,
   CompoundWordCard,
   FlashcardReviewItem,
   FolderKanjiItem,
@@ -34,6 +35,7 @@ import {
 } from '../utils/kanjiApi';
 import {
   ParsedCompoundWordInput,
+  ParsedExampleSentenceInput,
   ParsedLessonItemInput,
 } from '../utils/batchLessonParser';
 import {
@@ -73,6 +75,49 @@ const genId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+function toCardExamples(
+  parsed: ParsedExampleSentenceInput[] | undefined
+): CardExampleSentence[] | undefined {
+  if (!Array.isArray(parsed) || parsed.length === 0) return undefined;
+  const seen = new Set<string>();
+  const list: CardExampleSentence[] = [];
+  for (const ex of parsed) {
+    const jp = (ex.jp || '').trim();
+    const kana = (ex.kana || '').trim();
+    const vi = (ex.vi || '').trim();
+    if (!jp || !vi || seen.has(jp)) continue;
+    seen.add(jp);
+    list.push({ id: genId(), jp, kana, vi });
+  }
+  return list.length > 0 ? list : undefined;
+}
+
+function mergeCardExamples(
+  existing: CardExampleSentence[] | undefined,
+  incoming: ParsedExampleSentenceInput[] | undefined
+): { merged: CardExampleSentence[] | undefined; addedCount: number } {
+  const prev = Array.isArray(existing) ? existing : [];
+  if (!Array.isArray(incoming) || incoming.length === 0) {
+    return { merged: prev.length > 0 ? prev : undefined, addedCount: 0 };
+  }
+  const seenJp = new Set(prev.map((e) => e.jp.trim()));
+  const next = [...prev];
+  let addedCount = 0;
+  for (const ex of incoming) {
+    const jp = (ex.jp || '').trim();
+    const kana = (ex.kana || '').trim();
+    const vi = (ex.vi || '').trim();
+    if (!jp || !vi || seenJp.has(jp)) continue;
+    seenJp.add(jp);
+    next.push({ id: genId(), jp, kana, vi });
+    addedCount += 1;
+  }
+  return {
+    merged: next.length > 0 ? next : undefined,
+    addedCount,
+  };
+}
 
 function createStarterData(): { folders: StudyFolder[]; items: FolderKanjiItem[] } {
   const now = Date.now();
@@ -262,7 +307,12 @@ interface DeckContextValue {
   batchImportItemsToFolder: (
     folderId: string,
     parsedItems: ParsedLessonItemInput[]
-  ) => Promise<{ addedKanji: number; mergedKanji: number; addedCompoundWords: number }>;
+  ) => Promise<{
+    addedKanji: number;
+    mergedKanji: number;
+    addedCompoundWords: number;
+    addedExamples?: number;
+  }>;
   updateKanjiItem: (itemId: string, patch: Partial<FolderKanjiItem>) => void;
   deleteKanjiItem: (itemId: string) => void;
   deleteKanjiItems: (itemIds: string[]) => void;
@@ -656,6 +706,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
               kunReadings: item.kunReadings,
               meanings: item.meanings,
               strokeCount: item.strokeCount,
+              examples: item.examples,
               srsState: item.srsState,
             });
           }
@@ -680,6 +731,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 reading: cw.reading,
                 wordHanViet: cw.hanViet,
                 wordMeaning: cw.meaning,
+                examples: cw.examples,
                 srsState: cw.srsState,
               });
             }
@@ -1286,10 +1338,30 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const targetItem = items.find((it) => it.id === kanjiItemId);
       if (!targetItem) return 0;
 
+      const parsedByWord = new Map<string, ParsedCompoundWordInput>();
+      for (const w of words) {
+        const cleanWord = w.word.trim();
+        if (cleanWord && !parsedByWord.has(cleanWord)) {
+          parsedByWord.set(cleanWord, w);
+        }
+      }
+
       const existingWords = new Set(
         (targetItem.compoundWords || []).map((cw) => cw.word.trim())
       );
       const now = Date.now();
+      let didUpdateExistingExamples = false;
+      const updatedExistingCompounds = (targetItem.compoundWords || []).map((cw) => {
+        const match = parsedByWord.get(cw.word.trim());
+        if (!match || !match.examples || match.examples.length === 0) return cw;
+        const { merged, addedCount } = mergeCardExamples(cw.examples, match.examples);
+        if (addedCount > 0) {
+          didUpdateExistingExamples = true;
+          return { ...cw, examples: merged, updatedAt: now };
+        }
+        return cw;
+      });
+
       const newCards: CompoundWordCard[] = [];
 
       for (const w of words) {
@@ -1297,23 +1369,29 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cleanMeaning = w.meaning.trim();
         if (!cleanWord || !cleanMeaning || existingWords.has(cleanWord)) continue;
         existingWords.add(cleanWord);
+        const examples = toCardExamples(w.examples);
         newCards.push({
           id: genId(),
           word: cleanWord,
           reading: w.reading.trim(),
           hanViet: w.hanViet.trim().toUpperCase(),
           meaning: cleanMeaning,
+          ...(examples ? { examples } : {}),
           srsState: createInitialSrsState(now),
           updatedAt: now,
         });
       }
 
-      if (newCards.length === 0) return 0;
+      if (newCards.length === 0 && !didUpdateExistingExamples) return 0;
 
       setItems((prev) =>
         prev.map((it) =>
           it.id === kanjiItemId
-            ? { ...it, compoundWords: [...it.compoundWords, ...newCards], updatedAt: now }
+            ? {
+                ...it,
+                compoundWords: [...updatedExistingCompounds, ...newCards],
+                updatedAt: now,
+              }
             : it
         )
       );
@@ -1417,13 +1495,19 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const batchImportItemsToFolder = useCallback(
     async (folderId: string, parsedItems: ParsedLessonItemInput[]) => {
       if (parsedItems.length === 0) {
-        return { addedKanji: 0, mergedKanji: 0, addedCompoundWords: 0 };
+        return {
+          addedKanji: 0,
+          mergedKanji: 0,
+          addedCompoundWords: 0,
+          addedExamples: 0,
+        };
       }
 
       const now = Date.now();
       let addedKanji = 0;
       let mergedKanji = 0;
       let addedCompoundWords = 0;
+      let addedExamples = 0;
       const newlyCreatedItems: FolderKanjiItem[] = [];
 
       setItems((prev) => {
@@ -1436,29 +1520,63 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (existingIdx >= 0) {
             const existing = next[existingIdx];
+            const parsedByWord = new Map<string, ParsedCompoundWordInput>();
+            parsed.compoundWords.forEach((cw) => {
+              const key = cw.word.trim();
+              if (key && !parsedByWord.has(key)) parsedByWord.set(key, cw);
+            });
+
+            let didMutateExisting = false;
+            const updatedCompounds = (existing.compoundWords || []).map((cw) => {
+              const incomingCw = parsedByWord.get(cw.word.trim());
+              if (!incomingCw?.examples || incomingCw.examples.length === 0) return cw;
+              const { merged, addedCount } = mergeCardExamples(
+                cw.examples,
+                incomingCw.examples
+              );
+              if (addedCount > 0) {
+                didMutateExisting = true;
+                addedExamples += addedCount;
+                return { ...cw, examples: merged, updatedAt: now };
+              }
+              return cw;
+            });
+
             const existingWords = new Set(
-              (existing.compoundWords || []).map((cw) => cw.word.trim())
+              updatedCompounds.map((cw) => cw.word.trim())
             );
             const extraWords: CompoundWordCard[] = parsed.compoundWords
               .filter((cw) => !existingWords.has(cw.word.trim()))
               .map((cw) => {
                 existingWords.add(cw.word.trim());
+                const cwExamples = toCardExamples(cw.examples);
+                if (cwExamples) addedExamples += cwExamples.length;
                 return {
                   id: genId(),
                   word: cw.word.trim(),
                   reading: cw.reading.trim(),
                   hanViet: cw.hanViet.trim().toUpperCase(),
                   meaning: cw.meaning.trim(),
+                  ...(cwExamples ? { examples: cwExamples } : {}),
                   srsState: createInitialSrsState(now),
+                  updatedAt: now,
                 };
               });
 
-            if (extraWords.length > 0) {
+            const rootExMerge = mergeCardExamples(existing.examples, parsed.examples);
+            if (rootExMerge.addedCount > 0) {
+              didMutateExisting = true;
+              addedExamples += rootExMerge.addedCount;
+            }
+
+            if (extraWords.length > 0 || didMutateExisting) {
               mergedKanji += 1;
               addedCompoundWords += extraWords.length;
               next[existingIdx] = {
                 ...existing,
-                compoundWords: [...(existing.compoundWords || []), ...extraWords],
+                ...(rootExMerge.merged ? { examples: rootExMerge.merged } : {}),
+                compoundWords: [...updatedCompounds, ...extraWords],
+                updatedAt: now,
               };
             }
           } else {
@@ -1469,15 +1587,22 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const w = cw.word.trim();
               if (!w || seenWords.has(w)) continue;
               seenWords.add(w);
+              const cwExamples = toCardExamples(cw.examples);
+              if (cwExamples) addedExamples += cwExamples.length;
               compoundWords.push({
                 id: genId(),
                 word: w,
                 reading: cw.reading.trim(),
                 hanViet: cw.hanViet.trim().toUpperCase(),
                 meaning: cw.meaning.trim(),
+                ...(cwExamples ? { examples: cwExamples } : {}),
                 srsState: createInitialSrsState(now),
+                updatedAt: now,
               });
             }
+
+            const kanjiExamples = toCardExamples(parsed.examples);
+            if (kanjiExamples) addedExamples += kanjiExamples.length;
 
             const created: FolderKanjiItem = {
               id: genId(),
@@ -1491,9 +1616,11 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ? cleanMeaningsList(parsed.meanings)
                   : cleanMeaningsList(localInfo?.meanings),
               strokeCount: localInfo?.strokeCount,
+              ...(kanjiExamples ? { examples: kanjiExamples } : {}),
               srsState: createInitialSrsState(now),
               compoundWords,
               createdAt: now,
+              updatedAt: now,
             };
 
             next.push(created);
@@ -1512,7 +1639,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       markLocalMutation();
-      return { addedKanji, mergedKanji, addedCompoundWords };
+      return { addedKanji, mergedKanji, addedCompoundWords, addedExamples };
     },
     [markLocalMutation, enrichKanjiItems]
   );

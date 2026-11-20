@@ -4,10 +4,12 @@ import {
   computeServerDeckHash,
   dbCardRowToKanjiItem,
   dbDeckRowToFolder,
+  fetchActiveExamplesByCard,
   folderToDbRow,
   kanjiItemToDbRow,
   SyncFolder,
   SyncKanjiItem,
+  syncFlashcardExamplesToDb,
 } from '../_lib/hash.js';
 
 export default async function handler(req: VercelRequest | any, res: VercelResponse | any) {
@@ -130,7 +132,7 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
       if (upsertCardErr) throw upsertCardErr;
     }
 
-    // 3. Read back canonical active state and update global profile sync metadata
+    // Read all active cards for user and reconcile flashcard_examples cleanly
     const [{ data: finalDeckRows, error: fDeckErr }, { data: finalCardRows, error: fCardErr }] =
       await Promise.all([
         supabaseAdmin
@@ -150,8 +152,31 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
     if (fDeckErr) throw fDeckErr;
     if (fCardErr) throw fCardErr;
 
+    // Sync flashcard_examples against surviving active items
+    const activeItemById = new Map<string, SyncKanjiItem>();
+    for (const row of finalCardRows || []) {
+      const incomingMatch = sanitizedItems.find((s) => s.id === row.id);
+      if (incomingMatch) {
+        activeItemById.set(row.id, incomingMatch);
+      } else {
+        activeItemById.set(row.id, dbCardRowToKanjiItem(row));
+      }
+    }
+
+    await syncFlashcardExamplesToDb(
+      supabaseAdmin,
+      user.id,
+      Array.from(activeItemById.values()),
+      nextVersion,
+      nowIso
+    );
+
+    const examplesByCard = await fetchActiveExamplesByCard(supabaseAdmin, user.id);
+
     const canonicalFolders = (finalDeckRows || []).map(dbDeckRowToFolder);
-    const canonicalItems = (finalCardRows || []).map(dbCardRowToKanjiItem);
+    const canonicalItems = (finalCardRows || []).map((row: any) =>
+      dbCardRowToKanjiItem(row, examplesByCard.get(row.id))
+    );
     const dataHash = computeServerDeckHash(canonicalFolders, canonicalItems);
 
     const { error: profileErr } = await supabaseAdmin

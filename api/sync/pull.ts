@@ -4,6 +4,7 @@ import {
   computeServerDeckHash,
   dbCardRowToKanjiItem,
   dbDeckRowToFolder,
+  fetchActiveExamplesByCard,
 } from '../_lib/hash.js';
 
 export default async function handler(req: VercelRequest | any, res: VercelResponse | any) {
@@ -25,7 +26,7 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
   try {
     const profile = await ensureUserProfile(supabaseAdmin, user);
 
-    const [{ data: deckRows, error: deckErr }, { data: cardRows, error: cardErr }] =
+    const [{ data: deckRows, error: deckErr }, { data: cardRows, error: cardErr }, examplesByCard] =
       await Promise.all([
         supabaseAdmin
           .from('flashcard_decks')
@@ -39,13 +40,16 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
           .eq('user_id', user.id)
           .is('deleted_at', null)
           .order('created_at', { ascending: true }),
+        fetchActiveExamplesByCard(supabaseAdmin, user.id),
       ]);
 
     if (deckErr) throw deckErr;
     if (cardErr) throw cardErr;
 
     const folders = (deckRows || []).map(dbDeckRowToFolder);
-    const items = (cardRows || []).map(dbCardRowToKanjiItem);
+    const items = (cardRows || []).map((row: any) =>
+      dbCardRowToKanjiItem(row, examplesByCard.get(row.id))
+    );
     const dataHash = profile.data_hash || computeServerDeckHash(folders, items);
 
     return res.status(200).json({

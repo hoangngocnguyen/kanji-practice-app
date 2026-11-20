@@ -1,16 +1,24 @@
 import { extractUniqueKanji } from './kanji';
 
+export interface ParsedExampleSentenceInput {
+  jp: string;
+  kana: string;
+  vi: string;
+}
+
 export interface ParsedCompoundWordInput {
   word: string;
   reading: string;
   hanViet: string;
   meaning: string;
+  examples?: ParsedExampleSentenceInput[];
 }
 
 export interface ParsedLessonItemInput {
   kanji: string;
   hanViet?: string;
   meanings?: string[];
+  examples?: ParsedExampleSentenceInput[];
   compoundWords: ParsedCompoundWordInput[];
 }
 
@@ -29,12 +37,36 @@ export const SAMPLE_MINIMAL_JSON = {
           reading: 'にほん',
           hanViet: 'NHẬT BẢN',
           meaning: 'Nước Nhật Bản',
+          examples: [
+            {
+              jp: '来年、日本へ留学に行きます。',
+              kana: 'らいねん、にほんへりゅうがくにいきます。',
+              vi: 'Năm sau tôi sẽ đi du học ở Nhật Bản.',
+            },
+            {
+              jp: '日本の料理はとても美味しいです。',
+              kana: 'にほんのりょうりはとてもおいしいです。',
+              vi: 'Món ăn Nhật Bản rất ngon.',
+            },
+          ],
         },
         {
           word: '今日',
           reading: 'きょう',
           hanViet: 'KIM NHẬT',
           meaning: 'Hôm nay',
+          examples: [
+            {
+              jp: '今日はとてもいい天気ですね。',
+              kana: 'きょうはとてもいいてんきですね。',
+              vi: 'Hôm nay thời tiết thật đẹp nhỉ.',
+            },
+            {
+              jp: '今日の午後、友達と会います。',
+              kana: 'きょうのごご、ともだちとあいます。',
+              vi: 'Chiều nay tôi sẽ gặp bạn.',
+            },
+          ],
         },
       ],
     },
@@ -46,12 +78,36 @@ export const SAMPLE_MINIMAL_JSON = {
           reading: 'がくせい',
           hanViet: 'HỌC SINH',
           meaning: 'Học sinh, sinh viên',
+          examples: [
+            {
+              jp: '私は大学の学生です。',
+              kana: 'わたしはだいがくのがくせいです。',
+              vi: 'Tôi là sinh viên đại học.',
+            },
+            {
+              jp: 'この町には外国人の学生が多いです。',
+              kana: 'このまちにはがいこくじんのがくせいがおおいです。',
+              vi: 'Thị trấn này có nhiều sinh viên nước ngoài.',
+            },
+          ],
         },
         {
           word: '大学',
           reading: 'だいがく',
           hanViet: 'ĐẠI HỌC',
           meaning: 'Trường đại học',
+          examples: [
+            {
+              jp: '毎日バスで大学へ通っています。',
+              kana: 'まいにちばすでだいがくへかよっています。',
+              vi: 'Mỗi ngày tôi đều đi học đại học bằng xe buýt.',
+            },
+            {
+              jp: '兄は東京の大学で経済を勉強しています。',
+              kana: 'あにはとうきょうのだいがくでけいざいをべんきょうしています。',
+              vi: 'Anh trai tôi đang học kinh tế tại một trường đại học ở Tokyo.',
+            },
+          ],
         },
       ],
     },
@@ -61,17 +117,41 @@ export const SAMPLE_MINIMAL_JSON = {
 export const AI_JSON_PROMPT_TEMPLATE = `Hãy chuẩn hóa và tạo dữ liệu từ vựng JSON từ nội dung sau:
 [DÁN DANH SÁCH KANJI, TỪ GHÉP CÓ SẴN HOẶC CHỦ ĐỀ VÀO ĐÂY]
 
-Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu trúc tối giản sau:
+Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu trúc sau:
 {
   "items": [
     {
       "kanji": "日",
+      "examples": [
+        {
+          "jp": "毎日、日本語を勉強しています。",
+          "kana": "まいにち、にほんごをべんきょうしています。",
+          "vi": "Mỗi ngày tôi đều học tiếng Nhật."
+        },
+        {
+          "jp": "今日はいい天気です。",
+          "kana": "きょうはいいてんきです。",
+          "vi": "Hôm nay thời tiết đẹp."
+        }
+      ],
       "compoundWords": [
         {
           "word": "日本",
           "reading": "にほん",
           "hanViet": "NHẬT BẢN",
-          "meaning": "Nước Nhật Bản"
+          "meaning": "Nước Nhật Bản",
+          "examples": [
+            {
+              "jp": "来年、日本へ留学に行きます。",
+              "kana": "らいねん、にほんへりゅうがくにいきます。",
+              "vi": "Năm sau tôi sẽ đi du học ở Nhật Bản."
+            },
+            {
+              "jp": "日本の料理はとても美味しいです。",
+              "kana": "にほんのりょうりはとてもおいしいです。",
+              "vi": "Món ăn Nhật Bản rất ngon."
+            }
+          ]
         }
       ]
     }
@@ -81,12 +161,48 @@ Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu tr�
 Lưu ý quan trọng:
 - KHÔNG cần ghi nghĩa, Hán-Việt hay âm On/Kun của chữ Kanji đơn lẻ (hệ thống sẽ tự tra cứu).
 - Xử lý từ ghép theo dữ liệu đầu vào:
-  + Nếu đầu vào ĐÃ CÓ sẵn từ ghép cho chữ Kanji nào: giữ nguyên và đưa TOÀN BỘ các từ ghép đó vào mảng "compoundWords" (không cắt bớt giới hạn 2–4 từ, không tự thêm ví dụ thừa ngoài danh sách đã cung cấp).
+  + Nếu đầu vào ĐÃ CÓ sẵn từ ghép cho chữ Kanji nào: giữ nguyên và đưa TOÀN BỘ các từ ghép đó vào mảng "compoundWords" (không cắt bớt giới hạn 2–4 từ, không tự thêm từ ghép thừa ngoài danh sách đã cung cấp).
   + Nếu đầu vào chỉ là chữ Kanji ĐƠN LẺ (chưa có từ ghép đi kèm) hoặc là chủ đề: tự bổ sung 2–4 từ ghép thông dụng làm ví dụ cho chữ Kanji đó.
-- Mỗi từ ghép đều phải có đủ 4 trường: word, reading (hiragana), hanViet (IN HOA) và meaning (tiếng Việt).`;
+- Mỗi từ ghép đều phải có đủ: word, reading (hiragana), hanViet (IN HOA), meaning (tiếng Việt) và mảng "examples" gồm ĐÚNG 2 câu ví dụ ngắn gọn, tự nhiên để áp dụng ngay.
+- Mỗi câu trong "examples" gồm đủ 3 trường: "jp" (câu tiếng Nhật chứa từ đang học), "kana" (cách đọc toàn câu bằng hiragana) và "vi" (nghĩa tiếng Việt).
+- Cấp chữ Kanji cũng có thể kèm mảng "examples" gồm 2 câu ví dụ ngắn (nếu phù hợp để ôn thẻ Kanji).`;
 
 export const SAMPLE_QUICK_TEXT = `日 | 日本:にほん:NHẬT BẢN:Nước Nhật Bản ; 今日:きょう:KIM NHẬT:Hôm nay
 学 | 学生:がくせい:HỌC SINH:Học sinh ; 大学:だいがく:ĐẠI HỌC:Trường đại học`;
+
+function normalizeParsedExamples(raw: unknown): ParsedExampleSentenceInput[] {
+  if (!Array.isArray(raw)) return [];
+  const results: ParsedExampleSentenceInput[] = [];
+  const seenJp = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const obj = entry as Record<string, unknown>;
+    const jp = typeof obj.jp === 'string' ? obj.jp.trim() : '';
+    const kana = typeof obj.kana === 'string' ? obj.kana.trim() : '';
+    const vi = typeof obj.vi === 'string' ? obj.vi.trim() : '';
+    if (!jp || !vi || seenJp.has(jp)) continue;
+    seenJp.add(jp);
+    results.push({ jp, kana, vi });
+  }
+  return results;
+}
+
+function mergeExampleLists(
+  a: ParsedExampleSentenceInput[] | undefined,
+  b: ParsedExampleSentenceInput[] | undefined
+): ParsedExampleSentenceInput[] | undefined {
+  const combined = [...(a || []), ...(b || [])];
+  if (combined.length === 0) return undefined;
+  const seen = new Set<string>();
+  const deduped: ParsedExampleSentenceInput[] = [];
+  for (const ex of combined) {
+    const jp = ex.jp.trim();
+    if (!jp || seen.has(jp)) continue;
+    seen.add(jp);
+    deduped.push(ex);
+  }
+  return deduped.length > 0 ? deduped : undefined;
+}
 
 function mergeParsedItems(list: ParsedLessonItemInput[]): ParsedLessonItemInput[] {
   const map = new Map<string, ParsedLessonItemInput>();
@@ -96,16 +212,27 @@ function mergeParsedItems(list: ParsedLessonItemInput[]): ParsedLessonItemInput[
     if (!existing) {
       map.set(item.kanji, {
         ...item,
+        examples: item.examples ? [...item.examples] : undefined,
         compoundWords: [...item.compoundWords],
       });
     } else {
-      const seenWords = new Set(existing.compoundWords.map((cw) => cw.word));
+      const cwIndexByWord = new Map<string, number>();
+      existing.compoundWords.forEach((cw, idx) => cwIndexByWord.set(cw.word, idx));
+
       for (const cw of item.compoundWords) {
-        if (!seenWords.has(cw.word)) {
-          seenWords.add(cw.word);
+        const idx = cwIndexByWord.get(cw.word);
+        if (idx === undefined) {
+          cwIndexByWord.set(cw.word, existing.compoundWords.length);
           existing.compoundWords.push(cw);
+        } else {
+          const prevCw = existing.compoundWords[idx];
+          existing.compoundWords[idx] = {
+            ...prevCw,
+            examples: mergeExampleLists(prevCw.examples, cw.examples),
+          };
         }
       }
+      existing.examples = mergeExampleLists(existing.examples, item.examples);
       if (!existing.hanViet && item.hanViet) existing.hanViet = item.hanViet;
       if ((!existing.meanings || existing.meanings.length === 0) && item.meanings?.length) {
         existing.meanings = item.meanings;
@@ -273,6 +400,8 @@ export function parseMinimalJsonLesson(rawJson: string): ParseBatchResult {
         const meaning = typeof cwObj.meaning === 'string' ? cwObj.meaning.trim() : '';
         if (!word || !meaning) return;
 
+        const examples = normalizeParsedExamples(cwObj.examples);
+
         compoundWords.push({
           word,
           reading: typeof cwObj.reading === 'string' ? cwObj.reading.trim() : '',
@@ -281,9 +410,12 @@ export function parseMinimalJsonLesson(rawJson: string): ParseBatchResult {
               ? cwObj.hanViet.trim().toUpperCase()
               : '',
           meaning,
+          ...(examples.length > 0 ? { examples } : {}),
         });
       });
     }
+
+    const kanjiExamples = normalizeParsedExamples(obj.examples);
 
     parsed.push({
       kanji: extracted[0].kanji,
@@ -294,6 +426,7 @@ export function parseMinimalJsonLesson(rawJson: string): ParseBatchResult {
       meanings: Array.isArray(obj.meanings)
         ? obj.meanings.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
         : undefined,
+      ...(kanjiExamples.length > 0 ? { examples: kanjiExamples } : {}),
       compoundWords,
     });
   });
@@ -319,18 +452,42 @@ export const SAMPLE_COMPOUND_WORDS_JSON = {
       reading: 'にほん',
       hanViet: 'NHẬT BẢN',
       meaning: 'Nước Nhật Bản',
+      examples: [
+        {
+          jp: '来年、日本へ留学に行きます。',
+          kana: 'らいねん、にほんへりゅうがくにいきます。',
+          vi: 'Năm sau tôi sẽ đi du học ở Nhật Bản.',
+        },
+        {
+          jp: '日本の料理はとても美味しいです。',
+          kana: 'にほんのりょうりはとてもおいしいです。',
+          vi: 'Món ăn Nhật Bản rất ngon.',
+        },
+      ],
     },
     {
       word: '今日',
       reading: 'きょう',
       hanViet: 'KIM NHẬT',
       meaning: 'Hôm nay',
+      examples: [
+        {
+          jp: '今日はとてもいい天気ですね。',
+          kana: 'きょうはとてもいいてんきですね。',
+          vi: 'Hôm nay thời tiết thật đẹp nhỉ.',
+        },
+        {
+          jp: '今日の午後、友達と会います。',
+          kana: 'きょうのごご、ともだちとあいます。',
+          vi: 'Chiều nay tôi sẽ gặp bạn.',
+        },
+      ],
     },
   ],
 };
 
 export function buildCompoundWordsAiPrompt(kanji: string): string {
-  return `Hãy tạo danh sách 4-6 từ ghép thông dụng có chứa chữ Kanji "${kanji}".
+  return `Hãy chuẩn hóa hoặc tạo danh sách từ ghép chứa chữ Kanji "${kanji}" (nếu tôi có cung cấp sẵn danh sách từ thì giữ đủ toàn bộ, không cắt bớt; nếu chưa có thì gợi ý 4–6 từ thông dụng).
 
 Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu trúc sau:
 {
@@ -339,10 +496,24 @@ Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu tr�
       "word": "từ ghép tiếng Nhật",
       "reading": "cách đọc hiragana",
       "hanViet": "ÂM HÁN VIỆT IN HOA",
-      "meaning": "nghĩa tiếng Việt"
+      "meaning": "nghĩa tiếng Việt",
+      "examples": [
+        {
+          "jp": "Câu ví dụ tiếng Nhật ngắn 1",
+          "kana": "cách đọc toàn câu bằng hiragana",
+          "vi": "nghĩa tiếng Việt câu 1"
+        },
+        {
+          "jp": "Câu ví dụ tiếng Nhật ngắn 2",
+          "kana": "cách đọc toàn câu bằng hiragana",
+          "vi": "nghĩa tiếng Việt câu 2"
+        }
+      ]
     }
   ]
-}`;
+}
+
+Lưu ý: Mỗi từ ghép kèm ĐÚNG 2 câu ví dụ thực tế để áp dụng ngay khi ôn tập.`;
 }
 
 /**
@@ -472,12 +643,15 @@ export function parseCompoundWordsJson(rawJson: string): ParseCompoundWordsResul
     if (seen.has(word)) return;
     seen.add(word);
 
+    const examples = normalizeParsedExamples(obj.examples);
+
     words.push({
       word,
       reading: typeof obj.reading === 'string' ? obj.reading.trim() : '',
       hanViet:
         typeof obj.hanViet === 'string' ? obj.hanViet.trim().toUpperCase() : '',
       meaning,
+      ...(examples.length > 0 ? { examples } : {}),
     });
   });
 

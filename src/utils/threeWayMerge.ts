@@ -1,4 +1,5 @@
 import {
+  CardExampleSentence,
   CompoundWordCard,
   FolderKanjiItem,
   SrsState,
@@ -111,6 +112,25 @@ function arrEqual(a: string[] | undefined, b: string[] | undefined): boolean {
   return true;
 }
 
+function examplesEqual(
+  a: CardExampleSentence[] | undefined,
+  b: CardExampleSentence[] | undefined
+): boolean {
+  const aa = Array.isArray(a) ? a : [];
+  const bb = Array.isArray(b) ? b : [];
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i += 1) {
+    if (
+      (aa[i].jp || '').trim() !== (bb[i].jp || '').trim() ||
+      (aa[i].kana || '').trim() !== (bb[i].kana || '').trim() ||
+      (aa[i].vi || '').trim() !== (bb[i].vi || '').trim()
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function kanjiFieldsEqual(a: FolderKanjiItem, b: FolderKanjiItem): boolean {
   return (
     a.folderId === b.folderId &&
@@ -119,7 +139,8 @@ function kanjiFieldsEqual(a: FolderKanjiItem, b: FolderKanjiItem): boolean {
     arrEqual(a.onReadings, b.onReadings) &&
     arrEqual(a.kunReadings, b.kunReadings) &&
     arrEqual(a.meanings, b.meanings) &&
-    (a.strokeCount ?? null) === (b.strokeCount ?? null)
+    (a.strokeCount ?? null) === (b.strokeCount ?? null) &&
+    examplesEqual(a.examples, b.examples)
   );
 }
 
@@ -128,7 +149,8 @@ function compoundFieldsEqual(a: CompoundWordCard, b: CompoundWordCard): boolean 
     a.word.trim() === b.word.trim() &&
     (a.reading || '').trim() === (b.reading || '').trim() &&
     (a.hanViet || '').trim() === (b.hanViet || '').trim() &&
-    (a.meaning || '').trim() === (b.meaning || '').trim()
+    (a.meaning || '').trim() === (b.meaning || '').trim() &&
+    examplesEqual(a.examples, b.examples)
   );
 }
 
@@ -222,9 +244,19 @@ function mergeCompoundWordLists(
         stats.srsKeptFromLocal += 1;
       }
 
+      const resolvedExamples =
+        chosenMeta.examples && chosenMeta.examples.length > 0
+          ? chosenMeta.examples
+          : l.examples && l.examples.length > 0
+          ? l.examples
+          : c.examples;
+
       merged.push({
         ...chosenMeta,
         id: c.id || l.id,
+        ...(resolvedExamples && resolvedExamples.length > 0
+          ? { examples: resolvedExamples }
+          : {}),
         srsState: srsRes.state,
         updatedAt: Math.max(l.updatedAt || 0, c.updatedAt || 0) || undefined,
       });
@@ -317,6 +349,13 @@ function mergeTwoKanjiItems(
     stats
   );
 
+  const resolvedItemExamples =
+    metaSource.examples && metaSource.examples.length > 0
+      ? metaSource.examples
+      : localItem.examples && localItem.examples.length > 0
+      ? localItem.examples
+      : cloudItem.examples;
+
   return {
     ...metaSource,
     id: cloudItem.id || localItem.id,
@@ -342,6 +381,9 @@ function mergeTwoKanjiItems(
         : cloudItem.meanings || [],
     strokeCount:
       metaSource.strokeCount ?? localItem.strokeCount ?? cloudItem.strokeCount,
+    ...(resolvedItemExamples && resolvedItemExamples.length > 0
+      ? { examples: resolvedItemExamples }
+      : {}),
     srsState: srsRes.state,
     compoundWords: mergedCompounds,
     createdAt: Math.min(

@@ -6,6 +6,7 @@ import {
   kanjiItemToDbRow,
   SyncFolder,
   SyncKanjiItem,
+  syncFlashcardExamplesToDb,
 } from '../_lib/hash.js';
 
 export default async function handler(req: VercelRequest | any, res: VercelResponse | any) {
@@ -119,6 +120,14 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
         .upsert(cardRows, { onConflict: 'user_id,id' });
       if (upsertCardErr) throw upsertCardErr;
     }
+
+    await syncFlashcardExamplesToDb(
+      supabaseAdmin,
+      user.id,
+      sanitizedItems,
+      nextVersion,
+      nowIso
+    );
 
     const dataHash = computeServerDeckHash(sanitizedFolders, sanitizedItems);
 
