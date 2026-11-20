@@ -15,14 +15,10 @@ export const DeckDetailView: React.FC = () => {
 
   const {
     folders,
-    cloudUser,
-    supabaseEnabled,
     setSelectedFolderId,
     buildExportBundle,
     getReviewCardsForFolder,
     getItemsForFolderRecursive,
-    runSyncGate,
-    flushPendingSync,
   } = useDecks();
   const { requireAuthOrGuard } = useAuth();
 
@@ -42,26 +38,22 @@ export const DeckDetailView: React.FC = () => {
   const latestGetItemsRef = useRef(getItemsForFolderRecursive);
   latestGetItemsRef.current = getItemsForFolderRecursive;
 
-  const startReviewWithSyncGate = useCallback(
+  const startReviewSession = useCallback(
     (targetFolderId: string, mode: ReviewFilterMode, requestedOnlyDue: boolean) => {
-      void runSyncGate('start_session', () => {
-        const totalItems = latestGetItemsRef.current(targetFolderId).length;
-        if (totalItems === 0) return;
-        const dueCount = latestGetReviewCardsRef.current(
-          targetFolderId,
-          mode,
-          true
-        ).length;
-        setReviewSession({
-          folderId: targetFolderId,
-          mode,
-          // Keep onlyDue=true when due cards were requested (even if phone just finished them,
-          // so FlashcardSrsSession shows "completed" instead of unexpectedly switching to cram mode).
-          onlyDue: requestedOnlyDue ? true : dueCount > 0,
-        });
+      const totalItems = latestGetItemsRef.current(targetFolderId).length;
+      if (totalItems === 0) return;
+      const dueCount = latestGetReviewCardsRef.current(
+        targetFolderId,
+        mode,
+        true
+      ).length;
+      setReviewSession({
+        folderId: targetFolderId,
+        mode,
+        onlyDue: requestedOnlyDue ? true : dueCount > 0,
       });
     },
-    [runSyncGate]
+    []
   );
 
   // Sync URL folderId to DeckContext selectedFolderId
@@ -71,21 +63,13 @@ export const DeckDetailView: React.FC = () => {
     }
   }, [folderId, folder, setSelectedFolderId]);
 
-  // Run entry sync popup when opening a lesson folder directly (skip if ?review=1 handles it)
-  useEffect(() => {
-    if (!folder || !cloudUser || !supabaseEnabled) return;
-    if (searchParams.get('review') === '1') return;
-    void runSyncGate('enter_decks');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folder?.id, cloudUser?.id, supabaseEnabled]);
-
   // Support direct ?review=1 query param from folder list
   useEffect(() => {
     if (folder && searchParams.get('review') === '1') {
       setSearchParams({}, { replace: true });
-      startReviewWithSyncGate(folder.id, 'all', true);
+      startReviewSession(folder.id, 'all', true);
     }
-  }, [folder, searchParams, setSearchParams, startReviewWithSyncGate]);
+  }, [folder, searchParams, setSearchParams, startReviewSession]);
 
   const handleExportFolder = (targetId: string) => {
     const bundle = buildExportBundle(targetId);
@@ -146,7 +130,7 @@ export const DeckDetailView: React.FC = () => {
 
       <FolderKanjiTable
         onStartReview={(mode, onlyDue) =>
-          startReviewWithSyncGate(folder.id, mode, onlyDue)
+          startReviewSession(folder.id, mode, onlyDue)
         }
         onExportFolder={handleExportFolder}
         onOpenShareModal={(id) =>
@@ -168,12 +152,7 @@ export const DeckDetailView: React.FC = () => {
           folderId={reviewSession.folderId}
           initialMode={reviewSession.mode}
           onlyDue={reviewSession.onlyDue}
-          onExit={() => {
-            setReviewSession(null);
-            window.setTimeout(() => {
-              void flushPendingSync();
-            }, 50);
-          }}
+          onExit={() => setReviewSession(null)}
         />
       )}
     </div>

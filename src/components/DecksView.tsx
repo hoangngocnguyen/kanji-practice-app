@@ -49,7 +49,6 @@ export const DecksView: React.FC = () => {
     syncStatus,
     lastSyncedVersion,
     hasUnsyncedChanges,
-    runSyncGate,
     triggerAnkiSync,
     openCloudInspector,
     syncMessage,
@@ -128,14 +127,6 @@ export const DecksView: React.FC = () => {
       setActionToast(null);
     }, 3200);
   }, []);
-
-  useEffect(() => {
-    if (cloudUser && supabaseEnabled) {
-      void runSyncGate('enter_decks');
-    }
-    // Trigger once when entering DecksView with an active account
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cloudUser?.id, supabaseEnabled]);
 
   useEffect(() => {
     if (syncMessage) {

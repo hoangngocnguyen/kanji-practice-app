@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from 'react';
 import { User } from '@supabase/supabase-js';
+import { useLocation } from 'react-router-dom';
 import {
   CardExampleSentence,
   CompoundWordCard,
@@ -534,6 +535,14 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   latestSyncMetaRef.current = syncMeta;
   latestCloudUserRef.current = cloudUser;
 
+  const location = useLocation();
+  const isDecksRoute =
+    location.pathname === '/decks' || location.pathname.startsWith('/decks/');
+  const isDecksRouteRef = useRef(isDecksRoute);
+  isDecksRouteRef.current = isDecksRoute;
+  const wasInDecksRouteRef = useRef<boolean>(false);
+  const decksVisitSyncedUserIdRef = useRef<string | null>(null);
+
   const mutationSeqRef = useRef(0);
   const inFlightSyncRef = useRef<Promise<
     'auth_required' | 'synced' | 'conflict' | 'error'
@@ -563,6 +572,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       errorText?: string | null;
     }>
   >(async () => ({ outcome: 'error' }));
+  const runSyncGateRef = useRef<
+    (
+      context: 'enter_decks' | 'start_session',
+      onReady?: () => void
+    ) => Promise<void>
+  >(async () => {});
 
   const updateSyncMeta = useCallback(
     (updater: (prev: LocalSyncMeta) => LocalSyncMeta) => {
@@ -578,6 +593,8 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const scheduleDebouncedAutoSync = useCallback(() => {
     if (!latestCloudUserRef.current || !supabaseEnabled) return;
+    // Inside the Decks feature, keep study/edit changes locally and sync when leaving for another feature
+    if (isDecksRouteRef.current) return;
     if (debounceAutoSyncTimerRef.current) {
       window.clearTimeout(debounceAutoSyncTimerRef.current);
     }
@@ -2278,7 +2295,6 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (inFlightSyncRef.current) {
-        queuedFollowUpSyncRef.current = true;
         const outcome = await inFlightSyncRef.current;
         if (
           trigger === 'pre_review' ||
@@ -2660,15 +2676,18 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { outcome: 'error', errorText: message };
         } finally {
           inFlightSyncRef.current = null;
-          // If user mutated data while this sync was running, schedule a follow-up auto-sync
+          // If user mutated data outside /decks while this sync was running, schedule a follow-up auto-sync
           if (
-            queuedFollowUpSyncRef.current ||
-            mutationSeqRef.current !== startMutationSeq
+            !isDecksRouteRef.current &&
+            (queuedFollowUpSyncRef.current ||
+              mutationSeqRef.current !== startMutationSeq)
           ) {
             queuedFollowUpSyncRef.current = false;
             window.setTimeout(() => {
               void runSmartSyncRef.current({ trigger: 'auto_save', silent: true });
             }, 400);
+          } else {
+            queuedFollowUpSyncRef.current = false;
           }
         }
       };
@@ -2703,7 +2722,13 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.clearTimeout(debounceAutoSyncTimerRef.current);
       debounceAutoSyncTimerRef.current = null;
     }
-    if (latestSyncMetaRef.current.dirtySinceLastSync) {
+    const meta = latestSyncMetaRef.current;
+    const hasPending =
+      meta.dirtySinceLastSync ||
+      meta.deletedFolderIds.length > 0 ||
+      meta.deletedItemIds.length > 0 ||
+      meta.deletedCompoundKeys.length > 0;
+    if (hasPending) {
       await runSmartSyncRef.current({ trigger: 'auto_save', silent: true });
     }
   }, [supabaseEnabled]);
@@ -2731,7 +2756,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const now = Date.now();
-      const cooldownMs = context === 'start_session' ? 1200 : 3500;
+      const cooldownMs = context === 'start_session' ? 1200 : 1200;
       const recentlySynced =
         now - lastSuccessfulCheckAtRef.current < cooldownMs &&
         !latestSyncMetaRef.current.dirtySinceLastSync;
@@ -2811,44 +2836,88 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [supabaseEnabled, runSmartSync]
   );
 
+  runSyncGateRef.current = runSyncGate;
+
   const retrySyncGate = useCallback(async () => {
     const cb = syncGateReadyCallbackRef.current || undefined;
     await runSyncGate(reviewSyncGate.context, cb);
   }, [runSyncGate, reviewSyncGate.context]);
 
   // Lifecycle Auto-Sync:
-  // 1) Immediately when opening the app / logging in
+  // 1) Sync once upon entering the Decks feature (/decks or /decks/:folderId),
+  //    and only flush to Cloud when leaving for another feature if there were changes.
+  useEffect(() => {
+    if (isDecksRoute) {
+      wasInDecksRouteRef.current = true;
+      if (!cloudUser?.id || !supabaseEnabled) {
+        decksVisitSyncedUserIdRef.current = null;
+        return;
+      }
+      if (decksVisitSyncedUserIdRef.current !== cloudUser.id) {
+        decksVisitSyncedUserIdRef.current = cloudUser.id;
+        void runSyncGateRef.current('enter_decks');
+      }
+      return;
+    }
+
+    const justLeftDecks = wasInDecksRouteRef.current;
+    wasInDecksRouteRef.current = false;
+    decksVisitSyncedUserIdRef.current = null;
+
+    if (justLeftDecks && cloudUser?.id && supabaseEnabled) {
+      void flushPendingSync();
+    }
+  }, [isDecksRoute, cloudUser?.id, supabaseEnabled, flushPendingSync]);
+
+  // 2) Immediately when opening the app / logging in (skip if already entering /decks*, which uses the sync gate above)
   useEffect(() => {
     if (!cloudUser?.id || !supabaseEnabled) return;
+    if (isDecksRouteRef.current) return;
     void runSmartSyncRef.current({ trigger: 'startup', silent: true });
   }, [cloudUser?.id, supabaseEnabled]);
 
-  // 2) On tab focus / visibilitychange & network online recovery
+  // 3) Safety flush when tab is hidden/closed with unsaved study progress,
+  //    plus focus/online sync only when outside the Decks feature
   useEffect(() => {
     if (!cloudUser?.id || !supabaseEnabled) return;
 
     const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'hidden') {
+        void flushPendingSync();
+        return;
+      }
       if (document.visibilityState && document.visibilityState !== 'visible') {
         return;
       }
+      if (isDecksRouteRef.current) return;
       if (Date.now() - lastSuccessfulCheckAtRef.current < 5000) return;
       void runSmartSyncRef.current({ trigger: 'focus', silent: true });
     };
 
+    const handlePageHide = () => {
+      void flushPendingSync();
+    };
+
     const handleOnline = () => {
+      if (isDecksRouteRef.current) {
+        void flushPendingSync();
+        return;
+      }
       void runSmartSyncRef.current({ trigger: 'online', silent: true });
     };
 
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('online', handleOnline);
 
     return () => {
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('online', handleOnline);
     };
-  }, [cloudUser?.id, supabaseEnabled]);
+  }, [cloudUser?.id, supabaseEnabled, flushPendingSync]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -2884,6 +2953,8 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logoutCloud = useCallback(async () => {
     setCloudSnapshot(null);
     setIsCloudInspectorOpen(false);
+    decksVisitSyncedUserIdRef.current = null;
+    wasInDecksRouteRef.current = false;
     clearSyncBaselineSnapshot();
     await authLogout();
   }, [authLogout]);
