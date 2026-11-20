@@ -58,7 +58,8 @@ export const SAMPLE_MINIMAL_JSON = {
   ],
 };
 
-export const AI_JSON_PROMPT_TEMPLATE = `Hãy tạo danh sách từ ghép cho các chữ Kanji: [ĐIỀN DANH SÁCH KANJI HOẶC CHỦ ĐỀ VÀO ĐÂY].
+export const AI_JSON_PROMPT_TEMPLATE = `Hãy chuẩn hóa và tạo dữ liệu từ vựng JSON từ nội dung sau:
+[DÁN DANH SÁCH KANJI, TỪ GHÉP CÓ SẴN HOẶC CHỦ ĐỀ VÀO ĐÂY]
 
 Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu trúc tối giản sau:
 {
@@ -79,7 +80,10 @@ Chỉ trả về JSON thuần (không giải thích thêm) theo đúng cấu tr�
 
 Lưu ý quan trọng:
 - KHÔNG cần ghi nghĩa, Hán-Việt hay âm On/Kun của chữ Kanji đơn lẻ (hệ thống sẽ tự tra cứu).
-- Mỗi chữ Kanji kèm 2-4 từ ghép thông dụng, mỗi từ ghép có: word, reading (hiragana), hanViet (IN HOA) và meaning (tiếng Việt).`;
+- Xử lý từ ghép theo dữ liệu đầu vào:
+  + Nếu đầu vào ĐÃ CÓ sẵn từ ghép cho chữ Kanji nào: giữ nguyên và đưa TOÀN BỘ các từ ghép đó vào mảng "compoundWords" (không cắt bớt giới hạn 2–4 từ, không tự thêm ví dụ thừa ngoài danh sách đã cung cấp).
+  + Nếu đầu vào chỉ là chữ Kanji ĐƠN LẺ (chưa có từ ghép đi kèm) hoặc là chủ đề: tự bổ sung 2–4 từ ghép thông dụng làm ví dụ cho chữ Kanji đó.
+- Mỗi từ ghép đều phải có đủ 4 trường: word, reading (hiragana), hanViet (IN HOA) và meaning (tiếng Việt).`;
 
 export const SAMPLE_QUICK_TEXT = `日 | 日本:にほん:NHẬT BẢN:Nước Nhật Bản ; 今日:きょう:KIM NHẬT:Hôm nay
 学 | 学生:がくせい:HỌC SINH:Học sinh ; 大学:だいがく:ĐẠI HỌC:Trường đại học`;
