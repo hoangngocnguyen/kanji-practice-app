@@ -2,10 +2,25 @@ import { FolderKanjiItem, SrsState, StudyFolder } from '../types/deck';
 import { getSupabaseAccessToken } from '../utils/supabaseClient';
 
 export const STORAGE_SYNC_META_KEY = 'kanji_sync_meta_v1';
+export const STORAGE_SYNC_BASELINE_KEY = 'kanji_sync_baseline_v1';
 
 export interface DeletedTombstone {
   id: string;
   deletedAt: number;
+}
+
+export interface DeletedCompoundTombstone {
+  itemId: string;
+  wordId: string;
+  word: string;
+  deletedAt: number;
+}
+
+export interface SyncBaselineSnapshot {
+  userId: string;
+  version: number;
+  folders: StudyFolder[];
+  items: FolderKanjiItem[];
 }
 
 export interface LocalSyncMeta {
@@ -18,6 +33,7 @@ export interface LocalSyncMeta {
   hasUserModifiedData: boolean;
   deletedFolderIds: DeletedTombstone[];
   deletedItemIds: DeletedTombstone[];
+  deletedCompoundKeys: DeletedCompoundTombstone[];
 }
 
 export const DEFAULT_SYNC_META: LocalSyncMeta = {
@@ -30,6 +46,7 @@ export const DEFAULT_SYNC_META: LocalSyncMeta = {
   hasUserModifiedData: false,
   deletedFolderIds: [],
   deletedItemIds: [],
+  deletedCompoundKeys: [],
 };
 
 export function loadLocalSyncMeta(): LocalSyncMeta {
@@ -44,6 +61,9 @@ export function loadLocalSyncMeta(): LocalSyncMeta {
         ? parsed.deletedFolderIds
         : [],
       deletedItemIds: Array.isArray(parsed.deletedItemIds) ? parsed.deletedItemIds : [],
+      deletedCompoundKeys: Array.isArray(parsed.deletedCompoundKeys)
+        ? parsed.deletedCompoundKeys
+        : [],
     };
   } catch {
     return { ...DEFAULT_SYNC_META };
@@ -53,6 +73,37 @@ export function loadLocalSyncMeta(): LocalSyncMeta {
 export function saveLocalSyncMeta(meta: LocalSyncMeta): void {
   try {
     localStorage.setItem(STORAGE_SYNC_META_KEY, JSON.stringify(meta));
+  } catch {}
+}
+
+export function loadSyncBaselineSnapshot(): SyncBaselineSnapshot | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_SYNC_BASELINE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.userId === 'string' &&
+      Array.isArray(parsed.folders) &&
+      Array.isArray(parsed.items)
+    ) {
+      return parsed as SyncBaselineSnapshot;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSyncBaselineSnapshot(snapshot: SyncBaselineSnapshot): void {
+  try {
+    localStorage.setItem(STORAGE_SYNC_BASELINE_KEY, JSON.stringify(snapshot));
+  } catch {}
+}
+
+export function clearSyncBaselineSnapshot(): void {
+  try {
+    localStorage.removeItem(STORAGE_SYNC_BASELINE_KEY);
   } catch {}
 }
 
@@ -151,10 +202,43 @@ export interface SyncCheckResponse {
   };
 }
 
+export interface SyncCollisionItem {
+  key: string;
+  entityType: 'folder' | 'kanji';
+  id: string;
+  label: string;
+  subLabel?: string;
+  collisionType: 'deleted_locally_modified_cloud' | 'deleted_cloud_modified_locally';
+  localDescription: string;
+  cloudDescription: string;
+  keepCandidateFolder?: StudyFolder;
+  keepCandidateItem?: FolderKanjiItem;
+}
+
+export interface MergeSummaryStats {
+  addedFromCloud: number;
+  addedFromLocal: number;
+  srsUpdatedFromCloud: number;
+  srsKeptFromLocal: number;
+  deletedCleanly: number;
+}
+
+export interface PendingMergeDraft {
+  baseVersion: number;
+  folders: StudyFolder[];
+  items: FolderKanjiItem[];
+  deletedFolderIds: DeletedTombstone[];
+  deletedItemIds: DeletedTombstone[];
+  summaryStats: MergeSummaryStats;
+}
+
 export interface SyncConflictInfo {
   reason: string;
   localSummary: SyncSideSummary;
   serverSummary: SyncSideSummary;
+  isAccountMismatch?: boolean;
+  collisions?: SyncCollisionItem[];
+  pendingMergeDraft?: PendingMergeDraft;
 }
 
 async function authorizedFetch(url: string, init: RequestInit = {}) {

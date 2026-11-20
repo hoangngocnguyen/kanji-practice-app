@@ -22,6 +22,7 @@ export interface CompoundWordCard {
   hanViet: string;
   meaning: string;
   srsState: SrsState;
+  updatedAt?: number;
 }
 
 export interface FolderKanjiItem {
@@ -36,6 +37,7 @@ export interface FolderKanjiItem {
   srsState: SrsState;
   compoundWords: CompoundWordCard[];
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface StudyFolder {

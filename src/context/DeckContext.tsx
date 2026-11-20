@@ -46,15 +46,23 @@ import {
   apiForcePullSync,
   apiForcePushSync,
   apiMergeSync,
+  clearSyncBaselineSnapshot,
   CloudSnapshot,
   computeClientDeckHash,
   DEFAULT_SYNC_META,
+  DeletedCompoundTombstone,
   isUntouchedStarterDeck,
   loadLocalSyncMeta,
+  loadSyncBaselineSnapshot,
   LocalSyncMeta,
   saveLocalSyncMeta,
+  saveSyncBaselineSnapshot,
   SyncConflictInfo,
 } from '../services/syncService';
+import {
+  applyCollisionResolutions,
+  threeWayMergeDecks,
+} from '../utils/threeWayMerge';
 
 const STORAGE_FOLDERS_KEY = 'kanji_decks_folders_v1';
 const STORAGE_ITEMS_KEY = 'kanji_decks_items_v1';
@@ -187,6 +195,23 @@ export interface FolderTreeNodeInput {
   children: FolderTreeNodeInput[];
 }
 
+export interface ReviewSyncGateState {
+  isOpen: boolean;
+  context: 'enter_decks' | 'start_session';
+  stage: 'checking' | 'merging' | 'done' | 'error';
+  summaryText: string | null;
+  errorText: string | null;
+}
+
+export type SyncTriggerSource =
+  | 'startup'
+  | 'focus'
+  | 'online'
+  | 'review_page'
+  | 'pre_review'
+  | 'auto_save'
+  | 'manual';
+
 interface DeckContextValue {
   folders: StudyFolder[];
   items: FolderKanjiItem[];
@@ -291,7 +316,19 @@ interface DeckContextValue {
   lastSyncedVersion: number;
   hasUnsyncedChanges: boolean;
   syncError: string | null;
+  reviewSyncGate: ReviewSyncGateState;
+  runSyncGate: (
+    context: 'enter_decks' | 'start_session',
+    onReady?: () => void
+  ) => Promise<void>;
+  retrySyncGate: () => Promise<void>;
+  bypassSyncGate: () => void;
+  flushPendingSync: () => Promise<void>;
   triggerAnkiSync: () => Promise<'auth_required' | 'synced' | 'conflict' | 'error'>;
+  resolveSelectiveCollisions: (
+    resolutions: Record<string, 'keep' | 'delete'>
+  ) => Promise<void>;
+  resolveConflictUnionMerge: () => Promise<void>;
   resolveConflictPush: () => Promise<void>;
   resolveConflictPull: () => Promise<void>;
   dismissConflict: () => void;
@@ -432,14 +469,56 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     syncMeta.dirtySinceLastSync ||
     syncMeta.deletedFolderIds.length > 0 ||
     syncMeta.deletedItemIds.length > 0 ||
+    syncMeta.deletedCompoundKeys.length > 0 ||
     (syncMeta.lastSyncedVersion === 0 &&
       (folders.length > 0 || items.length > 0) &&
       !isStarterUntouched);
+
+  // Fresh refs to prevent stale closures inside async sync & debounced timers
+  const latestFoldersRef = useRef<StudyFolder[]>(folders);
+  const latestItemsRef = useRef<FolderKanjiItem[]>(items);
+  const latestSyncMetaRef = useRef<LocalSyncMeta>(syncMeta);
+  const latestCloudUserRef = useRef<User | null>(cloudUser);
+  latestFoldersRef.current = folders;
+  latestItemsRef.current = items;
+  latestSyncMetaRef.current = syncMeta;
+  latestCloudUserRef.current = cloudUser;
+
+  const mutationSeqRef = useRef(0);
+  const inFlightSyncRef = useRef<Promise<
+    'auth_required' | 'synced' | 'conflict' | 'error'
+  > | null>(null);
+  const queuedFollowUpSyncRef = useRef(false);
+  const debounceAutoSyncTimerRef = useRef<number | null>(null);
+  const lastSuccessfulCheckAtRef = useRef<number>(0);
+
+  const [reviewSyncGate, setReviewSyncGate] = useState<ReviewSyncGateState>({
+    isOpen: false,
+    context: 'enter_decks',
+    stage: 'checking',
+    summaryText: null,
+    errorText: null,
+  });
+  const syncGateReadyCallbackRef = useRef<(() => void) | null>(null);
+  const syncGateDismissedRef = useRef(false);
+  const syncGateTimerRef = useRef<number | null>(null);
+  const runSmartSyncRef = useRef<
+    (opts?: {
+      trigger?: SyncTriggerSource;
+      silent?: boolean;
+      onStage?: (stage: 'checking' | 'merging') => void;
+    }) => Promise<{
+      outcome: 'auth_required' | 'synced' | 'conflict' | 'error';
+      summaryText?: string | null;
+      errorText?: string | null;
+    }>
+  >(async () => ({ outcome: 'error' }));
 
   const updateSyncMeta = useCallback(
     (updater: (prev: LocalSyncMeta) => LocalSyncMeta) => {
       setSyncMeta((prev) => {
         const next = updater(prev);
+        latestSyncMetaRef.current = next;
         saveLocalSyncMeta(next);
         return next;
       });
@@ -447,9 +526,25 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
+  const scheduleDebouncedAutoSync = useCallback(() => {
+    if (!latestCloudUserRef.current || !supabaseEnabled) return;
+    if (debounceAutoSyncTimerRef.current) {
+      window.clearTimeout(debounceAutoSyncTimerRef.current);
+    }
+    debounceAutoSyncTimerRef.current = window.setTimeout(() => {
+      debounceAutoSyncTimerRef.current = null;
+      void runSmartSyncRef.current({ trigger: 'auto_save', silent: true });
+    }, 1800);
+  }, [supabaseEnabled]);
+
   const markLocalMutation = useCallback(
-    (opts?: { deletedFolders?: string[]; deletedItems?: string[] }) => {
+    (opts?: {
+      deletedFolders?: string[];
+      deletedItems?: string[];
+      deletedCompounds?: Array<{ itemId: string; wordId: string; word: string }>;
+    }) => {
       const now = Date.now();
+      mutationSeqRef.current += 1;
       updateSyncMeta((prev) => {
         const existingDeletedFolders = new Map(
           prev.deletedFolderIds.map((d) => [d.id, d])
@@ -465,6 +560,16 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           existingDeletedItems.set(id, { id, deletedAt: now });
         });
 
+        const existingDeletedCompounds = new Map(
+          prev.deletedCompoundKeys.map((d) => [`${d.itemId}::${d.word}`, d])
+        );
+        (opts?.deletedCompounds || []).forEach((c) => {
+          existingDeletedCompounds.set(`${c.itemId}::${c.word}`, {
+            ...c,
+            deletedAt: now,
+          });
+        });
+
         return {
           ...prev,
           dirtySinceLastSync: true,
@@ -472,10 +577,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastLocalModifiedAt: now,
           deletedFolderIds: Array.from(existingDeletedFolders.values()),
           deletedItemIds: Array.from(existingDeletedItems.values()),
+          deletedCompoundKeys: Array.from(existingDeletedCompounds.values()),
         };
       });
+      scheduleDebouncedAutoSync();
     },
-    [updateSyncMeta]
+    [updateSyncMeta, scheduleDebouncedAutoSync]
   );
 
   // Tree Helpers
@@ -1037,7 +1144,10 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateKanjiItem = useCallback(
     (itemId: string, patch: Partial<FolderKanjiItem>) => {
-      setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, ...patch } : it)));
+      const now = Date.now();
+      setItems((prev) =>
+        prev.map((it) => (it.id === itemId ? { ...it, ...patch, updatedAt: now } : it))
+      );
       markLocalMutation();
     },
     [markLocalMutation]
@@ -1156,11 +1266,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hanViet: payload.hanViet.trim().toUpperCase(),
         meaning: payload.meaning.trim(),
         srsState: createInitialSrsState(now),
+        updatedAt: now,
       };
       setItems((prev) =>
         prev.map((it) =>
           it.id === kanjiItemId
-            ? { ...it, compoundWords: [...it.compoundWords, newWord] }
+            ? { ...it, compoundWords: [...it.compoundWords, newWord], updatedAt: now }
             : it
         )
       );
@@ -1193,6 +1304,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
           hanViet: w.hanViet.trim().toUpperCase(),
           meaning: cleanMeaning,
           srsState: createInitialSrsState(now),
+          updatedAt: now,
         });
       }
 
@@ -1201,7 +1313,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setItems((prev) =>
         prev.map((it) =>
           it.id === kanjiItemId
-            ? { ...it, compoundWords: [...it.compoundWords, ...newCards] }
+            ? { ...it, compoundWords: [...it.compoundWords, ...newCards], updatedAt: now }
             : it
         )
       );
@@ -1218,13 +1330,15 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       wordId: string,
       patch: Partial<Omit<CompoundWordCard, 'id' | 'srsState'>>
     ) => {
+      const now = Date.now();
       setItems((prev) =>
         prev.map((it) =>
           it.id === kanjiItemId
             ? {
                 ...it,
+                updatedAt: now,
                 compoundWords: it.compoundWords.map((cw) =>
-                  cw.id === wordId ? { ...cw, ...patch } : cw
+                  cw.id === wordId ? { ...cw, ...patch, updatedAt: now } : cw
                 ),
               }
             : it
@@ -1237,14 +1351,33 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteCompoundWord = useCallback(
     (kanjiItemId: string, wordId: string) => {
+      const targetItem = latestItemsRef.current.find((it) => it.id === kanjiItemId);
+      const removedWord = targetItem?.compoundWords.find((cw) => cw.id === wordId);
+      const now = Date.now();
       setItems((prev) =>
         prev.map((it) =>
           it.id === kanjiItemId
-            ? { ...it, compoundWords: it.compoundWords.filter((cw) => cw.id !== wordId) }
+            ? {
+                ...it,
+                updatedAt: now,
+                compoundWords: it.compoundWords.filter((cw) => cw.id !== wordId),
+              }
             : it
         )
       );
-      markLocalMutation();
+      markLocalMutation(
+        removedWord
+          ? {
+              deletedCompounds: [
+                {
+                  itemId: kanjiItemId,
+                  wordId,
+                  word: removedWord.word.trim(),
+                },
+              ],
+            }
+          : undefined
+      );
     },
     [markLocalMutation]
   );
@@ -1254,14 +1387,29 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const uniqueIds = Array.from(new Set(wordIds.filter(Boolean)));
       if (uniqueIds.length === 0) return;
       const idSet = new Set(uniqueIds);
+      const targetItem = latestItemsRef.current.find((it) => it.id === kanjiItemId);
+      const deletedCompounds = (targetItem?.compoundWords || [])
+        .filter((cw) => idSet.has(cw.id))
+        .map((cw) => ({
+          itemId: kanjiItemId,
+          wordId: cw.id,
+          word: cw.word.trim(),
+        }));
+      const now = Date.now();
       setItems((prev) =>
         prev.map((it) =>
           it.id === kanjiItemId
-            ? { ...it, compoundWords: it.compoundWords.filter((cw) => !idSet.has(cw.id)) }
+            ? {
+                ...it,
+                updatedAt: now,
+                compoundWords: it.compoundWords.filter((cw) => !idSet.has(cw.id)),
+              }
             : it
         )
       );
-      markLocalMutation();
+      markLocalMutation(
+        deletedCompounds.length > 0 ? { deletedCompounds } : undefined
+      );
     },
     [markLocalMutation]
   );
@@ -1373,9 +1521,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const gradeFlashcard = useCallback(
     (card: FlashcardReviewItem, rating: SrsRating) => {
       const nextState = calculateNextSrsState(card.srsState, rating, srsConfig);
+      const now = Date.now();
       if (card.cardType === 'kanji') {
         setItems((prev) =>
-          prev.map((it) => (it.id === card.kanjiItemId ? { ...it, srsState: nextState } : it))
+          prev.map((it) =>
+            it.id === card.kanjiItemId ? { ...it, srsState: nextState, updatedAt: now } : it
+          )
         );
       } else if (card.compoundWordId) {
         setItems((prev) =>
@@ -1383,8 +1534,11 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
             it.id === card.kanjiItemId
               ? {
                   ...it,
+                  updatedAt: now,
                   compoundWords: it.compoundWords.map((cw) =>
-                    cw.id === card.compoundWordId ? { ...cw, srsState: nextState } : cw
+                    cw.id === card.compoundWordId
+                      ? { ...cw, srsState: nextState, updatedAt: now }
+                      : cw
                   ),
                 }
               : it
@@ -1661,6 +1815,8 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         parentId:
           f.parentId && validFolderIds.has(f.parentId) ? f.parentId : null,
       }));
+      latestFoldersRef.current = normalizedFolders;
+      latestItemsRef.current = nextItems;
       setFolders(normalizedFolders);
       setItems(nextItems);
       setSelectedFolderId((prev) =>
@@ -1677,6 +1833,13 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(STORAGE_STARTER_SEEDED_KEY, '1');
       } catch {}
 
+      saveSyncBaselineSnapshot({
+        userId,
+        version,
+        folders: normalizedFolders,
+        items: nextItems,
+      });
+
       updateSyncMeta(() => ({
         ...DEFAULT_SYNC_META,
         lastSyncedUserId: userId,
@@ -1688,6 +1851,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasUserModifiedData: true,
         deletedFolderIds: [],
         deletedItemIds: [],
+        deletedCompoundKeys: [],
       }));
     },
     [updateSyncMeta]
@@ -1725,18 +1889,27 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const resolveConflictPush = useCallback(async () => {
-    if (!cloudUser) {
+    const activeUser = latestCloudUserRef.current;
+    if (!activeUser) {
       openAuthGuard('Đồng bộ bộ thẻ Flashcard lên đám mây');
       return;
     }
+    const curFolders = latestFoldersRef.current;
+    const curItems = latestItemsRef.current;
     setSyncStatus('syncing');
     setSyncError(null);
     setSyncMessage(null);
     try {
-      const pushRes = await apiForcePushSync({ folders, items });
+      const pushRes = await apiForcePushSync({ folders: curFolders, items: curItems });
+      saveSyncBaselineSnapshot({
+        userId: activeUser.id,
+        version: pushRes.syncVersion,
+        folders: curFolders,
+        items: curItems,
+      });
       updateSyncMeta(() => ({
         ...DEFAULT_SYNC_META,
-        lastSyncedUserId: cloudUser.id,
+        lastSyncedUserId: activeUser.id,
         lastSyncedVersion: pushRes.syncVersion,
         lastSyncedAt: pushRes.syncedAt,
         lastSyncedHash: pushRes.dataHash,
@@ -1745,18 +1918,20 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasUserModifiedData: true,
         deletedFolderIds: [],
         deletedItemIds: [],
+        deletedCompoundKeys: [],
       }));
       setCloudSnapshot({
         syncVersion: pushRes.syncVersion,
         syncedAt: pushRes.syncedAt,
         dataHash: pushRes.dataHash,
-        folders: [...folders],
-        items: [...items],
+        folders: [...curFolders],
+        items: [...curItems],
       });
       setSyncConflict(null);
       setSyncStatus('synced');
+      lastSuccessfulCheckAtRef.current = Date.now();
       setSyncMessage(
-        `Đã tải ${folders.length} thư mục (${items.length} Kanji) từ máy lên Cloud (v${pushRes.syncVersion}).`
+        `Đã tải ${curFolders.length} thư mục (${curItems.length} Kanji) từ máy lên Cloud (v${pushRes.syncVersion}).`
       );
       refreshProfile();
     } catch (err: any) {
@@ -1764,10 +1939,11 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSyncError(err?.message || 'Lỗi tải dữ liệu lên Cloud.');
       throw err;
     }
-  }, [cloudUser, folders, items, openAuthGuard, refreshProfile, updateSyncMeta]);
+  }, [openAuthGuard, refreshProfile, updateSyncMeta]);
 
   const resolveConflictPull = useCallback(async () => {
-    if (!cloudUser) {
+    const activeUser = latestCloudUserRef.current;
+    if (!activeUser) {
       openAuthGuard('Tải dữ liệu bộ thẻ từ đám mây');
       return;
     }
@@ -1791,11 +1967,12 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pullRes.syncVersion,
         pullRes.syncedAt,
         pullRes.dataHash,
-        cloudUser.id
+        activeUser.id
       );
       setCloudSnapshot(pullRes);
       setSyncConflict(null);
       setSyncStatus('synced');
+      lastSuccessfulCheckAtRef.current = Date.now();
       setSyncMessage(
         `Đã tải ${pullRes.folders.length} thư mục (${pullRes.items.length} Kanji) từ Cloud về máy (v${pullRes.syncVersion}).`
       );
@@ -1805,182 +1982,762 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSyncError(err?.message || 'Lỗi tải dữ liệu từ Cloud.');
       throw err;
     }
-  }, [cloudUser, syncConflict, openAuthGuard, applyServerSnapshot, refreshProfile]);
+  }, [syncConflict, openAuthGuard, applyServerSnapshot, refreshProfile]);
+
+  const resolveSelectiveCollisions = useCallback(
+    async (resolutions: Record<string, 'keep' | 'delete'>) => {
+      const activeUser = latestCloudUserRef.current;
+      if (!activeUser) {
+        openAuthGuard('Đồng bộ bộ thẻ Flashcard lên đám mây');
+        return;
+      }
+      if (!syncConflict?.pendingMergeDraft || !syncConflict.collisions) {
+        return;
+      }
+      setSyncStatus('syncing');
+      setSyncError(null);
+      setSyncMessage(null);
+
+      try {
+        const resolved = applyCollisionResolutions(
+          syncConflict.pendingMergeDraft,
+          syncConflict.collisions,
+          resolutions
+        );
+        const mergeRes = await apiMergeSync({
+          baseVersion: syncConflict.pendingMergeDraft.baseVersion,
+          folders: resolved.folders,
+          items: resolved.items,
+          deletedFolderIds: resolved.deletedFolderIds,
+          deletedItemIds: resolved.deletedItemIds,
+        });
+        applyServerSnapshot(
+          mergeRes.folders,
+          mergeRes.items,
+          mergeRes.syncVersion,
+          mergeRes.syncedAt,
+          mergeRes.dataHash,
+          activeUser.id
+        );
+        setCloudSnapshot({
+          syncVersion: mergeRes.syncVersion,
+          syncedAt: mergeRes.syncedAt,
+          dataHash: mergeRes.dataHash,
+          folders: mergeRes.folders,
+          items: mergeRes.items,
+        });
+        setSyncConflict(null);
+        setSyncStatus('synced');
+        lastSuccessfulCheckAtRef.current = Date.now();
+        setSyncMessage(
+          `Đã hoàn tất gộp thông minh ${mergeRes.folders.length} thư mục (${mergeRes.items.length} Kanji) lên Cloud (v${mergeRes.syncVersion}).`
+        );
+        refreshProfile();
+
+        const pendingCallback = syncGateReadyCallbackRef.current;
+        if (pendingCallback) {
+          syncGateReadyCallbackRef.current = null;
+          pendingCallback();
+        }
+      } catch (err: any) {
+        setSyncStatus('error');
+        setSyncError(err?.message || 'Lỗi khi hoàn tất gộp dữ liệu.');
+        throw err;
+      }
+    },
+    [syncConflict, openAuthGuard, applyServerSnapshot, refreshProfile]
+  );
+
+  const resolveConflictUnionMerge = useCallback(async () => {
+    const activeUser = latestCloudUserRef.current;
+    if (!activeUser) {
+      openAuthGuard('Đồng bộ bộ thẻ Flashcard lên đám mây');
+      return;
+    }
+    setSyncStatus('syncing');
+    setSyncError(null);
+    setSyncMessage(null);
+    try {
+      const cloudSnap = await apiForcePullSync();
+      const curFolders = latestFoldersRef.current;
+      const curItems = latestItemsRef.current;
+      const merged = threeWayMergeDecks({
+        base: null,
+        local: { folders: curFolders, items: curItems },
+        cloud: { folders: cloudSnap.folders, items: cloudSnap.items },
+        tombstones: {
+          deletedFolderIds: [],
+          deletedItemIds: [],
+          deletedCompoundKeys: [],
+        },
+      });
+      const mergeRes = await apiMergeSync({
+        baseVersion: cloudSnap.syncVersion,
+        folders: merged.folders,
+        items: merged.items,
+        deletedFolderIds: [],
+        deletedItemIds: [],
+      });
+      applyServerSnapshot(
+        mergeRes.folders,
+        mergeRes.items,
+        mergeRes.syncVersion,
+        mergeRes.syncedAt,
+        mergeRes.dataHash,
+        activeUser.id
+      );
+      setCloudSnapshot({
+        syncVersion: mergeRes.syncVersion,
+        syncedAt: mergeRes.syncedAt,
+        dataHash: mergeRes.dataHash,
+        folders: mergeRes.folders,
+        items: mergeRes.items,
+      });
+      setSyncConflict(null);
+      setSyncStatus('synced');
+      lastSuccessfulCheckAtRef.current = Date.now();
+      setSyncMessage(
+        `Đã gộp cả 2 thiết bị thành ${mergeRes.folders.length} thư mục (${mergeRes.items.length} Kanji) trên Cloud (v${mergeRes.syncVersion}).`
+      );
+      refreshProfile();
+
+      const pendingCallback = syncGateReadyCallbackRef.current;
+      if (pendingCallback) {
+        syncGateReadyCallbackRef.current = null;
+        pendingCallback();
+      }
+    } catch (err: any) {
+      setSyncStatus('error');
+      setSyncError(err?.message || 'Không thể gộp dữ liệu 2 chiều.');
+      throw err;
+    }
+  }, [openAuthGuard, applyServerSnapshot, refreshProfile]);
+
+  const formatMergeSummary = useCallback(
+    (stats: {
+      addedFromCloud: number;
+      addedFromLocal: number;
+      srsUpdatedFromCloud: number;
+      srsKeptFromLocal: number;
+    }): string => {
+      const parts: string[] = [];
+      if (stats.addedFromCloud > 0) parts.push(`+${stats.addedFromCloud} mục từ Cloud`);
+      if (stats.addedFromLocal > 0) parts.push(`+${stats.addedFromLocal} mục từ máy`);
+      if (stats.srsUpdatedFromCloud > 0)
+        parts.push(`${stats.srsUpdatedFromCloud} thẻ cập nhật lịch ôn mới hơn`);
+      if (parts.length === 0) return 'Đã đồng bộ và hợp nhất dữ liệu mới nhất.';
+      return `Đã gộp thông minh: ${parts.join(' · ')}.`;
+    },
+    []
+  );
+
+  const runSmartSync = useCallback(
+    async (opts?: {
+      trigger?: SyncTriggerSource;
+      silent?: boolean;
+      onStage?: (stage: 'checking' | 'merging') => void;
+    }): Promise<{
+      outcome: 'auth_required' | 'synced' | 'conflict' | 'error';
+      summaryText?: string | null;
+      errorText?: string | null;
+    }> => {
+      const trigger = opts?.trigger || 'manual';
+      const activeUser = latestCloudUserRef.current;
+      if (!activeUser || !supabaseEnabled) {
+        if (!opts?.silent && trigger === 'manual') {
+          openAuthGuard('Đồng bộ bộ thẻ Flashcard lên đám mây');
+        }
+        return { outcome: 'auth_required' };
+      }
+
+      if (inFlightSyncRef.current) {
+        queuedFollowUpSyncRef.current = true;
+        const outcome = await inFlightSyncRef.current;
+        if (
+          trigger === 'pre_review' ||
+          trigger === 'review_page' ||
+          trigger === 'manual'
+        ) {
+          // If an earlier background sync just completed, ensure latest mutations are flushed
+          if (latestSyncMetaRef.current.dirtySinceLastSync && outcome === 'synced') {
+            return runSmartSyncRef.current(opts);
+          }
+        }
+        return { outcome };
+      }
+
+      const execute = async (): Promise<{
+        outcome: 'auth_required' | 'synced' | 'conflict' | 'error';
+        summaryText?: string | null;
+        errorText?: string | null;
+      }> => {
+        const startMutationSeq = mutationSeqRef.current;
+        setSyncStatus('checking');
+        setSyncError(null);
+        if (!opts?.silent) setSyncMessage(null);
+        opts?.onStage?.('checking');
+
+        try {
+          const curFolders = latestFoldersRef.current;
+          const curItems = latestItemsRef.current;
+          const curMeta = latestSyncMetaRef.current;
+          const localHash = await computeClientDeckHash(curFolders, curItems);
+          const curUntouched = isUntouchedStarterDeck(
+            curFolders,
+            curItems,
+            curMeta.hasUserModifiedData
+          );
+          const localStats = {
+            deckCount: curFolders.length,
+            cardCount: curItems.length,
+            compoundCount: curItems.reduce(
+              (sum, it) => sum + (it.compoundWords ? it.compoundWords.length : 0),
+              0
+            ),
+            lastModifiedAt: curMeta.lastLocalModifiedAt || null,
+            syncVersion: curMeta.lastSyncedVersion,
+          };
+
+          const hasRealLocalWithoutVersion =
+            curMeta.lastSyncedVersion === 0 &&
+            (curFolders.length > 0 || curItems.length > 0) &&
+            !curUntouched;
+          const localHasChanges =
+            curMeta.dirtySinceLastSync ||
+            (Boolean(curMeta.lastSyncedHash) && localHash !== curMeta.lastSyncedHash) ||
+            hasRealLocalWithoutVersion ||
+            curMeta.deletedFolderIds.length > 0 ||
+            curMeta.deletedItemIds.length > 0 ||
+            curMeta.deletedCompoundKeys.length > 0;
+
+          const checkRes = await apiCheckSyncStatus({
+            lastSyncedVersion: curMeta.lastSyncedVersion,
+            lastSyncedUserId: curMeta.lastSyncedUserId,
+            localHasChanges,
+            localDataHash: localHash,
+            localStats: {
+              deckCount: localStats.deckCount,
+              cardCount: localStats.cardCount,
+              compoundCount: localStats.compoundCount,
+              lastModifiedAt: curMeta.lastLocalModifiedAt,
+              deletedDeckCount: curMeta.deletedFolderIds.length,
+              deletedCardCount: curMeta.deletedItemIds.length,
+              hasUserModifiedData:
+                curMeta.hasUserModifiedData || hasRealLocalWithoutVersion,
+              isUntouchedStarter: curUntouched,
+            },
+          });
+
+          const serverSummary = {
+            deckCount: checkRes.serverSummary.deckCount,
+            cardCount: checkRes.serverSummary.cardCount,
+            compoundCount: checkRes.serverSummary.compoundCount,
+            lastModifiedAt: checkRes.serverSummary.lastSyncAt
+              ? new Date(checkRes.serverSummary.lastSyncAt).getTime()
+              : null,
+            syncVersion: checkRes.serverSummary.syncVersion,
+          };
+
+          if (checkRes.decision === 'up_to_date') {
+            const syncedTime =
+              serverSummary.lastModifiedAt || curMeta.lastSyncedAt || Date.now();
+            const existingBaseline = loadSyncBaselineSnapshot();
+            if (
+              !existingBaseline ||
+              existingBaseline.userId !== activeUser.id ||
+              existingBaseline.version !== checkRes.serverSummary.syncVersion
+            ) {
+              saveSyncBaselineSnapshot({
+                userId: activeUser.id,
+                version: checkRes.serverSummary.syncVersion,
+                folders: curFolders,
+                items: curItems,
+              });
+            }
+            updateSyncMeta((prev) => ({
+              ...prev,
+              lastSyncedUserId: activeUser.id,
+              lastSyncedVersion: checkRes.serverSummary.syncVersion,
+              lastSyncedAt: syncedTime,
+              lastSyncedHash: localHash || checkRes.serverSummary.dataHash,
+              dirtySinceLastSync: false,
+              deletedFolderIds: [],
+              deletedItemIds: [],
+              deletedCompoundKeys: [],
+            }));
+            setSyncStatus('synced');
+            lastSuccessfulCheckAtRef.current = Date.now();
+            const msg = 'Dữ liệu trên máy và Cloud đã đồng bộ mới nhất.';
+            if (!opts?.silent) setSyncMessage(msg);
+            return { outcome: 'synced', summaryText: msg };
+          }
+
+          if (checkRes.decision === 'auto_pull') {
+            setSyncStatus('syncing');
+            opts?.onStage?.('merging');
+            const pullRes = await apiForcePullSync();
+            if (
+              checkRes.serverSummary.deckCount > 0 &&
+              pullRes.folders.length === 0
+            ) {
+              throw new Error(
+                'Cloud báo đang có dữ liệu nhưng kết quả tải về bị rỗng. Đã hủy ghi đè để bảo vệ bộ thẻ trên máy.'
+              );
+            }
+            const addedKanji = Math.max(0, pullRes.items.length - curItems.length);
+            applyServerSnapshot(
+              pullRes.folders,
+              pullRes.items,
+              pullRes.syncVersion,
+              pullRes.syncedAt,
+              pullRes.dataHash,
+              activeUser.id
+            );
+            setCloudSnapshot(pullRes);
+            setSyncStatus('synced');
+            lastSuccessfulCheckAtRef.current = Date.now();
+            const msg =
+              addedKanji > 0
+                ? `Đã cập nhật +${addedKanji} chữ Kanji và lịch ôn mới nhất từ Cloud (v${pullRes.syncVersion}).`
+                : `Đã tải bản cập nhật mới nhất từ Cloud (v${pullRes.syncVersion}).`;
+            setSyncMessage(msg);
+            refreshProfile();
+            return { outcome: 'synced', summaryText: msg };
+          }
+
+          // Helper for Git-style 3-way merge + optimistic lock retry
+          const executeThreeWayMergeWithRetry = async (
+            reasonForFallback: string
+          ): Promise<{
+            outcome: 'synced' | 'conflict';
+            summaryText?: string | null;
+          }> => {
+            const latestAccountMismatch = Boolean(
+              curMeta.lastSyncedUserId &&
+                curMeta.lastSyncedUserId !== activeUser.id &&
+                !curUntouched &&
+                (curFolders.length > 0 || curItems.length > 0)
+            );
+            if (latestAccountMismatch) {
+              setSyncConflict({
+                reason: reasonForFallback,
+                localSummary: localStats,
+                serverSummary,
+                isAccountMismatch: true,
+              });
+              setSyncStatus('conflict');
+              refreshCloudSnapshot();
+              return { outcome: 'conflict' };
+            }
+
+            setSyncStatus('syncing');
+            opts?.onStage?.('merging');
+
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              const snap = await apiForcePullSync();
+              const latestLocalFolders = latestFoldersRef.current;
+              const latestLocalItems = latestItemsRef.current;
+              const latestMeta = latestSyncMetaRef.current;
+
+              const storedBaseline = loadSyncBaselineSnapshot();
+              const validBaseline =
+                storedBaseline && storedBaseline.userId === activeUser.id
+                  ? {
+                      folders: storedBaseline.folders,
+                      items: storedBaseline.items,
+                    }
+                  : null;
+
+              const merged = threeWayMergeDecks({
+                base: validBaseline,
+                local: {
+                  folders: latestLocalFolders,
+                  items: latestLocalItems,
+                },
+                cloud: {
+                  folders: snap.folders,
+                  items: snap.items,
+                },
+                tombstones: {
+                  deletedFolderIds: latestMeta.deletedFolderIds,
+                  deletedItemIds: latestMeta.deletedItemIds,
+                  deletedCompoundKeys: latestMeta.deletedCompoundKeys,
+                },
+              });
+
+              if (merged.collisions.length > 0) {
+                setCloudSnapshot(snap);
+                setSyncConflict({
+                  reason: `Phát hiện ${merged.collisions.length} mục đụng độ (một thiết bị đã xóa trong khi thiết bị kia vừa sửa hoặc ôn tập). Các mục còn lại đã được giữ nguyên an toàn.`,
+                  localSummary: localStats,
+                  serverSummary: {
+                    deckCount: snap.folders.length,
+                    cardCount: snap.items.length,
+                    compoundCount: snap.items.reduce(
+                      (s, it) => s + (it.compoundWords?.length || 0),
+                      0
+                    ),
+                    lastModifiedAt: snap.syncedAt,
+                    syncVersion: snap.syncVersion,
+                  },
+                  collisions: merged.collisions,
+                  pendingMergeDraft: {
+                    baseVersion: snap.syncVersion,
+                    folders: merged.folders,
+                    items: merged.items,
+                    deletedFolderIds: merged.deletedFolderIdsToPush,
+                    deletedItemIds: merged.deletedItemIdsToPush,
+                    summaryStats: merged.stats,
+                  },
+                });
+                setSyncStatus('conflict');
+                return { outcome: 'conflict' };
+              }
+
+              const mergedHash = await computeClientDeckHash(
+                merged.folders,
+                merged.items
+              );
+              const needsPush =
+                mergedHash !== snap.dataHash ||
+                merged.deletedFolderIdsToPush.length > 0 ||
+                merged.deletedItemIdsToPush.length > 0;
+
+              if (!needsPush) {
+                applyServerSnapshot(
+                  snap.folders,
+                  snap.items,
+                  snap.syncVersion,
+                  snap.syncedAt,
+                  snap.dataHash,
+                  activeUser.id
+                );
+                setCloudSnapshot(snap);
+                setSyncStatus('synced');
+                lastSuccessfulCheckAtRef.current = Date.now();
+                const summary = formatMergeSummary(merged.stats);
+                if (
+                  !opts?.silent ||
+                  merged.stats.addedFromCloud > 0 ||
+                  merged.stats.srsUpdatedFromCloud > 0
+                ) {
+                  setSyncMessage(summary);
+                }
+                refreshProfile();
+                return { outcome: 'synced', summaryText: summary };
+              }
+
+              try {
+                const mergeRes = await apiMergeSync({
+                  baseVersion: snap.syncVersion,
+                  folders: merged.folders,
+                  items: merged.items,
+                  deletedFolderIds: merged.deletedFolderIdsToPush,
+                  deletedItemIds: merged.deletedItemIdsToPush,
+                });
+                applyServerSnapshot(
+                  mergeRes.folders,
+                  mergeRes.items,
+                  mergeRes.syncVersion,
+                  mergeRes.syncedAt,
+                  mergeRes.dataHash,
+                  activeUser.id
+                );
+                setCloudSnapshot({
+                  syncVersion: mergeRes.syncVersion,
+                  syncedAt: mergeRes.syncedAt,
+                  dataHash: mergeRes.dataHash,
+                  folders: mergeRes.folders,
+                  items: mergeRes.items,
+                });
+                setSyncStatus('synced');
+                lastSuccessfulCheckAtRef.current = Date.now();
+                const summary = formatMergeSummary(merged.stats);
+                if (
+                  !opts?.silent ||
+                  merged.stats.addedFromCloud > 0 ||
+                  merged.stats.srsUpdatedFromCloud > 0
+                ) {
+                  setSyncMessage(summary);
+                }
+                refreshProfile();
+                return { outcome: 'synced', summaryText: summary };
+              } catch (err: any) {
+                if (
+                  (err?.status === 409 || err?.code === 'SYNC_CONFLICT') &&
+                  attempt < 2
+                ) {
+                  continue;
+                }
+                throw err;
+              }
+            }
+
+            throw new Error(
+              'Cloud liên tục thay đổi trong lúc gộp. Vui lòng thử lại sau giây lát.'
+            );
+          };
+
+          if (checkRes.decision === 'auto_push') {
+            setSyncStatus('syncing');
+            opts?.onStage?.('merging');
+            try {
+              const mergeRes = await apiMergeSync({
+                baseVersion: checkRes.serverSummary.syncVersion,
+                folders: curFolders,
+                items: curItems,
+                deletedFolderIds: curMeta.deletedFolderIds,
+                deletedItemIds: curMeta.deletedItemIds,
+              });
+              applyServerSnapshot(
+                mergeRes.folders,
+                mergeRes.items,
+                mergeRes.syncVersion,
+                mergeRes.syncedAt,
+                mergeRes.dataHash,
+                activeUser.id
+              );
+              setCloudSnapshot({
+                syncVersion: mergeRes.syncVersion,
+                syncedAt: mergeRes.syncedAt,
+                dataHash: mergeRes.dataHash,
+                folders: mergeRes.folders,
+                items: mergeRes.items,
+              });
+              setSyncStatus('synced');
+              lastSuccessfulCheckAtRef.current = Date.now();
+              const msg = `Đã đồng bộ ${mergeRes.folders.length} thư mục (${mergeRes.items.length} Kanji) lên Cloud (v${mergeRes.syncVersion}).`;
+              if (!opts?.silent) setSyncMessage(msg);
+              refreshProfile();
+              return { outcome: 'synced', summaryText: msg };
+            } catch (mergeErr: any) {
+              if (
+                mergeErr?.status === 409 ||
+                mergeErr?.code === 'SYNC_CONFLICT'
+              ) {
+                return await executeThreeWayMergeWithRetry(
+                  mergeErr?.message ||
+                    'Cloud vừa cập nhật từ thiết bị khác.'
+                );
+              }
+              throw mergeErr;
+            }
+          }
+
+          // 'conflict' from /api/sync/check -> automatically resolve via Git-style 3-way merge!
+          return await executeThreeWayMergeWithRetry(checkRes.reason);
+        } catch (err: any) {
+          const message = err?.message || 'Lỗi kiểm tra đồng bộ Cloud.';
+          setSyncStatus('error');
+          setSyncError(message);
+          return { outcome: 'error', errorText: message };
+        } finally {
+          inFlightSyncRef.current = null;
+          // If user mutated data while this sync was running, schedule a follow-up auto-sync
+          if (
+            queuedFollowUpSyncRef.current ||
+            mutationSeqRef.current !== startMutationSeq
+          ) {
+            queuedFollowUpSyncRef.current = false;
+            window.setTimeout(() => {
+              void runSmartSyncRef.current({ trigger: 'auto_save', silent: true });
+            }, 400);
+          }
+        }
+      };
+
+      const promiseWrapper = execute();
+      inFlightSyncRef.current = promiseWrapper.then((r) => r.outcome);
+      return await promiseWrapper;
+    },
+    [
+      supabaseEnabled,
+      openAuthGuard,
+      updateSyncMeta,
+      applyServerSnapshot,
+      refreshProfile,
+      refreshCloudSnapshot,
+      formatMergeSummary,
+    ]
+  );
+
+  runSmartSyncRef.current = runSmartSync;
 
   const triggerAnkiSync = useCallback(async (): Promise<
     'auth_required' | 'synced' | 'conflict' | 'error'
   > => {
-    if (!cloudUser) {
-      openAuthGuard('Đồng bộ bộ thẻ Flashcard lên đám mây');
-      return 'auth_required';
+    const res = await runSmartSync({ trigger: 'manual', silent: false });
+    return res.outcome;
+  }, [runSmartSync]);
+
+  const flushPendingSync = useCallback(async () => {
+    if (!latestCloudUserRef.current || !supabaseEnabled) return;
+    if (debounceAutoSyncTimerRef.current) {
+      window.clearTimeout(debounceAutoSyncTimerRef.current);
+      debounceAutoSyncTimerRef.current = null;
     }
+    if (latestSyncMetaRef.current.dirtySinceLastSync) {
+      await runSmartSyncRef.current({ trigger: 'auto_save', silent: true });
+    }
+  }, [supabaseEnabled]);
 
-    setSyncStatus('checking');
-    setSyncError(null);
-    setSyncMessage(null);
+  const bypassSyncGate = useCallback(() => {
+    syncGateDismissedRef.current = true;
+    if (syncGateTimerRef.current) {
+      window.clearTimeout(syncGateTimerRef.current);
+      syncGateTimerRef.current = null;
+    }
+    setReviewSyncGate((prev) => ({ ...prev, isOpen: false }));
+    const cb = syncGateReadyCallbackRef.current;
+    syncGateReadyCallbackRef.current = null;
+    if (cb) cb();
+  }, []);
 
-    try {
-      const localHash = await computeClientDeckHash(folders, items);
-      const localStats = buildLocalSummary();
-      const hasRealLocalWithoutVersion =
-        syncMeta.lastSyncedVersion === 0 &&
-        (folders.length > 0 || items.length > 0) &&
-        !isStarterUntouched;
-      const localHasChanges =
-        syncMeta.dirtySinceLastSync ||
-        (Boolean(syncMeta.lastSyncedHash) && localHash !== syncMeta.lastSyncedHash) ||
-        hasRealLocalWithoutVersion ||
-        syncMeta.deletedFolderIds.length > 0 ||
-        syncMeta.deletedItemIds.length > 0;
+  const runSyncGate = useCallback(
+    async (
+      context: 'enter_decks' | 'start_session',
+      onReady?: () => void
+    ) => {
+      if (!latestCloudUserRef.current || !supabaseEnabled) {
+        onReady?.();
+        return;
+      }
 
-      const checkRes = await apiCheckSyncStatus({
-        lastSyncedVersion: syncMeta.lastSyncedVersion,
-        lastSyncedUserId: syncMeta.lastSyncedUserId,
-        localHasChanges,
-        localDataHash: localHash,
-        localStats: {
-          deckCount: localStats.deckCount,
-          cardCount: localStats.cardCount,
-          compoundCount: localStats.compoundCount,
-          lastModifiedAt: syncMeta.lastLocalModifiedAt,
-          deletedDeckCount: syncMeta.deletedFolderIds.length,
-          deletedCardCount: syncMeta.deletedItemIds.length,
-          hasUserModifiedData: syncMeta.hasUserModifiedData || hasRealLocalWithoutVersion,
-          isUntouchedStarter: isStarterUntouched,
+      const now = Date.now();
+      const cooldownMs = context === 'start_session' ? 1200 : 3500;
+      const recentlySynced =
+        now - lastSuccessfulCheckAtRef.current < cooldownMs &&
+        !latestSyncMetaRef.current.dirtySinceLastSync;
+
+      if (recentlySynced) {
+        onReady?.();
+        return;
+      }
+
+      if (syncGateTimerRef.current) {
+        window.clearTimeout(syncGateTimerRef.current);
+        syncGateTimerRef.current = null;
+      }
+      syncGateDismissedRef.current = false;
+      syncGateReadyCallbackRef.current = onReady || null;
+
+      setReviewSyncGate({
+        isOpen: true,
+        context,
+        stage: 'checking',
+        summaryText: null,
+        errorText: null,
+      });
+
+      const res = await runSmartSync({
+        trigger: context === 'start_session' ? 'pre_review' : 'review_page',
+        silent: true,
+        onStage: (stage) => {
+          if (syncGateDismissedRef.current) return;
+          setReviewSyncGate((prev) =>
+            prev.isOpen ? { ...prev, stage } : prev
+          );
         },
       });
 
-      const serverSummary = {
-        deckCount: checkRes.serverSummary.deckCount,
-        cardCount: checkRes.serverSummary.cardCount,
-        compoundCount: checkRes.serverSummary.compoundCount,
-        lastModifiedAt: checkRes.serverSummary.lastSyncAt
-          ? new Date(checkRes.serverSummary.lastSyncAt).getTime()
-          : null,
-        syncVersion: checkRes.serverSummary.syncVersion,
-      };
+      if (syncGateDismissedRef.current) return;
 
-      if (checkRes.decision === 'up_to_date') {
-        const syncedTime =
-          serverSummary.lastModifiedAt || syncMeta.lastSyncedAt || Date.now();
-        updateSyncMeta((prev) => ({
+      if (res.outcome === 'synced') {
+        setReviewSyncGate((prev) => ({
           ...prev,
-          lastSyncedUserId: cloudUser.id,
-          lastSyncedVersion: checkRes.serverSummary.syncVersion,
-          lastSyncedAt: syncedTime,
-          lastSyncedHash: localHash || checkRes.serverSummary.dataHash,
-          dirtySinceLastSync: false,
-          deletedFolderIds: [],
-          deletedItemIds: [],
+          stage: 'done',
+          summaryText:
+            res.summaryText || 'Đã đồng bộ dữ liệu ôn tập mới nhất.',
         }));
-        setSyncStatus('synced');
-        setSyncMessage('Dữ liệu trên máy và Cloud đã đồng bộ mới nhất.');
-        return 'synced';
-      }
-
-      if (checkRes.decision === 'auto_pull') {
-        setSyncStatus('syncing');
-        const pullRes = await apiForcePullSync();
-        if (checkRes.serverSummary.deckCount > 0 && pullRes.folders.length === 0) {
-          throw new Error(
-            'Cloud báo đang có dữ liệu nhưng kết quả tải về bị rỗng. Đã hủy ghi đè để bảo vệ bộ thẻ trên máy.'
-          );
-        }
-        applyServerSnapshot(
-          pullRes.folders,
-          pullRes.items,
-          pullRes.syncVersion,
-          pullRes.syncedAt,
-          pullRes.dataHash,
-          cloudUser.id
+        const hasVisibleNews = Boolean(
+          res.summaryText &&
+            (res.summaryText.includes('+') ||
+              res.summaryText.includes('cập nhật'))
         );
-        setCloudSnapshot(pullRes);
-        setSyncStatus('synced');
-        setSyncMessage(
-          `Đã tự động tải ${pullRes.folders.length} thư mục (${pullRes.items.length} Kanji) từ Cloud về máy (v${pullRes.syncVersion}).`
+        syncGateTimerRef.current = window.setTimeout(
+          () => {
+            setReviewSyncGate((prev) => ({ ...prev, isOpen: false }));
+            const cb = syncGateReadyCallbackRef.current;
+            syncGateReadyCallbackRef.current = null;
+            if (cb) cb();
+          },
+          hasVisibleNews ? 650 : 240
         );
-        refreshProfile();
-        return 'synced';
+      } else if (res.outcome === 'conflict') {
+        // Hand off directly to SyncConflictModal (keeping callback for after resolution)
+        setReviewSyncGate((prev) => ({ ...prev, isOpen: false }));
+      } else if (res.outcome === 'auth_required') {
+        setReviewSyncGate((prev) => ({ ...prev, isOpen: false }));
+        const cb = syncGateReadyCallbackRef.current;
+        syncGateReadyCallbackRef.current = null;
+        if (cb) cb();
+      } else {
+        setReviewSyncGate((prev) => ({
+          ...prev,
+          stage: 'error',
+          errorText:
+            res.errorText ||
+            'Không thể kết nối Cloud. Bạn vẫn có thể học ngoại tuyến với dữ liệu trên máy.',
+        }));
       }
+    },
+    [supabaseEnabled, runSmartSync]
+  );
 
-      if (checkRes.decision === 'auto_push') {
-        setSyncStatus('syncing');
-        try {
-          const mergeRes = await apiMergeSync({
-            baseVersion: checkRes.serverSummary.syncVersion,
-            folders,
-            items,
-            deletedFolderIds: syncMeta.deletedFolderIds,
-            deletedItemIds: syncMeta.deletedItemIds,
-          });
-          applyServerSnapshot(
-            mergeRes.folders,
-            mergeRes.items,
-            mergeRes.syncVersion,
-            mergeRes.syncedAt,
-            mergeRes.dataHash,
-            cloudUser.id
-          );
-          setCloudSnapshot({
-            syncVersion: mergeRes.syncVersion,
-            syncedAt: mergeRes.syncedAt,
-            dataHash: mergeRes.dataHash,
-            folders: mergeRes.folders,
-            items: mergeRes.items,
-          });
-          setSyncStatus('synced');
-          setSyncMessage(
-            `Đã đồng bộ ${mergeRes.folders.length} thư mục (${mergeRes.items.length} Kanji) lên Cloud (v${mergeRes.syncVersion}).`
-          );
-          refreshProfile();
-          return 'synced';
-        } catch (mergeErr: any) {
-          if (mergeErr?.status === 409 || mergeErr?.code === 'SYNC_CONFLICT') {
-            setSyncConflict({
-              reason:
-                mergeErr?.message ||
-                'Dữ liệu trên Cloud vừa thay đổi trong lúc đồng bộ.',
-              localSummary: localStats,
-              serverSummary,
-            });
-            setSyncStatus('conflict');
-            refreshCloudSnapshot();
-            return 'conflict';
-          }
-          throw mergeErr;
-        }
+  const retrySyncGate = useCallback(async () => {
+    const cb = syncGateReadyCallbackRef.current || undefined;
+    await runSyncGate(reviewSyncGate.context, cb);
+  }, [runSyncGate, reviewSyncGate.context]);
+
+  // Lifecycle Auto-Sync:
+  // 1) Immediately when opening the app / logging in
+  useEffect(() => {
+    if (!cloudUser?.id || !supabaseEnabled) return;
+    void runSmartSyncRef.current({ trigger: 'startup', silent: true });
+  }, [cloudUser?.id, supabaseEnabled]);
+
+  // 2) On tab focus / visibilitychange & network online recovery
+  useEffect(() => {
+    if (!cloudUser?.id || !supabaseEnabled) return;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState && document.visibilityState !== 'visible') {
+        return;
       }
+      if (Date.now() - lastSuccessfulCheckAtRef.current < 5000) return;
+      void runSmartSyncRef.current({ trigger: 'focus', silent: true });
+    };
 
-      // Conflict case — prefetch read-only Cloud snapshot so user can inspect immediately
-      setSyncConflict({
-        reason: checkRes.reason,
-        localSummary: localStats,
-        serverSummary,
-      });
-      setSyncStatus('conflict');
-      refreshCloudSnapshot();
-      return 'conflict';
-    } catch (err: any) {
-      setSyncStatus('error');
-      setSyncError(err?.message || 'Lỗi kiểm tra đồng bộ Cloud.');
-      return 'error';
-    }
-  }, [
-    cloudUser,
-    openAuthGuard,
-    folders,
-    items,
-    syncMeta,
-    isStarterUntouched,
-    buildLocalSummary,
-    updateSyncMeta,
-    applyServerSnapshot,
-    refreshProfile,
-    refreshCloudSnapshot,
-  ]);
+    const handleOnline = () => {
+      void runSmartSyncRef.current({ trigger: 'online', silent: true });
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [cloudUser?.id, supabaseEnabled]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceAutoSyncTimerRef.current) {
+        window.clearTimeout(debounceAutoSyncTimerRef.current);
+      }
+      if (syncGateTimerRef.current) {
+        window.clearTimeout(syncGateTimerRef.current);
+      }
+    };
+  }, []);
 
   const dismissConflict = useCallback(() => {
     setSyncConflict(null);
+    syncGateReadyCallbackRef.current = null;
     setSyncStatus('idle');
   }, []);
 
@@ -2000,6 +2757,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logoutCloud = useCallback(async () => {
     setCloudSnapshot(null);
     setIsCloudInspectorOpen(false);
+    clearSyncBaselineSnapshot();
     await authLogout();
   }, [authLogout]);
 
@@ -2101,7 +2859,14 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastSyncedVersion,
         hasUnsyncedChanges,
         syncError,
+        reviewSyncGate,
+        runSyncGate,
+        retrySyncGate,
+        bypassSyncGate,
+        flushPendingSync,
         triggerAnkiSync,
+        resolveSelectiveCollisions,
+        resolveConflictUnionMerge,
         resolveConflictPush,
         resolveConflictPull,
         dismissConflict,

@@ -16,6 +16,7 @@ export interface SyncCompoundWord {
   hanViet: string;
   meaning: string;
   srsState: SyncSrsState;
+  updatedAt?: number;
 }
 
 export interface SyncFolder {
@@ -42,6 +43,7 @@ export interface SyncKanjiItem {
   srsState: SyncSrsState;
   compoundWords: SyncCompoundWord[];
   createdAt: number;
+  updatedAt?: number;
 }
 
 function normalizeSrsState(srs: Partial<SyncSrsState> | undefined) {
@@ -149,6 +151,7 @@ export function dbCardRowToKanjiItem(row: any): SyncKanjiItem {
     },
     compoundWords: Array.isArray(row.compound_words) ? row.compound_words : [],
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : undefined,
   };
 }
 
@@ -194,7 +197,7 @@ export function kanjiItemToDbRow(
     compound_words: Array.isArray(item.compoundWords) ? item.compoundWords : [],
     sync_version: syncVersion,
     created_at: safeIsoTimestamp(item.createdAt, nowIso),
-    updated_at: nowIso,
+    updated_at: safeIsoTimestamp(item.updatedAt, nowIso),
     deleted_at: null,
   };
 }

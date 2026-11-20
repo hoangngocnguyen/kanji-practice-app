@@ -387,7 +387,7 @@ export const SupabaseCloudModal: React.FC<SupabaseCloudModalProps> = ({
               className="w-full py-2.5 px-3 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>Kiểm tra &amp; Đồng bộ ngay (AnkiDroid)</span>
+              <span>Đồng bộ &amp; Gộp thông minh ngay</span>
             </button>
 
             <div className="grid grid-cols-2 gap-2">

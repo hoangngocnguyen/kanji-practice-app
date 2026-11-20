@@ -24,6 +24,7 @@ import { KanjiSearchPage } from './pages/KanjiSearchPage';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthGuardModal } from './components/auth/AuthGuardModal';
 import { SyncConflictModal } from './components/auth/SyncConflictModal';
+import { ReviewSyncModal } from './components/auth/ReviewSyncModal';
 import { CloudInspectorModal } from './components/auth/CloudInspectorModal';
 import { RomajiReaderView } from './components/RomajiReaderView';
 import { TranslationView } from './components/TranslationView';
@@ -203,6 +204,7 @@ function AppLayout() {
       <AuthModal />
       <AuthGuardModal />
       <SyncConflictModal />
+      <ReviewSyncModal />
       <CloudInspectorModal />
 
       {/* Floating Scroll to Top */}

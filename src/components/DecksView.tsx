@@ -44,8 +44,12 @@ export const DecksView: React.FC = () => {
     renameFolder,
     moveFolder,
     cloudUser,
+    supabaseEnabled,
     isSyncing,
+    syncStatus,
+    lastSyncedVersion,
     hasUnsyncedChanges,
+    runSyncGate,
     triggerAnkiSync,
     openCloudInspector,
     syncMessage,
@@ -124,6 +128,14 @@ export const DecksView: React.FC = () => {
       setActionToast(null);
     }, 3200);
   }, []);
+
+  useEffect(() => {
+    if (cloudUser && supabaseEnabled) {
+      void runSyncGate('enter_decks');
+    }
+    // Trigger once when entering DecksView with an active account
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudUser?.id, supabaseEnabled]);
 
   useEffect(() => {
     if (syncMessage) {
@@ -886,17 +898,21 @@ export const DecksView: React.FC = () => {
             <Cloud
               className={`w-3.5 h-3.5 ${
                 isSyncing
-                  ? 'animate-pulse text-teal-700'
+                  ? 'animate-spin text-teal-700'
                   : cloudUser
                   ? 'text-teal-700'
                   : 'text-slate-400'
               }`}
             />
-            <span>
+            <span className="tabular-nums">
               {isSyncing
                 ? 'Đang đồng bộ...'
                 : cloudUser && hasUnsyncedChanges
-                ? 'Đồng bộ Cloud*'
+                ? 'Chờ đồng bộ Cloud*'
+                : cloudUser && syncStatus === 'error'
+                ? 'Thử đồng bộ lại'
+                : cloudUser && lastSyncedVersion > 0
+                ? `Đã đồng bộ · v${lastSyncedVersion}`
                 : 'Đồng bộ Cloud'}
             </span>
           </button>
