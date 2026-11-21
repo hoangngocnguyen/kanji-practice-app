@@ -51,6 +51,7 @@ export const KanjiStrokesView: React.FC = () => {
     clearCompareKanji,
     isCompareSelectionMode,
     setIsCompareSelectionMode,
+    enrichingChars,
   } = useKanji();
 
   const [isTextContainerExpanded, setIsTextContainerExpanded] = useState<boolean>(true);
@@ -524,6 +525,7 @@ export const KanjiStrokesView: React.FC = () => {
           copyStatus={copyStatus}
           showGrid={includeGrid}
           showFurigana={showListFurigana}
+          enrichingChars={enrichingChars}
           onCopyImage={handleCopyImage}
           onDownloadPng={handleDownloadPng}
           onInspect={handleInspectKanji}

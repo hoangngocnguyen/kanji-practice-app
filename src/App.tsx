@@ -69,6 +69,7 @@ function AppLayout() {
     setIsLicenseOpen,
     recentlyViewed,
     clearRecentHistory,
+    updateEnrichedDetail,
   } = useKanji() as any;
 
   // Sidebar collapse state (persisted in localStorage)
@@ -167,6 +168,7 @@ function AppLayout() {
         onCopyImage={handleCopyImage}
         onDownloadPng={handleDownloadPng}
         onSelectKanji={handleSelectRecentKanji}
+        onDetailLoaded={updateEnrichedDetail}
       />
 
       {/* OCR Scanner Modal */}

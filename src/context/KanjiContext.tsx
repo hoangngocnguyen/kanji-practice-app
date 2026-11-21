@@ -1,8 +1,14 @@
-import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { KanjiItem, KanjiDetail, CopyStatus } from '../types/kanji';
 import { extractUniqueKanji, convertSvgToPngBlob, downloadBlob, fetchKanjiSvg } from '../utils/kanji';
-import { getFullKanjiDetail } from '../utils/kanjiApi';
-import { getKanjiInfo } from '../data/kanjiDictionary';
+import {
+  getFullKanjiDetail,
+  getQuickLocalKanjiDetails,
+  isKanjiDetailComplete,
+  mergeKanjiDetails,
+  sanitizeKanjiDetail,
+} from '../utils/kanjiApi';
+import { getKanjiInfo, KANJI_DICTIONARY, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
 
 interface KanjiContextType {
   inputText: string;
@@ -47,6 +53,8 @@ interface KanjiContextType {
   isCompareSelectionMode: boolean;
   setIsCompareSelectionMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   setEnrichedDetails: React.Dispatch<React.SetStateAction<Record<string, KanjiDetail>>>;
+  enrichingChars: Record<string, boolean>;
+  updateEnrichedDetail: (kanji: string, detail: KanjiDetail) => void;
 }
 
 const KanjiContext = createContext<KanjiContextType | undefined>(undefined);
@@ -69,10 +77,35 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [enrichedDetails, setEnrichedDetails] = useState<Record<string, KanjiDetail>>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_DETAILS_CACHE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          const cleaned: Record<string, KanjiDetail> = {};
+          for (const [k, v] of Object.entries(parsed)) {
+            if (v && typeof v === 'object') {
+              cleaned[k] = sanitizeKanjiDetail(v as KanjiDetail);
+            }
+          }
+          return cleaned;
+        }
+      }
     } catch {}
     return {};
   });
+
+  const [enrichingChars, setEnrichingChars] = useState<Record<string, boolean>>({});
+  const enrichedDetailsRef = useRef(enrichedDetails);
+  enrichedDetailsRef.current = enrichedDetails;
+  const inFlightCharsRef = useRef<Set<string>>(new Set());
+  const attemptedCharsRef = useRef<Set<string>>(new Set());
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // History list of full KanjiItem objects (unlimited, persistent in localStorage)
   const [historyItems, setHistoryItems] = useState<KanjiItem[]>(() => {
@@ -153,40 +186,168 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return extractUniqueKanji(inputText);
   }, [inputText]);
 
-  // Background enrichment for missing kanji details
+  const updateEnrichedDetail = useCallback((kanji: string, detail: KanjiDetail) => {
+    if (!kanji || !detail) return;
+    setEnrichedDetails((prev) => {
+      const merged = mergeKanjiDetails(detail, prev[kanji]);
+      if (!merged) return prev;
+      return {
+        ...prev,
+        [kanji]: merged,
+      };
+    });
+    setEnrichingChars((prev) => {
+      if (!prev[kanji]) return prev;
+      const next = { ...prev };
+      delete next[kanji];
+      return next;
+    });
+  }, []);
+
+  // Background enrichment for missing or incomplete kanji details (no self-cancellation on state updates)
   useEffect(() => {
-    let isCancelled = false;
-    const missing = extractedKanjiList.filter((item) => !enrichedDetails[item.kanji]);
-
-    if (missing.length === 0) return;
-
-    missing.forEach(async (item) => {
-      try {
-        const detail = await getFullKanjiDetail(item.kanji);
-        if (!isCancelled && detail) {
-          setEnrichedDetails((prev) => ({
-            ...prev,
-            [item.kanji]: detail,
-          }));
-        }
-      } catch {}
+    const missingItems = extractedKanjiList.filter((item) => {
+      const cached = enrichedDetailsRef.current[item.kanji];
+      if (inFlightCharsRef.current.has(item.kanji)) return false;
+      if (isKanjiDetailComplete(cached)) return false;
+      // Allow re-attempt if cached has no readings/meanings/strokes yet and wasn't already attempted this session
+      return !attemptedCharsRef.current.has(item.kanji);
     });
 
-    return () => {
-      isCancelled = true;
+    if (missingItems.length === 0) return;
+
+    const targetChars = missingItems.map((item) => item.kanji);
+    targetChars.forEach((char) => {
+      inFlightCharsRef.current.add(char);
+      attemptedCharsRef.current.add(char);
+    });
+
+    setEnrichingChars((prev) => {
+      const next = { ...prev };
+      targetChars.forEach((char) => {
+        next[char] = true;
+      });
+      return next;
+    });
+
+    const runEnrichment = async () => {
+      // Phase 1: Instant batch hydration from local dictionary + 2,136 Jōyō catalog + VI meanings
+      let stillNeedNetwork: string[] = [...targetChars];
+      try {
+        const localBatch = await getQuickLocalKanjiDetails(targetChars);
+        if (!isMountedRef.current) return;
+
+        const batchKeys = Object.keys(localBatch);
+        if (batchKeys.length > 0) {
+          setEnrichedDetails((prev) => {
+            const next = { ...prev };
+            for (const char of batchKeys) {
+              const merged = mergeKanjiDetails(localBatch[char], prev[char]);
+              if (merged) next[char] = merged;
+            }
+            return next;
+          });
+
+          const completedLocally: string[] = [];
+          stillNeedNetwork = targetChars.filter((char) => {
+            const candidate = mergeKanjiDetails(localBatch[char], enrichedDetailsRef.current[char]);
+            // Need network only if still missing readings/meanings/strokes OR radical/examples weren't fetched yet
+            if (isKanjiDetailComplete(candidate)) {
+              completedLocally.push(char);
+              return false;
+            }
+            return true;
+          });
+
+          if (completedLocally.length > 0) {
+            completedLocally.forEach((char) => inFlightCharsRef.current.delete(char));
+            setEnrichingChars((prev) => {
+              const next = { ...prev };
+              completedLocally.forEach((char) => {
+                delete next[char];
+              });
+              return next;
+            });
+          }
+        }
+      } catch {}
+
+      // Phase 2: Concurrency-limited network enrichment (max 4 concurrent requests)
+      const concurrency = 4;
+      let cursor = 0;
+
+      const worker = async () => {
+        while (cursor < stillNeedNetwork.length && isMountedRef.current) {
+          const char = stillNeedNetwork[cursor++];
+          try {
+            const detail = await getFullKanjiDetail(char);
+            if (!isMountedRef.current) return;
+            if (detail) {
+              setEnrichedDetails((prev) => {
+                const merged = mergeKanjiDetails(detail, prev[char]);
+                if (!merged) return prev;
+                return {
+                  ...prev,
+                  [char]: merged,
+                };
+              });
+            }
+          } catch {
+            // Keep existing partial data if any
+          } finally {
+            inFlightCharsRef.current.delete(char);
+            if (isMountedRef.current) {
+              setEnrichingChars((prev) => {
+                if (!prev[char]) return prev;
+                const next = { ...prev };
+                delete next[char];
+                return next;
+              });
+            }
+          }
+        }
+      };
+
+      if (stillNeedNetwork.length > 0) {
+        await Promise.all(
+          Array.from({ length: Math.min(concurrency, stillNeedNetwork.length) }, () => worker())
+        );
+      }
     };
-  }, [extractedKanjiList, enrichedDetails]);
+
+    runEnrichment();
+  }, [extractedKanjiList]);
 
   // Merged kanji list
   const mergedKanjiList = useMemo<KanjiItem[]>(() => {
     return extractedKanjiList.map((item) => {
-      const enriched = enrichedDetails[item.kanji] || getKanjiInfo(item.kanji);
+      const cached = enrichedDetails[item.kanji];
+      const localStrict = KANJI_DICTIONARY[item.kanji];
+      const merged = mergeKanjiDetails(cached, localStrict);
+      const fallbackClean: KanjiDetail = {
+        kanji: item.kanji,
+        hanViet: SINO_VIETNAMESE_MAP[item.kanji] || '',
+        meanings: [],
+        on: [],
+        kun: [],
+        examples: [],
+      };
       return {
         ...item,
-        detail: enriched || item.detail,
+        detail: merged || fallbackClean,
       };
     });
   }, [extractedKanjiList, enrichedDetails]);
+
+  const mergedHistoryItems = useMemo<KanjiItem[]>(() => {
+    return historyItems.map((item) => {
+      const merged = mergeKanjiDetails(
+        enrichedDetails[item.kanji],
+        KANJI_DICTIONARY[item.kanji] || item.detail
+      );
+      return merged ? { ...item, detail: merged } : item;
+    });
+  }, [historyItems, enrichedDetails]);
 
   // Save to recent history (unlimited, caches full details so no repeat API calls)
   const saveToRecentHistory = useCallback(
@@ -227,7 +388,10 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const handleInspectKanji = useCallback(
     (item: KanjiItem) => {
       fetchKanjiSvg(item.svgUrl, item.hex).catch(() => {});
-      const enriched = enrichedDetails[item.kanji] || getKanjiInfo(item.kanji);
+      const enriched = mergeKanjiDetails(
+        enrichedDetails[item.kanji],
+        KANJI_DICTIONARY[item.kanji] || item.detail
+      );
       const targetItem = enriched ? { ...item, detail: enriched } : item;
       setInspectedKanjiState(targetItem);
       saveToRecentHistory(targetItem);
@@ -348,7 +512,7 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         extractedKanjiList,
         mergedKanjiList,
         enrichedDetails,
-        recentlyViewed: historyItems,
+        recentlyViewed: mergedHistoryItems,
         saveToRecentHistory,
         clearRecentHistory,
         includeGrid,
@@ -381,6 +545,8 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isCompareSelectionMode,
         setIsCompareSelectionMode,
         setEnrichedDetails,
+        enrichingChars,
+        updateEnrichedDetail,
       }}
     >
       {children}

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { KanjiItem, KanjiDetail } from '../types/kanji';
 import { StrokeAnimation, MAZII_STROKE_COLORS } from './StrokeAnimation';
-import { getFullKanjiDetail } from '../utils/kanjiApi';
+import { getFullKanjiDetail, mergeKanjiDetails } from '../utils/kanjiApi';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
 import { fetchKanjiSvg, saveKanjiSvgToCache } from '../utils/kanji';
@@ -51,6 +51,7 @@ interface PracticeModalProps {
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onSelectKanji?: (char: string) => void;
+  onDetailLoaded?: (kanji: string, detail: KanjiDetail) => void;
 }
 
 type TabType = 'animation' | 'dictionary' | 'radicals' | 'practice';
@@ -65,11 +66,14 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   onCopyImage,
   onDownloadPng,
   onSelectKanji,
+  onDetailLoaded,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('animation');
   const [detail, setDetail] = useState<KanjiDetail | null>(null);
   const [decomposition, setDecomposition] = useState<KanjiDecomposition | null>(null);
   const [exampleSentences, setExampleSentences] = useState<KanjiExampleSentence[]>([]);
+  const onDetailLoadedRef = useRef(onDetailLoaded);
+  onDetailLoadedRef.current = onDetailLoaded;
 
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -114,33 +118,17 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     setActiveTab('animation');
     resetPracticeTest();
     // Seed immediately with any catalog detail already attached to item
-    if (item.detail) {
-      setDetail(item.detail);
-    }
+    setDetail(item.detail || null);
 
     let isMounted = true;
-    getFullKanjiDetail(item.kanji)
+    const targetKanji = item.kanji;
+    const itemDetailFallback = item.detail;
+    getFullKanjiDetail(targetKanji)
       .then((res) => {
-        if (isMounted) {
-          setDetail((prev) => {
-            if (!res) return prev;
-            const fallback = item.detail;
-            return {
-              ...res,
-              hanViet:
-                res.hanViet && res.hanViet !== 'Chưa rõ'
-                  ? res.hanViet
-                  : fallback?.hanViet || res.hanViet,
-              meanings:
-                res.meanings && res.meanings.length > 0
-                  ? res.meanings
-                  : fallback?.meanings || [],
-              on: res.on && res.on.length > 0 ? res.on : fallback?.on || [],
-              kun: res.kun && res.kun.length > 0 ? res.kun : fallback?.kun || [],
-              jlpt: res.jlpt || fallback?.jlpt,
-              strokeCount: res.strokeCount || fallback?.strokeCount,
-            };
-          });
+        if (isMounted && res) {
+          const merged = mergeKanjiDetails(res, itemDetailFallback) || res;
+          setDetail((prev) => mergeKanjiDetails(merged, prev) || merged);
+          onDetailLoadedRef.current?.(targetKanji, merged);
         }
       })
       .catch(() => {});

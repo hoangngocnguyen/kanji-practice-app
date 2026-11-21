@@ -16,6 +16,7 @@ import { KanjiItem, CopyStatus } from '../types/kanji';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
 import { getPrimaryHiragana } from '../utils/kanji';
+import { cleanMeaningsList, cleanReadingsList, isPlaceholderKanjiText } from '../utils/kanjiApi';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
 import { KanjiSvgView } from './KanjiSvgView';
 
@@ -24,6 +25,7 @@ interface KanjiTableProps {
   copyStatus: Record<string, CopyStatus>;
   showGrid?: boolean;
   showFurigana?: boolean;
+  enrichingChars?: Record<string, boolean>;
   onCopyImage: (item: KanjiItem) => void;
   onDownloadPng: (item: KanjiItem) => void;
   onInspect: (item: KanjiItem) => void;
@@ -38,6 +40,7 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
   copyStatus,
   showGrid = false,
   showFurigana = false,
+  enrichingChars = {},
   onCopyImage,
   onDownloadPng,
   onInspect,
@@ -108,9 +111,14 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
           const isCopying = status === 'copying';
           const detail = item.detail;
 
-          const hasOn = detail?.on && detail.on.length > 0;
-          const hasKun = detail?.kun && detail.kun.length > 0;
-          const hasMeanings = detail?.meanings && detail.meanings.length > 0;
+          const cleanOn = cleanReadingsList(detail?.on);
+          const cleanKun = cleanReadingsList(detail?.kun);
+          const cleanMeanings = cleanMeaningsList(detail?.meanings);
+          const hasOn = cleanOn.length > 0;
+          const hasKun = cleanKun.length > 0;
+          const hasMeanings = cleanMeanings.length > 0;
+          const isRowLoading = Boolean(enrichingChars[item.kanji]);
+          const hasHanViet = Boolean(detail?.hanViet && !isPlaceholderKanjiText(detail.hanViet));
           const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
 
           return (
@@ -132,9 +140,9 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   <span className="text-xs font-mono font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md">
                     #{item.id}
                   </span>
-                  {detail?.hanViet && (
+                  {hasHanViet && (
                     <span className="text-xs font-bold text-teal-900 bg-teal-50/80 border border-teal-200/90 px-2 py-0.5 rounded-lg">
-                      {detail.hanViet}
+                      {detail!.hanViet}
                     </span>
                   )}
                 </div>
@@ -218,11 +226,13 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                   </div>
 
                   {/* Meanings */}
-                  {hasMeanings && (
+                  {hasMeanings ? (
                     <p className="text-xs text-slate-700 font-medium line-clamp-2">
-                      <strong className="text-slate-900">Nghĩa:</strong> {detail.meanings.join(', ')}
+                      <strong className="text-slate-900">Nghĩa:</strong> {cleanMeanings.join(', ')}
                     </p>
-                  )}
+                  ) : isRowLoading ? (
+                    <p className="text-[11px] text-slate-400 italic">Đang nạp nghĩa...</p>
+                  ) : null}
 
                   {/* Readings: On & Kun */}
                   <div className="flex flex-col gap-1 text-[11px] pt-0.5">
@@ -232,13 +242,15 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                           On
                         </span>
                         <span className="text-slate-800 font-mono font-medium truncate">
-                          {detail.on.join(', ')}
+                          {cleanOn.join(', ')}
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-slate-400">
                         <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100">On</span>
-                        <span className="italic text-[10px]">Đang nạp âm On...</span>
+                        <span className="italic text-[10px]">
+                          {isRowLoading ? 'Đang nạp âm On...' : '—'}
+                        </span>
                       </div>
                     )}
 
@@ -248,13 +260,15 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                           Kun
                         </span>
                         <span className="text-slate-800 font-mono font-medium truncate">
-                          {detail.kun.join(', ')}
+                          {cleanKun.join(', ')}
                         </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 text-slate-400">
                         <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-100">Kun</span>
-                        <span className="italic text-[10px]">Đang nạp âm Kun...</span>
+                        <span className="italic text-[10px]">
+                          {isRowLoading ? 'Đang nạp âm Kun...' : '—'}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -329,9 +343,14 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               const isCopying = status === 'copying';
               const detail = item.detail;
 
-              const hasOn = detail?.on && detail.on.length > 0;
-              const hasKun = detail?.kun && detail.kun.length > 0;
-              const hasMeanings = detail?.meanings && detail.meanings.length > 0;
+              const cleanOn = cleanReadingsList(detail?.on);
+              const cleanKun = cleanReadingsList(detail?.kun);
+              const cleanMeanings = cleanMeaningsList(detail?.meanings);
+              const hasOn = cleanOn.length > 0;
+              const hasKun = cleanKun.length > 0;
+              const hasMeanings = cleanMeanings.length > 0;
+              const isRowLoading = Boolean(enrichingChars[item.kanji]);
+              const hasHanViet = Boolean(detail?.hanViet && !isPlaceholderKanjiText(detail.hanViet));
               const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
 
               return (
@@ -391,9 +410,9 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       </div>
 
                       {/* Âm Hán-Việt nổi bật */}
-                      {detail?.hanViet && (
+                      {hasHanViet && (
                         <span className="text-xs font-bold text-teal-900 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg tracking-wide shadow-2xs">
-                          {detail.hanViet}
+                          {detail!.hanViet}
                         </span>
                       )}
                     </div>
@@ -453,13 +472,15 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                             <div className="inline-flex items-center gap-1 bg-blue-50/70 border border-blue-200 px-2 py-0.5 rounded-lg">
                               <span className="font-bold text-[10px] text-blue-800">On:</span>
                               <span className="text-blue-900 font-mono font-medium">
-                                {detail.on.join(', ')}
+                                {cleanOn.join(', ')}
                               </span>
                             </div>
                           ) : (
                             <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-400 text-xs">
                               <span className="font-bold text-[10px]">On:</span>
-                              <span className="italic text-[11px]">Đang nạp...</span>
+                              <span className="italic text-[11px]">
+                                {isRowLoading ? 'Đang nạp...' : '—'}
+                              </span>
                             </div>
                           )}
 
@@ -467,23 +488,27 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                             <div className="inline-flex items-center gap-1 bg-emerald-50/70 border border-emerald-200 px-2 py-0.5 rounded-lg">
                               <span className="font-bold text-[10px] text-emerald-800">Kun:</span>
                               <span className="text-emerald-900 font-mono font-medium">
-                                {detail.kun.join(', ')}
+                                {cleanKun.join(', ')}
                               </span>
                             </div>
                           ) : (
                             <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-lg text-slate-400 text-xs">
                               <span className="font-bold text-[10px]">Kun:</span>
-                              <span className="italic text-[11px]">Đang nạp...</span>
+                              <span className="italic text-[11px]">
+                                {isRowLoading ? 'Đang nạp...' : '—'}
+                              </span>
                             </div>
                           )}
                         </div>
 
                         {/* Hàng 3: Nghĩa tiếng Việt */}
-                        {hasMeanings && (
+                        {hasMeanings ? (
                           <p className="text-xs font-semibold text-slate-700 leading-snug line-clamp-2">
-                            Nghĩa: <span className="text-slate-900 font-bold">{detail.meanings.join(', ')}</span>
+                            Nghĩa: <span className="text-slate-900 font-bold">{cleanMeanings.join(', ')}</span>
                           </p>
-                        )}
+                        ) : isRowLoading ? (
+                          <p className="text-xs italic text-slate-400">Đang nạp nghĩa...</p>
+                        ) : null}
                       </div>
                     </div>
                   </td>
