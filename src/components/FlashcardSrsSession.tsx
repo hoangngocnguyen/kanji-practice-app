@@ -46,12 +46,18 @@ function getFrontWordSizeClass(word: string): string {
   return 'text-3xl sm:text-5xl lg:text-6xl';
 }
 
+function getBackCompoundTextSizeClass(word: string): string {
+  const len = Array.from(word || '').length;
+  if (len <= 2) return 'text-4xl sm:text-5xl lg:text-6xl';
+  if (len <= 4) return 'text-3xl sm:text-4xl lg:text-[44px]';
+  if (len <= 6) return 'text-3xl sm:text-4xl lg:text-[40px]';
+  return 'text-2xl sm:text-3xl lg:text-4xl';
+}
+
 function getBackCompoundWordSizeClass(word: string): string {
   const len = Array.from(word || '').length;
-  if (len <= 2) return 'text-4xl sm:text-5xl lg:text-6xl whitespace-nowrap';
-  if (len <= 4) return 'text-3xl sm:text-4xl lg:text-[44px] whitespace-nowrap';
-  if (len <= 6) return 'text-3xl sm:text-4xl lg:text-[40px] whitespace-nowrap';
-  return 'text-2xl sm:text-3xl lg:text-4xl break-keep';
+  const sizeClass = getBackCompoundTextSizeClass(word);
+  return len <= 6 ? `${sizeClass} whitespace-nowrap` : `${sizeClass} break-keep`;
 }
 
 function renderHighlightedSentence(sentence: string, targets: string[]) {
@@ -692,7 +698,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                           {/* Left Column: Compound Word (clickable Kanji chars) + Reading + Han-Viet + All Constituent Kanji Chips */}
                           <div className="sm:col-span-5 text-center sm:border-r sm:border-slate-100 sm:pr-5 space-y-2">
                             <div
-                              className={`font-kanji font-black text-teal-900 leading-tight inline-flex items-center justify-center flex-wrap ${getBackCompoundWordSizeClass(
+                              className={`font-kanji font-black text-teal-900 leading-tight inline-flex items-baseline justify-center flex-wrap ${getBackCompoundWordSizeClass(
                                 currentCard.word || ''
                               )}`}
                             >
@@ -705,7 +711,9 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                                       e.stopPropagation();
                                       handleInspectKanjiChar(ch);
                                     }}
-                                    className="hover:text-teal-700 hover:bg-teal-50 rounded-lg px-0.5 transition-colors cursor-pointer underline decoration-teal-300/70 decoration-2 underline-offset-4"
+                                    className={`font-kanji font-black leading-tight ${getBackCompoundTextSizeClass(
+                                      currentCard.word || ''
+                                    )} hover:text-teal-700 hover:bg-teal-50 rounded-lg px-0.5 transition-colors cursor-pointer underline decoration-teal-300/70 decoration-2 underline-offset-4`}
                                     title={`Nhấp để tra cứu chữ ${ch}`}
                                   >
                                     {ch}
