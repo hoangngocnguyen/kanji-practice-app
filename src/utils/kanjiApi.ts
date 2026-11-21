@@ -5,6 +5,277 @@ import { KanjiCatalogEntry, loadKanjiJoyoCatalog } from '../services/kanjiLevelS
 const cache = new Map<string, KanjiDetail>();
 const inFlightDetailRequests = new Map<string, Promise<KanjiDetail>>();
 
+const WORD_VI_CACHE_STORAGE_KEY = 'luyenkanji_word_vi_v1';
+const wordViMemoryCache = new Map<string, string>();
+let wordViStorageLoaded = false;
+
+function ensureWordViCacheLoaded() {
+  if (wordViStorageLoaded) return;
+  wordViStorageLoaded = true;
+  try {
+    const raw = localStorage.getItem(WORD_VI_CACHE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      Object.entries(parsed).forEach(([k, v]) => {
+        if (typeof v === 'string' && v.trim()) {
+          wordViMemoryCache.set(k, v.trim());
+        }
+      });
+    }
+  } catch {
+    // Bỏ qua lỗi đọc localStorage
+  }
+}
+
+function persistWordViCache() {
+  try {
+    const entries = Array.from(wordViMemoryCache.entries());
+    const sliced = entries.length > 900 ? entries.slice(entries.length - 900) : entries;
+    localStorage.setItem(WORD_VI_CACHE_STORAGE_KEY, JSON.stringify(Object.fromEntries(sliced)));
+  } catch {
+    // Bỏ qua lỗi ghi localStorage
+  }
+}
+
+function hasVietnameseDiacritics(text: string): boolean {
+  return /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
+    text
+  );
+}
+
+function isLikelyEnglishGloss(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (hasVietnameseDiacritics(trimmed)) return false;
+  // Chứa từ tiếng Anh thông thường (>= 2 chữ cái ASCII) và toàn ký tự ASCII cơ bản
+  return /[a-zA-Z]{2,}/.test(trimmed) && /^[\x20-\x7E\u2013\u2014]+$/.test(trimmed);
+}
+
+function cleanEnglishGlossForTranslation(gloss: string): string {
+  // Bỏ các ghi chú ngoặc đơn dài dòng kiểu "(Japanese)", "(e.g. ...)", "(item in ...)"
+  let cleaned = gloss
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[,;]\s*/g, '; ')
+    .replace(/^[;\s]+|[;\s]+$/g, '')
+    .trim();
+
+  if (!cleaned) {
+    cleaned = gloss.replace(/[()]/g, '').trim();
+  }
+
+  // Giới hạn tối đa 2 nghĩa đầu tiên để câu tiếng Việt ngắn gọn, tự nhiên
+  const parts = cleaned
+    .split(/[;,]/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+
+  return parts.join('; ');
+}
+
+function formatVietnameseGloss(text: string): string {
+  const trimmed = text.replace(/\s+/g, ' ').trim();
+  if (!trimmed) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+function selectCommonCompoundWords(
+  wordsData: any[],
+  targetKanji: string,
+  limit = 6
+): KanjiExample[] {
+  const seenWords = new Set<string>();
+  const scored: Array<{ score: number; example: KanjiExample }> = [];
+
+  for (const entry of wordsData) {
+    const variants = Array.isArray(entry?.variants) ? entry.variants : [];
+    const meanings = Array.isArray(entry?.meanings) ? entry.meanings : [];
+    if (variants.length === 0 || meanings.length === 0) continue;
+
+    // Chọn variant phổ biến nhất có chứa chữ targetKanji
+    let bestVariant: any = null;
+    let bestVarScore = -Infinity;
+
+    for (const v of variants) {
+      const written = String(v?.written || '').trim();
+      if (!written || !written.includes(targetKanji)) continue;
+      const priorities = Array.isArray(v?.priorities) ? v.priorities : [];
+      const len = Array.from(written).length;
+      let vScore = priorities.length * 40;
+      if (len >= 2 && len <= 4) vScore += 25;
+      else if (len === 1) vScore += 5;
+      else if (len >= 5) vScore -= (len - 4) * 20;
+
+      if (vScore > bestVarScore) {
+        bestVarScore = vScore;
+        bestVariant = v;
+      }
+    }
+
+    if (!bestVariant) continue;
+
+    const written = String(bestVariant.written || '').trim();
+    if (!written || seenWords.has(written)) continue;
+
+    const pronounced = String(bestVariant.pronounced || '').trim();
+    const glosses: string[] = Array.isArray(meanings[0]?.glosses)
+      ? meanings[0].glosses.map((g: any) => String(g || '').trim()).filter(Boolean)
+      : [];
+    if (glosses.length === 0) continue;
+
+    const rawGloss = glosses.slice(0, 2).join('; ');
+    const chars = Array.from(written);
+    const charLen = chars.length;
+    const kanjiCount = chars.filter((c) => /\p{Script=Han}/u.test(c)).length;
+    const priorities: string[] = Array.isArray(bestVariant.priorities)
+      ? bestVariant.priorities
+      : [];
+
+    // Bỏ qua các cụm quá dài (>5 ký tự) nếu không có độ phổ biến cao
+    if (charLen > 5 && priorities.length === 0) continue;
+
+    let score = 0;
+    if (priorities.length > 0) {
+      score += 65 + Math.min(priorities.length, 3) * 20;
+      if (priorities.includes('ichi1') || priorities.includes('news1')) {
+        score += 30;
+      }
+    }
+
+    // Ưu tiên từ ghép 2-4 chữ thực dụng
+    if (charLen === 2) score += 45;
+    else if (charLen === 3) score += 32;
+    else if (charLen === 4) score += 18;
+    else if (charLen === 1) score += 10;
+    else if (charLen === 5) score -= 18;
+    else score -= 70;
+
+    if (kanjiCount >= 2 && kanjiCount <= 3) score += 12;
+
+    // Ưu tiên từ có âm đọc kana sạch
+    if (pronounced && /^[\u3040-\u30ffー]+$/.test(pronounced)) {
+      score += 8;
+    }
+
+    // Hạ điểm thuật ngữ hành chính / quá chuyên ngành
+    if (/electoral|defense program|defence program|ministry|cabinet/i.test(rawGloss)) {
+      score -= 50;
+    }
+
+    seenWords.add(written);
+    scored.push({
+      score,
+      example: {
+        word: written,
+        reading: pronounced,
+        hanViet: '',
+        meaning: rawGloss,
+      },
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((item) => item.example);
+}
+
+async function translateSingleCompoundExample(ex: KanjiExample): Promise<KanjiExample> {
+  const word = (ex.word || '').trim();
+  const rawMeaning = (ex.meaning || '').trim();
+  if (!word) return ex;
+
+  ensureWordViCacheLoaded();
+  const cacheKey = `${word}::${rawMeaning}`;
+  const cached = wordViMemoryCache.get(cacheKey);
+  if (cached) {
+    return { ...ex, hanViet: '', meaning: cached };
+  }
+
+  // Nếu đã là tiếng Việt (từ dữ liệu cục bộ), giữ nguyên và bỏ hanViet ghép
+  if (rawMeaning && !isLikelyEnglishGloss(rawMeaning)) {
+    return { ...ex, hanViet: '' };
+  }
+
+  const cleanedEn = cleanEnglishGlossForTranslation(rawMeaning);
+
+  // 1. Dịch nghĩa tiếng Anh JMdict sang tiếng Việt qua Google Translate GTX (rất nhanh & chuẩn)
+  if (cleanedEn) {
+    try {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(
+        cleanedEn
+      )}`;
+      const res = await fetchWithTimeout(url, 4500);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && Array.isArray(data[0])) {
+          const vi = data[0]
+            .map((chunk: any) => (chunk && chunk[0] ? chunk[0] : ''))
+            .filter(Boolean)
+            .join('')
+            .trim();
+          const formatted = formatVietnameseGloss(vi);
+          if (formatted && !isLikelyEnglishGloss(formatted)) {
+            wordViMemoryCache.set(cacheKey, formatted);
+            persistWordViCache();
+            return { ...ex, hanViet: '', meaning: formatted };
+          }
+        }
+      }
+    } catch {
+      // Thử fallback tiếng Nhật bên dưới
+    }
+  }
+
+  // 2. Fallback: Dịch trực tiếp từ tiếng Nhật sang tiếng Việt
+  try {
+    const jaUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(
+      word
+    )}`;
+    const jaRes = await fetchWithTimeout(jaUrl, 4500);
+    if (jaRes.ok) {
+      const jaData = await jaRes.json();
+      if (Array.isArray(jaData) && Array.isArray(jaData[0])) {
+        const vi = jaData[0]
+          .map((chunk: any) => (chunk && chunk[0] ? chunk[0] : ''))
+          .filter(Boolean)
+          .join('')
+          .trim();
+        const formatted = formatVietnameseGloss(vi);
+        if (formatted) {
+          wordViMemoryCache.set(cacheKey, formatted);
+          persistWordViCache();
+          return { ...ex, hanViet: '', meaning: formatted };
+        }
+      }
+    }
+  } catch {
+    // Giữ nguyên nếu mất mạng
+  }
+
+  return { ...ex, hanViet: '' };
+}
+
+/**
+ * Tự động dịch nghĩa tiếng Việt cho danh sách từ ghép và lưu cache vào localStorage
+ */
+export async function enrichCompoundExamplesVietnamese(
+  examples: KanjiExample[]
+): Promise<KanjiExample[]> {
+  if (!Array.isArray(examples) || examples.length === 0) return [];
+  return Promise.all(examples.map((ex) => translateSingleCompoundExample(ex)));
+}
+
+/**
+ * Cập nhật lại cache từ ghép đã dịch tiếng Việt cho Kanji đang xem
+ */
+export function updateCachedKanjiExamples(kanji: string, examples: KanjiExample[]) {
+  const existing = cache.get(kanji);
+  if (existing) {
+    cache.set(kanji, { ...existing, examples });
+  }
+}
+
 export function isPlaceholderKanjiText(text?: string | null): boolean {
   if (!text) return true;
   const trimmed = text.trim();
@@ -320,8 +591,11 @@ export async function getFullKanjiDetail(kanji: string): Promise<KanjiDetail> {
           jlptStr = `N${data.jlpt}`;
         }
 
-        // Lấy thêm từ vựng ghép nếu có
-        let examples: KanjiExample[] = local?.examples || [];
+        // Lấy thêm từ vựng ghép thông dụng nếu chưa có sẵn
+        let examples: KanjiExample[] = (local?.examples || []).map((ex) => ({
+          ...ex,
+          hanViet: '',
+        }));
         if (examples.length === 0) {
           try {
             const wordsRes = await fetchWithTimeout(
@@ -331,21 +605,7 @@ export async function getFullKanjiDetail(kanji: string): Promise<KanjiDetail> {
             if (wordsRes.ok) {
               const wordsData = await wordsRes.json();
               if (Array.isArray(wordsData)) {
-                examples = wordsData.slice(0, 5).map((w: any) => {
-                  const written = w.variants?.[0]?.written || kanji;
-                  const pronounced = w.variants?.[0]?.pronounced || '';
-                  const meaning = w.meanings?.[0]?.glosses?.join(', ') || '';
-                  const chars = Array.from(written);
-                  const hvList = chars.map((c: any) => SINO_VIETNAMESE_MAP[c] || '').filter(Boolean);
-                  const combinedHv = hvList.length > 0 ? hvList.join(' ') : '';
-
-                  return {
-                    word: written,
-                    reading: pronounced,
-                    hanViet: combinedHv,
-                    meaning: meaning,
-                  };
-                });
+                examples = selectCommonCompoundWords(wordsData, kanji, 6);
               }
             }
           } catch {

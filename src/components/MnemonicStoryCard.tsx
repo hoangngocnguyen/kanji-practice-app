@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KanjiDecomposition } from '../types/radical';
-import { Lightbulb, Edit3, Check, RotateCcw, Sparkles } from 'lucide-react';
+import { Lightbulb, Edit3, Check, RotateCcw, Layers3 } from 'lucide-react';
 
 interface MnemonicStoryCardProps {
   decomposition: KanjiDecomposition;
@@ -112,7 +112,7 @@ export const MnemonicStoryCard: React.FC<MnemonicStoryCardProps> = ({ decomposit
       {/* Radical Elements Pills */}
       <div className="mt-3 pt-3 border-t border-amber-200/80 flex items-center gap-2 flex-wrap text-xs text-amber-900">
         <span className="flex items-center gap-1 font-bold text-amber-800">
-          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+          <Layers3 className="w-3.5 h-3.5 text-amber-600" />
           Các bộ ghép:
         </span>
         {decomposition.components.map((comp, i) => (

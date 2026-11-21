@@ -4,12 +4,11 @@ import {
   Copy,
   Download,
   RefreshCw,
-  ExternalLink,
   Volume2,
   BookOpen,
+  BookMarked,
   PlayCircle,
   PenTool,
-  Sparkles,
   Layers3,
   Award,
   CheckCircle2,
@@ -22,7 +21,15 @@ import {
 } from 'lucide-react';
 import { KanjiItem, KanjiDetail } from '../types/kanji';
 import { StrokeAnimation, MAZII_STROKE_COLORS } from './StrokeAnimation';
-import { getFullKanjiDetail, mergeKanjiDetails } from '../utils/kanjiApi';
+import {
+  getFullKanjiDetail,
+  getQuickLocalKanjiDetails,
+  mergeKanjiDetails,
+  enrichCompoundExamplesVietnamese,
+  updateCachedKanjiExamples,
+} from '../utils/kanjiApi';
+import { extractUniqueKanji, isKanjiChar } from '../utils/kanji';
+import { SINO_VIETNAMESE_MAP, getKanjiInfo } from '../data/kanjiDictionary';
 import { speakJapanese } from '../utils/speech';
 import { getJlptBadgeClass } from '../utils/colorUtils';
 import { fetchKanjiSvg, saveKanjiSvgToCache } from '../utils/kanji';
@@ -41,6 +48,8 @@ import {
   KanjiExampleSentence,
 } from '../services/kanjiLevelService';
 
+const STACK_Z_CLASSES = ['z-[70]', 'z-[80]', 'z-[90]', 'z-[100]'];
+
 interface PracticeModalProps {
   item: KanjiItem | null;
   kanjiList?: KanjiItem[];
@@ -52,6 +61,7 @@ interface PracticeModalProps {
   onDownloadPng: (item: KanjiItem) => void;
   onSelectKanji?: (char: string) => void;
   onDetailLoaded?: (kanji: string, detail: KanjiDetail) => void;
+  stackDepth?: number;
 }
 
 type TabType = 'animation' | 'dictionary' | 'radicals' | 'practice';
@@ -67,13 +77,30 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   onDownloadPng,
   onSelectKanji,
   onDetailLoaded,
+  stackDepth = 0,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('animation');
   const [detail, setDetail] = useState<KanjiDetail | null>(null);
   const [decomposition, setDecomposition] = useState<KanjiDecomposition | null>(null);
   const [exampleSentences, setExampleSentences] = useState<KanjiExampleSentence[]>([]);
+  const [nestedKanjiItem, setNestedKanjiItem] = useState<KanjiItem | null>(null);
+  const [isTranslatingExamples, setIsTranslatingExamples] = useState(false);
   const onDetailLoadedRef = useRef(onDetailLoaded);
   onDetailLoadedRef.current = onDetailLoaded;
+
+  const openNestedKanji = useCallback(
+    (char: string) => {
+      if (!isKanjiChar(char)) return;
+      if (stackDepth >= 4) {
+        if (onSelectKanji) onSelectKanji(char);
+        return;
+      }
+      const created = extractUniqueKanji(char)[0];
+      if (!created) return;
+      setNestedKanjiItem(created);
+    },
+    [stackDepth, onSelectKanji]
+  );
 
   // Canvas drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -116,6 +143,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     if (!item) return;
 
     setActiveTab('animation');
+    setNestedKanjiItem(null);
     resetPracticeTest();
     // Seed immediately with any catalog detail already attached to item
     setDetail(item.detail || null);
@@ -123,12 +151,40 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     let isMounted = true;
     const targetKanji = item.kanji;
     const itemDetailFallback = item.detail;
+
+    // Seed nhanh từ dữ liệu cục bộ nếu mở popup chồng lớp từ từ ghép
+    getQuickLocalKanjiDetails([targetKanji])
+      .then((quickMap) => {
+        if (isMounted && quickMap[targetKanji]) {
+          setDetail((prev) => mergeKanjiDetails(prev, quickMap[targetKanji]) || quickMap[targetKanji]);
+        }
+      })
+      .catch(() => {});
+
     getFullKanjiDetail(targetKanji)
-      .then((res) => {
-        if (isMounted && res) {
-          const merged = mergeKanjiDetails(res, itemDetailFallback) || res;
-          setDetail((prev) => mergeKanjiDetails(merged, prev) || merged);
-          onDetailLoadedRef.current?.(targetKanji, merged);
+      .then(async (res) => {
+        if (!isMounted || !res) return;
+        const merged = mergeKanjiDetails(res, itemDetailFallback) || res;
+        setDetail((prev) => mergeKanjiDetails(merged, prev) || merged);
+        onDetailLoadedRef.current?.(targetKanji, merged);
+
+        if (merged.examples && merged.examples.length > 0) {
+          setIsTranslatingExamples(true);
+          try {
+            const translatedExamples = await enrichCompoundExamplesVietnamese(merged.examples);
+            if (!isMounted) return;
+            updateCachedKanjiExamples(targetKanji, translatedExamples);
+            const enrichedDetail: KanjiDetail = {
+              ...merged,
+              examples: translatedExamples,
+            };
+            setDetail((prev) =>
+              prev ? { ...prev, examples: translatedExamples } : enrichedDetail
+            );
+            onDetailLoadedRef.current?.(targetKanji, enrichedDetail);
+          } finally {
+            if (isMounted) setIsTranslatingExamples(false);
+          }
         }
       })
       .catch(() => {});
@@ -264,6 +320,9 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Nhường phím điều hướng & Esc cho popup đang mở đè lên trên
+      if (nestedKanjiItem) return;
+
       if (event.key === 'Escape') {
         onClose();
       } else if (event.key === 'ArrowLeft') {
@@ -289,7 +348,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [item, onClose, hasPrev, hasNext, goToPrev, goToNext]);
+  }, [item, nestedKanjiItem, onClose, hasPrev, hasNext, goToPrev, goToNext]);
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
@@ -406,13 +465,18 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     }
   };
 
+  const backdropZClass = STACK_Z_CLASSES[Math.min(stackDepth, STACK_Z_CLASSES.length - 1)];
+
   return (
+    <>
     <div
-      className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4"
+      className={`fixed inset-0 ${backdropZClass} bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4`}
       onClick={handleBackdropClick}
     >
       <div
-        className="relative max-w-2xl w-full flex items-center justify-center"
+        className={`relative ${
+          stackDepth > 0 ? 'max-w-2xl' : 'max-w-3xl'
+        } w-full flex items-center justify-center`}
         onClick={(event) => event.stopPropagation()}
       >
         {/* Desktop Floating Left Arrow */}
@@ -743,42 +807,83 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
               {/* Compound Words Examples */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h5 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-teal-600" />
+                    <BookMarked className="w-4 h-4 text-teal-700" />
                     <span>Từ ghép ví dụ thực tế ({detail?.examples.length || 0})</span>
                   </h5>
-                  <span className="text-[11px] text-slate-400">Click loa để nghe</span>
+                  <span className="text-[11px] text-slate-400">
+                    Bấm chữ Kanji để tra · Di chuột xem Hán-Việt
+                  </span>
                 </div>
 
                 {detail?.examples && detail.examples.length > 0 ? (
                   <div className="space-y-2">
                     {detail.examples.map((ex, idx) => (
                       <div
-                        key={idx}
-                        className="p-3 bg-white hover:bg-slate-50/80 rounded-xl border border-slate-200/80 transition-all flex items-start justify-between gap-3 group"
+                        key={`${ex.word}-${idx}`}
+                        className="p-3 bg-white hover:bg-slate-50/70 rounded-xl border border-slate-200/80 transition-colors flex items-start justify-between gap-3"
                       >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-kanji font-bold text-base text-slate-900 group-hover:text-teal-700 transition-colors">
-                              {ex.word}
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
+                            <span className="inline-flex items-baseline flex-wrap">
+                              {Array.from(ex.word).map((char, cIdx) => {
+                                if (!isKanjiChar(char)) {
+                                  return (
+                                    <span
+                                      key={cIdx}
+                                      className="font-kanji font-bold text-base sm:text-[17px] text-slate-800 leading-snug"
+                                    >
+                                      {char}
+                                    </span>
+                                  );
+                                }
+                                const charHv =
+                                  SINO_VIETNAMESE_MAP[char] ||
+                                  getKanjiInfo(char)?.hanViet ||
+                                  '';
+                                const isCurrentKanji = char === item.kanji;
+                                return (
+                                  <button
+                                    key={cIdx}
+                                    type="button"
+                                    onClick={() => openNestedKanji(char)}
+                                    title={
+                                      charHv
+                                        ? `${char} (${charHv}) — Bấm để xem chi tiết`
+                                        : `Bấm để xem chi tiết chữ ${char}`
+                                    }
+                                    className={`font-kanji font-bold text-base sm:text-[17px] leading-snug underline decoration-2 underline-offset-4 rounded px-0.5 transition-colors cursor-pointer ${
+                                      isCurrentKanji
+                                        ? 'text-teal-700 decoration-teal-400 hover:bg-teal-50'
+                                        : 'text-slate-900 decoration-slate-300 decoration-dotted hover:text-teal-700 hover:decoration-teal-400 hover:bg-teal-50'
+                                    }`}
+                                  >
+                                    {char}
+                                  </button>
+                                );
+                              })}
                             </span>
-                            <span className="text-xs font-kanji text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                              【{ex.reading}】
-                            </span>
-                            {ex.hanViet && (
-                              <span className="text-[11px] font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200/70">
-                                {ex.hanViet}
+
+                            {ex.reading && (
+                              <span className="text-xs font-kanji text-slate-500">
+                                【{ex.reading}】
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-600">{ex.meaning}</p>
+
+                          <p className="text-xs sm:text-[13px] text-slate-700 font-medium leading-relaxed">
+                            {ex.meaning ||
+                              (isTranslatingExamples ? 'Đang dịch nghĩa tiếng Việt...' : '')}
+                          </p>
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => speakJapanese(ex.word)}
-                          className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                          className="min-w-[40px] min-h-[40px] flex items-center justify-center text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer shrink-0"
                           title={`Nghe phát âm "${ex.word}"`}
+                          aria-label={`Nghe phát âm ${ex.word}`}
                         >
                           <Volume2 className="w-4 h-4" />
                         </button>
@@ -786,8 +891,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl">
-                    Chưa có từ ghép mẫu trong danh mục này. Bạn có thể tham khảo câu ví dụ hoặc tra cứu thêm trên Jisho bên dưới.
+                  <div className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-slate-200/60">
+                    Chưa có từ ghép mẫu cho chữ này. Bạn có thể tham khảo câu ví dụ thực tế bên dưới.
                   </div>
                 )}
               </div>
@@ -859,17 +964,6 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                 )}
               </div>
 
-              {/* Fast Online Dictionary Link */}
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs">
-                <a
-                  href={`https://jisho.org/search/${encodeURIComponent(item.kanji)}%20%23kanji`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-teal-50 text-teal-800 hover:bg-teal-100 font-medium inline-flex items-center gap-1 border border-teal-200 transition-colors"
-                >
-                  Tra cứu Jisho.org <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
             </div>
           )}
 
@@ -880,9 +974,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                 <>
                   <KanjiRadicalTree
                     decomposition={decomposition}
-                    onSelectKanji={(k) => {
-                      if (onSelectKanji) onSelectKanji(k);
-                    }}
+                    onSelectKanji={(k) => openNestedKanji(k)}
                   />
                   <MnemonicStoryCard decomposition={decomposition} />
                 </>
@@ -1229,5 +1321,19 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       </div>
     </div>
   </div>
+    {nestedKanjiItem && (
+      <PracticeModal
+        item={nestedKanjiItem}
+        stackDepth={stackDepth + 1}
+        showGrid={showGrid}
+        onToggleGrid={onToggleGrid}
+        onClose={() => setNestedKanjiItem(null)}
+        onCopyImage={onCopyImage}
+        onDownloadPng={onDownloadPng}
+        onSelectKanji={onSelectKanji}
+        onDetailLoaded={onDetailLoaded}
+      />
+    )}
+    </>
   );
 };

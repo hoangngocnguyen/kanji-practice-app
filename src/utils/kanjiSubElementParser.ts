@@ -324,7 +324,8 @@ export function parsePositionType(positionStr?: string | null): {
 export function findRadicalInfo(
   char: string,
   origChar?: string | null,
-  rawElem?: string | null
+  rawElem?: string | null,
+  fallbackStrokeCount?: number
 ): {
   hanViet: string;
   meaning: string;
@@ -338,6 +339,9 @@ export function findRadicalInfo(
     char ? CJK_RADICAL_VARIANTS[char] : null,
     rawElem ? CJK_RADICAL_VARIANTS[rawElem] : null,
   ].filter((c): c is string => !!c && c.trim().length > 0);
+
+  const resolvedFallbackStrokes =
+    fallbackStrokeCount && fallbackStrokeCount > 0 ? fallbackStrokeCount : 1;
 
   // 1. Thử tra các ký tự ứng viên trong 214 Bộ thủ Khang Hy
   for (const c of candidates) {
@@ -366,7 +370,7 @@ export function findRadicalInfo(
       return {
         hanViet: kData.hanViet || SINO_VIETNAMESE_MAP[c] || '',
         meaning: meanStr,
-        strokeCount: kData.strokeCount || 2,
+        strokeCount: kData.strokeCount || resolvedFallbackStrokes,
       };
     }
   }
@@ -378,7 +382,7 @@ export function findRadicalInfo(
       return {
         hanViet: hv,
         meaning: COMPONENT_MEANINGS[c] || '',
-        strokeCount: c.length > 0 ? c.length * 2 : 2,
+        strokeCount: resolvedFallbackStrokes,
       };
     }
   }
@@ -389,16 +393,16 @@ export function findRadicalInfo(
       return {
         hanViet: '',
         meaning: COMPONENT_MEANINGS[c],
-        strokeCount: 2,
+        strokeCount: resolvedFallbackStrokes,
       };
     }
   }
 
-  // 5. Mặc định
+  // 5. Mặc định dùng số nét thực đo từ thẻ <path>
   return {
     hanViet: '',
     meaning: '',
-    strokeCount: 2,
+    strokeCount: resolvedFallbackStrokes,
   };
 }
 
@@ -482,13 +486,23 @@ export function parseKanjiVgSvgXml(
     const rootRadicalAttr = getKvgAttr(rootGroup, 'radical');
     const isSelfRadical = rootRadicalAttr === 'general';
 
-    // 2. Hàm đệ quy duyệt bóc tách các nhóm <g> con theo tầng (Depth 1, 2, 3)
+    // 2. Hàm đệ quy duyệt bóc tách toàn bộ các tầng nhóm <g> cho tới khi không tách thêm được nữa
+    const MAX_SAFE_DEPTH = 16;
+
+    function hasPrimaryDescendant(comp: RadicalComponent): boolean {
+      if (comp.isPrimaryRadical) return true;
+      return Boolean(comp.subComponents?.some((sc) => hasPrimaryDescendant(sc)));
+    }
+
     function extractSubComponents(
       parentEl: Element,
       currentDepth: number,
-      inheritedPos?: string | null
+      inheritedPos?: string | null,
+      parentCanonicalChar?: string | null,
+      visitedEls: WeakSet<Element> = new WeakSet()
     ): RadicalComponent[] {
-      if (currentDepth > 3) return [];
+      if (currentDepth > MAX_SAFE_DEPTH || visitedEls.has(parentEl)) return [];
+      visitedEls.add(parentEl);
 
       const childNodes = Array.from(parentEl.children).filter(
         (c) => c.tagName.toLowerCase() === 'g'
@@ -505,37 +519,50 @@ export function parseKanjiVgSvgXml(
 
         if (elemAttr || origAttr) {
           const rawElem = elemAttr || origAttr || '';
-          // Ưu tiên kvg:original (ví dụ 羊 thay vì ⺷) hoặc quy đổi qua CJK_RADICAL_VARIANTS
           const canonicalChar = origAttr || CJK_RADICAL_VARIANTS[rawElem] || rawElem;
+          const hasNestedGroups = Array.from(g.children).some(
+            (c) => c.tagName.toLowerCase() === 'g'
+          );
 
-          // Bỏ qua trường hợp thẻ con lồng nhau trùng chính xác ký tự chữ đích ở cấp 1
+          // Bỏ qua wrapper trùng chính ký tự đang phân tích ở tầng trên nếu có con bên trong
           if (
-            (rawElem === targetKanji || canonicalChar === targetKanji) &&
-            currentDepth === 1
+            hasNestedGroups &&
+            ((currentDepth === 1 && (rawElem === targetKanji || canonicalChar === targetKanji)) ||
+              (parentCanonicalChar && canonicalChar === parentCanonicalChar))
           ) {
-            results.push(...extractSubComponents(g, currentDepth, posAttr));
+            results.push(
+              ...extractSubComponents(g, currentDepth, posAttr, canonicalChar, visitedEls)
+            );
             continue;
           }
 
           const { positionType, positionName } = parsePositionType(posAttr);
-          const radicalInfo = findRadicalInfo(canonicalChar, origAttr, rawElem);
           const pathStats = extractPathStats(g);
-
-          // Phân rã sâu hơn cấp 2 và cấp 3
-          const subComponents = extractSubComponents(g, currentDepth + 1, posAttr);
-
-          // Kiểm tra xem trong các con có nhánh nào mang kvg:radical="general" không
-          const hasChildPrimary = subComponents.some(
-            (c) => c.isPrimaryRadical || (c.subComponents && c.subComponents.some((sc) => sc.isPrimaryRadical))
+          const radicalInfo = findRadicalInfo(
+            canonicalChar,
+            origAttr,
+            rawElem,
+            pathStats.count
           );
 
+          // Tiếp tục phân rã đệ quy cho tới tận bộ phận lá nguyên thủy
+          const subComponents = extractSubComponents(
+            g,
+            currentDepth + 1,
+            posAttr,
+            canonicalChar,
+            visitedEls
+          );
+
+          const hasChildPrimary = subComponents.some((c) => hasPrimaryDescendant(c));
+
           results.push({
-            radical: canonicalChar, // Ký tự chuẩn hóa (vd: 羊 thay vì ký tự biến thể ⺷)
-            variant: rawElem !== canonicalChar ? rawElem : (varAttr || undefined),
+            radical: canonicalChar,
+            variant: rawElem !== canonicalChar ? rawElem : varAttr || undefined,
             hanViet: radicalInfo.hanViet,
             meaning: radicalInfo.meaning,
-            strokeCount: radicalInfo.strokeCount, // Số nét chuẩn 214 bộ thủ Khang Hy
-            actualPathCount: pathStats.count,      // Số nét đồ họa thực tế từ thẻ <path>
+            strokeCount: radicalInfo.strokeCount,
+            actualPathCount: pathStats.count,
             pathIndices: pathStats.indices,
             positionType,
             positionName,
@@ -544,9 +571,10 @@ export function parseKanjiVgSvgXml(
             subComponents: subComponents.length > 0 ? subComponents : undefined,
           });
         } else {
-          // Thẻ <g> chỉ dùng để gom nhóm bố cục/vị trí (không có kvg:element)
-          // Kế thừa vị trí xuống các thẻ con
-          results.push(...extractSubComponents(g, currentDepth, posAttr));
+          // Thẻ <g> gom nhóm bố cục không mang kvg:element: giữ nguyên cấp và kế thừa vị trí
+          results.push(
+            ...extractSubComponents(g, currentDepth, posAttr, parentCanonicalChar, visitedEls)
+          );
         }
       }
 
@@ -642,16 +670,10 @@ export async function fetchAndDecomposeKanji(
     return DECOMPOSITION_CACHE.get(kanji)!;
   }
 
-  // 1. Kiểm tra cấu hình có sẵn trong KANJI_DECOMPOSITIONS
-  if (KANJI_DECOMPOSITIONS[kanji]) {
-    const dec = KANJI_DECOMPOSITIONS[kanji];
-    DECOMPOSITION_CACHE.set(kanji, dec);
-    return dec;
-  }
+  const staticPreset = KANJI_DECOMPOSITIONS[kanji];
+  const resolvedHv = hanVietName || SINO_VIETNAMESE_MAP[kanji] || staticPreset?.hanViet || '';
 
-  const resolvedHv = hanVietName || SINO_VIETNAMESE_MAP[kanji] || '';
-
-  // 2. Fetch KanjiVG SVG online và phân tích cây XML chính xác
+  // 1. Ưu tiên Fetch KanjiVG SVG online để phân rã đệ quy đầy đủ tới tận bộ phận gốc (không giới hạn cấp)
   const svgText = await fetchKanjiVgSvg(kanji);
   if (svgText) {
     const { isSelfRadical, primaryRadicalName, directComponents, allComponents } =
@@ -669,19 +691,30 @@ export async function fetchAndDecomposeKanji(
       const dec: KanjiDecomposition = {
         kanji,
         hanViet: resolvedHv,
-        primaryRadical: primaryRadicalName || (activeComponents[0]?.radical || 'Cơ bản'),
+        primaryRadical:
+          staticPreset?.primaryRadical ||
+          primaryRadicalName ||
+          activeComponents[0]?.radical ||
+          'Cơ bản',
         isSelfRadical,
         directComponents,
         components: activeComponents,
         mnemonicStory:
-          storyParts.length > 0
+          staticPreset?.mnemonicStory ||
+          (storyParts.length > 0
             ? `Ghi nhớ chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} bằng cách kết hợp các bộ phận: ${storyParts.join(', ')}.`
-            : `Chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} cấu tạo từ các bộ phận: ${activeComponents.map((c) => c.radical).join(', ')}.`,
+            : `Chữ ${kanji}${resolvedHv ? ' (' + resolvedHv + ')' : ''} cấu tạo từ các bộ phận: ${activeComponents.map((c) => c.radical).join(', ')}.`),
       };
 
       DECOMPOSITION_CACHE.set(kanji, dec);
       return dec;
     }
+  }
+
+  // 2. Fallback sang cấu hình tĩnh KANJI_DECOMPOSITIONS nếu không tải được SVG
+  if (staticPreset) {
+    DECOMPOSITION_CACHE.set(kanji, staticPreset);
+    return staticPreset;
   }
 
   // 3. Fallback to Kangxi 214 list matching

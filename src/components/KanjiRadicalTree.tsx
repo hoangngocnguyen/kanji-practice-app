@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { KanjiDecomposition, RadicalComponent } from '../types/radical';
 import { RADICALS_LIST } from '../data/radicalsData';
 import {
   ArrowRight,
   Layers3,
-  Star,
-  ChevronDown,
-  ChevronUp,
-  GitBranch,
+  ChevronRight,
   Maximize2,
   Minimize2,
+  LocateFixed,
+  Hand,
+  Plus,
+  Minus,
 } from 'lucide-react';
 
 interface KanjiRadicalTreeProps {
@@ -18,476 +19,524 @@ interface KanjiRadicalTreeProps {
   onSelectRadical?: (radicalChar: string) => void;
 }
 
+interface TreeStats {
+  maxDepth: number;
+  totalNodes: number;
+  leafCount: number;
+  firstLevelBranchKeys: string[];
+}
+
+function collectTreeStats(
+  components: RadicalComponent[],
+  parentPath = '',
+  currentDepth = 1
+): TreeStats {
+  let maxDepth = currentDepth;
+  let totalNodes = 0;
+  let leafCount = 0;
+  const firstLevelBranchKeys: string[] = [];
+
+  components.forEach((comp, idx) => {
+    const pathKey = parentPath ? `${parentPath}-${idx}` : `${idx}`;
+    totalNodes += 1;
+    const hasSub = Boolean(comp.subComponents && comp.subComponents.length > 0);
+    if (currentDepth === 1 && hasSub) {
+      firstLevelBranchKeys.push(pathKey);
+    }
+
+    if (hasSub && comp.subComponents) {
+      const childStats = collectTreeStats(comp.subComponents, pathKey, currentDepth + 1);
+      if (childStats.maxDepth > maxDepth) maxDepth = childStats.maxDepth;
+      totalNodes += childStats.totalNodes;
+      leafCount += childStats.leafCount;
+    } else {
+      leafCount += 1;
+    }
+  });
+
+  return { maxDepth, totalNodes, leafCount, firstLevelBranchKeys };
+}
+
+function getPositionTextClass(type?: string): string {
+  switch (type) {
+    case 'hen':
+      return 'text-cyan-700';
+    case 'tsukuri':
+      return 'text-indigo-700';
+    case 'kanmuri':
+      return 'text-amber-700';
+    case 'ashi':
+      return 'text-emerald-700';
+    case 'kamae':
+    case 'tare':
+    case 'nyo':
+      return 'text-rose-700';
+    default:
+      return 'text-slate-500';
+  }
+}
+
+interface MindmapNodeProps {
+  comp: RadicalComponent;
+  nodePath: string;
+  siblingIndex: number;
+  siblingCount: number;
+  collapsedPaths: Record<string, boolean>;
+  selectedPath: string | null;
+  onSelectNode: (comp: RadicalComponent, pathKey: string) => void;
+  onToggleCollapse: (pathKey: string) => void;
+}
+
+const MindmapBranchNode: React.FC<MindmapNodeProps> = ({
+  comp,
+  nodePath,
+  siblingIndex,
+  siblingCount,
+  collapsedPaths,
+  selectedPath,
+  onSelectNode,
+  onToggleCollapse,
+}) => {
+  const children = comp.subComponents || [];
+  const hasChildren = children.length > 0;
+  const isCollapsed = Boolean(collapsedPaths[nodePath]);
+  const isSelected = selectedPath === nodePath;
+  const isFirst = siblingIndex === 0;
+  const isLast = siblingIndex === siblingCount - 1;
+
+  return (
+    <div className="relative flex items-center pl-5 sm:pl-6 py-1.5">
+      {/* Spine connector along the left side across siblings */}
+      {siblingCount > 1 && (
+        <span
+          aria-hidden="true"
+          className={`absolute left-0 w-0.5 bg-slate-300 ${
+            isFirst ? 'top-1/2 bottom-0' : isLast ? 'top-0 bottom-1/2' : 'top-0 bottom-0'
+          }`}
+        />
+      )}
+
+      {/* Horizontal branch tick into this node */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-0 top-1/2 -translate-y-1/2 w-5 sm:w-6 h-0.5 ${
+          comp.isPrimaryRadical ? 'bg-teal-500' : 'bg-slate-300'
+        }`}
+      />
+
+      {/* Node + Recursive Rightward Children */}
+      <div className="flex items-center">
+        {/* Node Card */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectNode(comp, nodePath);
+          }}
+          className={`relative flex items-center gap-2.5 px-2.5 py-2 rounded-xl border transition-all duration-150 cursor-pointer shrink-0 select-none ${
+            isSelected
+              ? 'bg-teal-50 border-teal-600 ring-2 ring-teal-500/25 shadow-sm'
+              : comp.isPrimaryRadical
+              ? 'bg-white border-teal-400 hover:border-teal-600 shadow-2xs'
+              : !hasChildren
+              ? 'bg-white border-slate-200 hover:border-teal-300 shadow-2xs'
+              : 'bg-white border-slate-200 hover:border-teal-400 shadow-2xs'
+          }`}
+          title={`${comp.radical}${comp.hanViet ? ` (${comp.hanViet})` : ''}${
+            comp.meaning ? ` — ${comp.meaning}` : ''
+          }`}
+        >
+          {/* Radical glyph box */}
+          <div
+            className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${
+              isSelected
+                ? 'bg-teal-700 border-teal-800 text-white'
+                : comp.isPrimaryRadical
+                ? 'bg-teal-50 border-teal-200 text-teal-900'
+                : 'bg-slate-50 border-slate-200 text-slate-900'
+            }`}
+          >
+            <span className="font-kanji font-black text-xl leading-none">{comp.radical}</span>
+          </div>
+
+          {/* Node text info (no pill soup) */}
+          <div className="min-w-0 max-w-[138px]">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-900 truncate">
+                {comp.hanViet || (comp.variant ? comp.variant : 'Thành phần')}
+              </span>
+              <span className="text-[10px] font-mono font-semibold text-slate-400 tabular-nums shrink-0">
+                {comp.strokeCount}n
+              </span>
+            </div>
+
+            {comp.meaning ? (
+              <p className="text-[11px] text-slate-500 truncate leading-tight mt-0.5">
+                {comp.meaning}
+              </p>
+            ) : (
+              <p
+                className={`text-[10px] font-medium truncate leading-tight mt-0.5 ${getPositionTextClass(
+                  comp.positionType
+                )}`}
+              >
+                {comp.positionName || 'Bộ phận'}
+              </p>
+            )}
+
+            {(comp.isPrimaryRadical || !hasChildren) && (
+              <div className="flex items-center gap-1 mt-0.5 text-[10px] font-semibold">
+                {comp.isPrimaryRadical && (
+                  <span className="text-teal-700">Bộ chính</span>
+                )}
+                {comp.isPrimaryRadical && !hasChildren && (
+                  <span className="text-slate-300">·</span>
+                )}
+                {!hasChildren && (
+                  <span className="text-slate-400">Gốc</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Branch Collapse / Expand Button if children exist */}
+          {hasChildren && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCollapse(nodePath);
+              }}
+              className={`ml-0.5 w-6 h-6 rounded-full border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+                isCollapsed
+                  ? 'bg-teal-600 hover:bg-teal-700 text-white border-teal-700 shadow-2xs'
+                  : 'bg-slate-100 hover:bg-teal-100 text-slate-600 hover:text-teal-800 border-slate-200'
+              }`}
+              title={
+                isCollapsed
+                  ? `Mở rộng ${children.length} thành phần con`
+                  : `Thu gọn nhánh [${comp.radical}]`
+              }
+              aria-label={isCollapsed ? 'Mở rộng nhánh' : 'Thu gọn nhánh'}
+            >
+              {isCollapsed ? (
+                <span className="flex items-center text-[10px] font-bold tabular-nums leading-none">
+                  <Plus className="w-2.5 h-2.5" />
+                  {children.length}
+                </span>
+              ) : (
+                <Minus className="w-3 h-3" />
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Outgoing Stem & Recursive Child Branches */}
+        {hasChildren && !isCollapsed && (
+          <div className="flex items-center">
+            <span aria-hidden="true" className="w-5 sm:w-6 h-0.5 bg-slate-300 shrink-0" />
+            <div className="flex flex-col justify-center">
+              {children.map((child, cIdx) => {
+                const childPath = `${nodePath}-${cIdx}`;
+                return (
+                  <MindmapBranchNode
+                    key={`${childPath}-${child.radical}`}
+                    comp={child}
+                    nodePath={childPath}
+                    siblingIndex={cIdx}
+                    siblingCount={children.length}
+                    collapsedPaths={collapsedPaths}
+                    selectedPath={selectedPath}
+                    onSelectNode={onSelectNode}
+                    onToggleCollapse={onToggleCollapse}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
   decomposition,
   onSelectKanji,
   onSelectRadical,
 }) => {
   const [activeRadical, setActiveRadical] = useState<RadicalComponent | null>(null);
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [collapsedPaths, setCollapsedPaths] = useState<Record<string, boolean>>({});
+  const [isPanning, setIsPanning] = useState(false);
 
-  const getPositionBadgeColor = (type?: string) => {
-    switch (type) {
-      case 'hen':
-        return 'bg-cyan-50 text-cyan-800 border-cyan-200/80';
-      case 'tsukuri':
-        return 'bg-indigo-50 text-indigo-800 border-indigo-200/80';
-      case 'kanmuri':
-        return 'bg-amber-50 text-amber-800 border-amber-200/80';
-      case 'ashi':
-        return 'bg-emerald-50 text-emerald-800 border-emerald-200/80';
-      case 'kamae':
-      case 'tare':
-      case 'nyo':
-        return 'bg-rose-50 text-rose-800 border-rose-200/80';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const panOriginRef = useRef<{
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    scrollTop: number;
+  } | null>(null);
+
+  const activeList = useMemo(
+    () =>
+      decomposition.directComponents && decomposition.directComponents.length > 0
+        ? decomposition.directComponents
+        : decomposition.components,
+    [decomposition]
+  );
+
+  // Reset trạng thái chọn và thu gọn khi đổi chữ Kanji
+  useEffect(() => {
+    setActiveRadical(null);
+    setSelectedPath(null);
+    setCollapsedPaths({});
+    if (viewportRef.current) {
+      viewportRef.current.scrollTo({ left: 0, top: 0 });
     }
-  };
+  }, [decomposition.kanji]);
 
-  // Find matching full radical info from RADICALS_LIST to get related Kanji
-  const getRelatedKanjiForRadical = (radChar: string) => {
+  const treeStats = useMemo(() => collectTreeStats(activeList), [activeList]);
+  const hasAnyBranch = treeStats.maxDepth > 1;
+  const hasAnyCollapsed = Object.values(collapsedPaths).some(Boolean);
+
+  const getRelatedKanjiForRadical = useCallback((radChar: string) => {
     const found = RADICALS_LIST.find(
       (r) => r.character === radChar || (r.variant && r.variant.includes(radChar))
     );
     return found ? found.examples : [];
-  };
+  }, []);
 
-  const activeList =
-    decomposition.directComponents && decomposition.directComponents.length > 0
-      ? decomposition.directComponents
-      : decomposition.components;
-  const compCount = activeList.length;
+  const handleToggleCollapse = useCallback((pathKey: string) => {
+    setCollapsedPaths((prev) => ({
+      ...prev,
+      [pathKey]: !prev[pathKey],
+    }));
+  }, []);
 
-  // Kiểm tra xem có thành phần nào có subComponents không
-  const hasSubComponents = activeList.some(
-    (c) => c.subComponents && c.subComponents.length > 0
+  const handleSelectNode = useCallback(
+    (comp: RadicalComponent, pathKey: string) => {
+      if (selectedPath === pathKey) {
+        setSelectedPath(null);
+        setActiveRadical(null);
+      } else {
+        setSelectedPath(pathKey);
+        setActiveRadical(comp);
+      }
+    },
+    [selectedPath]
   );
 
-  const toggleNode = (nodeKey: string) => {
-    setExpandedNodes((prev) => ({
-      ...prev,
-      [nodeKey]: !prev[nodeKey],
-    }));
+  const handleExpandAll = () => {
+    setCollapsedPaths({});
   };
 
-  const toggleAllNodes = () => {
-    const allCurrentlyOpen = activeList.every(
-      (c, idx) =>
-        !c.subComponents ||
-        c.subComponents.length === 0 ||
-        expandedNodes[`root-${idx}-${c.radical}`]
-    );
-
-    const nextState: Record<string, boolean> = {};
-    if (!allCurrentlyOpen) {
-      activeList.forEach((c, idx) => {
-        if (c.subComponents && c.subComponents.length > 0) {
-          const key = `root-${idx}-${c.radical}`;
-          nextState[key] = true;
-          c.subComponents.forEach((sc, scIdx) => {
-            if (sc.subComponents && sc.subComponents.length > 0) {
-              nextState[`${key}-sc-${scIdx}-${sc.radical}`] = true;
-            }
-          });
-        }
-      });
-    }
-    setExpandedNodes(nextState);
+  const handleCollapseToLevel1 = () => {
+    const next: Record<string, boolean> = {};
+    treeStats.firstLevelBranchKeys.forEach((k) => {
+      next[k] = true;
+    });
+    setCollapsedPaths(next);
   };
 
-  const isAllOpen =
-    hasSubComponents &&
-    activeList.some(
-      (c, idx) =>
-        c.subComponents &&
-        c.subComponents.length > 0 &&
-        expandedNodes[`root-${idx}-${c.radical}`]
-    );
+  const handleResetView = () => {
+    viewportRef.current?.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+  };
+
+  // Kéo di chuyển bằng nút chuột phải (Right-click Grab & Pan)
+  const handleViewportMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 2 && e.button !== 1) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    e.preventDefault();
+    panOriginRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+    };
+    setIsPanning(true);
+  };
+
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const origin = panOriginRef.current;
+      const viewport = viewportRef.current;
+      if (!origin || !viewport) return;
+
+      const dx = e.clientX - origin.startX;
+      const dy = e.clientY - origin.startY;
+      viewport.scrollLeft = origin.scrollLeft - dx;
+      viewport.scrollTop = origin.scrollTop - dy;
+    };
+
+    const stopPanning = () => {
+      setIsPanning(false);
+      panOriginRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', stopPanning);
+    window.addEventListener('blur', stopPanning);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', stopPanning);
+      window.removeEventListener('blur', stopPanning);
+    };
+  }, [isPanning]);
 
   return (
-    <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 md:p-6 shadow-xs space-y-4">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-200/80">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-teal-50 border border-teal-200 rounded-xl text-teal-700">
+    <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5">
+      {/* Header Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <div className="p-2 bg-teal-50 border border-teal-200 rounded-xl text-teal-700 shrink-0">
             <Layers3 className="w-5 h-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-extrabold text-slate-900">
-                Sơ đồ bóc tách Bộ thủ đa cấp
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                Mindmap bóc tách bộ thủ
               </h3>
-              <span className="text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
-                {compCount} thành phần trực tiếp
+              <span className="text-xs font-semibold text-slate-500 tabular-nums">
+                {treeStats.maxDepth} tầng · {treeStats.leafCount} bộ gốc
               </span>
-              {hasSubComponents && (
-                <span className="text-[10px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
-                  Hỗ trợ mở rộng cấp 2 & 3
-                </span>
-              )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Bộ thủ chính:{' '}
+            <p className="text-xs text-slate-600 mt-0.5">
+              Bộ chính:{' '}
               <span className="text-teal-800 font-bold">{decomposition.primaryRadical}</span>
               {decomposition.isSelfRadical && (
-                <span className="ml-2 text-amber-700 font-bold bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded text-[11px]">
-                  ★ Bộ thủ độc lập
-                </span>
+                <span className="text-teal-700 font-semibold"> · Tự thân làm bộ thủ</span>
               )}
             </p>
           </div>
         </div>
 
-        {/* Nút bật/tắt mở rộng toàn bộ các cấp */}
-        {hasSubComponents && (
+        {/* Mindmap Action Controls */}
+        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+          {hasAnyBranch && (
+            <>
+              <button
+                type="button"
+                onClick={handleExpandAll}
+                disabled={!hasAnyCollapsed}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-teal-50 disabled:opacity-45 text-teal-800 border border-slate-200 hover:border-teal-300 text-xs font-semibold transition-colors cursor-pointer disabled:cursor-default"
+                title="Mở rộng toàn bộ các nhánh bộ thủ"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-teal-600" />
+                <span>Mở hết</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCollapseToLevel1}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                title="Thu gọn các nhánh sâu về cấp 1"
+              >
+                <Minimize2 className="w-3.5 h-3.5 text-slate-500" />
+                <span>Thu gọn cấp 1</span>
+              </button>
+            </>
+          )}
+
           <button
             type="button"
-            onClick={toggleAllNodes}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 text-teal-800 border border-teal-200 text-xs font-bold transition-all shadow-2xs cursor-pointer self-start sm:self-auto"
-            title="Mở rộng hoặc thu gọn toàn bộ các tầng bộ thủ con"
+            onClick={handleResetView}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+            title="Đưa góc nhìn về nút gốc"
           >
-            {isAllOpen ? (
-              <>
-                <Minimize2 className="w-3.5 h-3.5 text-teal-600" />
-                <span>Thu gọn tất cả cấp</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-3.5 h-3.5 text-teal-600" />
-                <span>Mở rộng tất cả cấp</span>
-              </>
-            )}
+            <LocateFixed className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Về gốc</span>
           </button>
-        )}
+        </div>
       </div>
 
-      {/* Tree Visualization Layout */}
-      <div className="flex flex-col items-center justify-center my-2">
-        {/* Root Kanji Node */}
-        <div className="relative group cursor-pointer">
-          <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-teal-500/10 via-emerald-500/10 to-teal-50 border-2 border-teal-600/60 shadow-md flex flex-col items-center justify-center transition-all duration-300 group-hover:scale-105 group-hover:border-teal-600">
-            <span className="text-3xl md:text-4xl font-serif font-black text-teal-950">
-              {decomposition.kanji}
-            </span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-teal-800 mt-0.5">
-              {decomposition.hanViet}
-            </span>
+      {/* Horizontal Left-to-Right Mindmap Viewport with Right-Click Pan */}
+      <div className="relative">
+        <div
+          ref={viewportRef}
+          onContextMenu={(e) => e.preventDefault()}
+          onMouseDown={handleViewportMouseDown}
+          className={`w-full overflow-auto max-h-[420px] sm:max-h-[480px] rounded-xl border border-slate-200 bg-white bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:18px_18px] p-4 sm:p-6 select-none ${
+            isPanning ? 'cursor-grabbing [&_*]:!cursor-grabbing' : 'cursor-grab'
+          }`}
+        >
+          <div className="inline-flex items-center min-w-max py-2 pr-8">
+            {/* Root Kanji Node (Left) */}
+            <div className="flex items-center shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-teal-50/90 border-2 border-teal-600 shadow-sm flex flex-col items-center justify-center px-2 text-center select-none">
+                <span className="font-kanji font-black text-3xl sm:text-4xl text-teal-950 leading-none">
+                  {decomposition.kanji}
+                </span>
+                {decomposition.hanViet && (
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 mt-1 truncate max-w-full">
+                    {decomposition.hanViet}
+                  </span>
+                )}
+              </div>
+
+              {activeList.length > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="w-5 sm:w-7 h-0.5 bg-teal-500/80 shrink-0"
+                />
+              )}
+            </div>
+
+            {/* Recursive Horizontal Tree Branches (Expanding Left -> Right) */}
+            {activeList.length > 0 && (
+              <div className="flex flex-col justify-center">
+                {activeList.map((comp, idx) => (
+                  <MindmapBranchNode
+                    key={`root-${idx}-${comp.radical}`}
+                    comp={comp}
+                    nodePath={`${idx}`}
+                    siblingIndex={idx}
+                    siblingCount={activeList.length}
+                    collapsedPaths={collapsedPaths}
+                    selectedPath={selectedPath}
+                    onSelectNode={handleSelectNode}
+                    onToggleCollapse={handleToggleCollapse}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Tree Branch Connectors SVG */}
-        <div className="w-full max-w-xl h-8 my-1 relative flex justify-center items-center">
-          <svg className="w-full h-full stroke-teal-500/60 fill-none" preserveAspectRatio="none">
-            {/* Stem line down from root */}
-            <line x1="50%" y1="0" x2="50%" y2="50%" strokeWidth="2" strokeDasharray="3 3" />
-
-            {/* Horizontal line spreading to children */}
-            {compCount > 1 && (
-              <>
-                <line x1="12%" y1="50%" x2="88%" y2="50%" strokeWidth="2" />
-                {activeList.map((_, idx) => {
-                  const xPercent = 12 + (idx * 76) / (compCount - 1);
-                  return (
-                    <line
-                      key={idx}
-                      x1={`${xPercent}%`}
-                      y1="50%"
-                      x2={`${xPercent}%`}
-                      y2="100%"
-                      strokeWidth="2"
-                    />
-                  );
-                })}
-              </>
-            )}
-            {compCount === 1 && (
-              <line x1="50%" y1="50%" x2="50%" y2="100%" strokeWidth="2" />
-            )}
-          </svg>
-        </div>
-
-        {/* Direct Components Children Grid (Level 1) */}
-        <div
-          className={`w-full grid gap-3 mt-1 items-start ${
-            compCount === 1
-              ? 'grid-cols-1 max-w-xs'
-              : compCount === 2
-              ? 'grid-cols-1 md:grid-cols-2 max-w-2xl'
-              : compCount === 3
-              ? 'grid-cols-1 md:grid-cols-3 max-w-3xl'
-              : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 max-w-4xl'
-          }`}
-        >
-          {activeList.map((comp, idx) => {
-            const nodeKey = `root-${idx}-${comp.radical}`;
-            const isNodeExpanded = !!expandedNodes[nodeKey];
-            const isSelected = activeRadical?.radical === comp.radical;
-            const relatedKanji = getRelatedKanjiForRadical(comp.radical);
-            const hasSub = comp.subComponents && comp.subComponents.length > 0;
-
-            return (
-              <div key={idx} className="flex flex-col items-stretch space-y-2">
-                {/* Level 1 Node Card */}
-                <div
-                  onClick={() => setActiveRadical(isSelected ? null : comp)}
-                  className={`relative flex flex-col items-center p-3 rounded-2xl border transition-all duration-200 cursor-pointer ${
-                    isSelected
-                      ? 'bg-teal-50/90 border-teal-500 shadow-md ring-2 ring-teal-400 scale-[1.02]'
-                      : comp.isPrimaryRadical
-                      ? 'bg-amber-50/60 border-amber-300 hover:border-amber-400 shadow-2xs'
-                      : 'bg-white border-slate-200 hover:border-teal-300 hover:bg-teal-50/30 shadow-2xs'
-                  }`}
-                >
-                  {/* Primary Radical Badge or Position Badge */}
-                  <div className="flex items-center gap-1 flex-wrap justify-center mb-1.5">
-                    {comp.isPrimaryRadical && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5 shadow-2xs">
-                        <Star className="w-2.5 h-2.5 fill-amber-600 text-amber-600" />
-                        BỘ CHÍNH
-                      </span>
-                    )}
-                    {comp.positionName && (
-                      <span
-                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md border ${getPositionBadgeColor(
-                          comp.positionType
-                        )}`}
-                      >
-                        {comp.positionName}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Radical Character */}
-                  <div className="w-11 h-11 rounded-xl bg-slate-100/80 border border-slate-200 flex items-center justify-center mb-1.5 shadow-2xs">
-                    <span className="text-2xl font-serif font-black text-slate-900">
-                      {comp.radical}
-                    </span>
-                  </div>
-
-                  {/* Radical Meaning & Stroke */}
-                  {comp.hanViet && (
-                    <span className="text-xs font-bold text-slate-800 text-center line-clamp-1">
-                      {comp.hanViet}
-                    </span>
-                  )}
-                  {comp.meaning && (
-                    <span className="text-[11px] font-medium text-slate-500 text-center line-clamp-1 mt-0.5">
-                      {comp.meaning}
-                    </span>
-                  )}
-
-                  <div className="flex items-center gap-1.5 mt-2 text-[10px] text-slate-400">
-                    <span className="font-semibold text-slate-600">
-                      {comp.strokeCount} nét chuẩn
-                      {comp.actualPathCount && comp.actualPathCount !== comp.strokeCount
-                        ? ` • ${comp.actualPathCount} nét vẽ`
-                        : ''}
-                    </span>
-                    {relatedKanji.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="text-teal-700 font-bold">{relatedKanji.length} Kanji</span>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Nút Toggle mở rộng chi tiết Cấp 2 */}
-                  {hasSub && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleNode(nodeKey);
-                      }}
-                      className={`mt-2.5 w-full py-1.5 px-2 rounded-xl text-[10px] font-bold flex items-center justify-between border transition-all cursor-pointer shadow-2xs ${
-                        isNodeExpanded
-                          ? 'bg-teal-700 text-white border-teal-800'
-                          : 'bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-200'
-                      }`}
-                      title={
-                        isNodeExpanded
-                          ? 'Thu gọn cấu tạo con'
-                          : `Xem chi tiết ${comp.subComponents!.length} thành phần bên trong`
-                      }
-                    >
-                      <span className="flex items-center gap-1 truncate">
-                        <GitBranch className="w-3 h-3" />
-                        <span>
-                          {isNodeExpanded
-                            ? 'Thu gọn cấu tạo con'
-                            : `Cấu tạo con (${comp.subComponents!.length})`}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-1 font-kanji text-[10px]">
-                        {!isNodeExpanded && (
-                          <span className="text-teal-900 font-semibold max-w-[80px] truncate">
-                            {comp.subComponents!.map((sc) => sc.radical).join('+')}
-                          </span>
-                        )}
-                        {isNodeExpanded ? (
-                          <ChevronUp className="w-3.5 h-3.5 shrink-0" />
-                        ) : (
-                          <ChevronDown className="w-3.5 h-3.5 shrink-0" />
-                        )}
-                      </span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Sub-Branch: Hiển thị các bộ thủ con Cấp 2 (khi được toggle) */}
-                {hasSub && isNodeExpanded && (
-                  <div className="relative pl-2 pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                    <div className="w-0.5 h-3 bg-teal-400 mx-auto -mt-1 mb-1.5 rounded" />
-                    <div className="bg-gradient-to-b from-teal-50/70 to-slate-50 p-2.5 rounded-xl border border-teal-200 shadow-xs space-y-2">
-                      <div className="flex items-center justify-between text-[10px] font-bold text-teal-900 border-b border-teal-100 pb-1">
-                        <span className="flex items-center gap-1">
-                          <GitBranch className="w-3 h-3 text-teal-600" />
-                          <span>Chi tiết bên trong [{comp.radical}]:</span>
-                        </span>
-                        <span className="text-teal-700 font-mono">
-                          {comp.subComponents!.length} bộ phận
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-1.5">
-                        {comp.subComponents!.map((subComp, scIdx) => {
-                          const subKey = `${nodeKey}-sc-${scIdx}-${subComp.radical}`;
-                          const isSubSubExpanded = !!expandedNodes[subKey];
-                          const hasSubSub =
-                            subComp.subComponents && subComp.subComponents.length > 0;
-                          const subPos = getPositionBadgeColor(subComp.positionType);
-                          const isSubSelected = activeRadical?.radical === subComp.radical;
-
-                          return (
-                            <div key={scIdx} className="space-y-1">
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveRadical(isSubSelected ? null : subComp);
-                                }}
-                                className={`p-2 rounded-lg border text-xs flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                                  isSubSelected
-                                    ? 'bg-teal-100/80 border-teal-500 shadow-xs'
-                                    : 'bg-white hover:bg-teal-50/50 border-slate-200'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-7 h-7 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-                                    <span className="font-kanji font-black text-sm text-slate-900">
-                                      {subComp.radical}
-                                    </span>
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1">
-                                      {subComp.hanViet && (
-                                        <span className="font-bold text-slate-900 text-[11px] truncate">
-                                          {subComp.hanViet}
-                                        </span>
-                                      )}
-                                      <span
-                                        className={`text-[8px] font-bold px-1 rounded border ${subPos}`}
-                                      >
-                                        {subComp.positionName || 'Phần con'}
-                                      </span>
-                                    </div>
-                                    {subComp.meaning && (
-                                      <p className="text-[10px] text-slate-500 truncate leading-tight">
-                                        {subComp.meaning}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="text-right shrink-0">
-                                  <span className="text-[9px] text-slate-400 font-mono block">
-                                    {subComp.strokeCount} nét
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Toggle Cấp 3 nếu có */}
-                              {hasSubSub && (
-                                <div className="pl-3 pt-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleNode(subKey);
-                                    }}
-                                    className="text-[9px] font-bold text-indigo-700 hover:text-indigo-950 flex items-center gap-1 py-0.5 px-1 rounded bg-indigo-50/70 border border-indigo-200/80 cursor-pointer"
-                                  >
-                                    <span>
-                                      {isSubSubExpanded
-                                        ? 'Thu gọn cấp 3'
-                                        : `↳ Mở rộng cấp 3 (${subComp.subComponents!.length})`}
-                                    </span>
-                                    {isSubSubExpanded ? (
-                                      <ChevronUp className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <ChevronDown className="w-2.5 h-2.5" />
-                                    )}
-                                  </button>
-
-                                  {isSubSubExpanded && (
-                                    <div className="pl-2 border-l-2 border-indigo-300 mt-1 space-y-1 animate-in fade-in duration-100">
-                                      {subComp.subComponents!.map((ssc, sscIdx) => (
-                                        <div
-                                          key={sscIdx}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setActiveRadical(ssc);
-                                          }}
-                                          className="flex items-center justify-between p-1 rounded bg-white border border-slate-200 text-[9px] cursor-pointer hover:bg-indigo-50/50"
-                                        >
-                                          <div className="flex items-center gap-1.5 truncate">
-                                            <span className="font-kanji font-bold text-slate-900 bg-slate-100 px-1 rounded">
-                                              {ssc.radical}
-                                            </span>
-                                            {ssc.hanViet && (
-                                              <span className="font-bold text-slate-800">
-                                                {ssc.hanViet}:
-                                              </span>
-                                            )}
-                                            <span className="text-slate-500 truncate">
-                                              {ssc.meaning}
-                                            </span>
-                                          </div>
-                                          <span className="text-slate-400 font-mono">
-                                            {ssc.strokeCount}n
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        {/* Pan instruction strip */}
+        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-500 px-1">
+          <span className="inline-flex items-center gap-1.5">
+            <Hand className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+            <span>
+              Giữ <strong className="font-semibold text-slate-700">chuột phải</strong> và kéo để
+              di chuyển sơ đồ · Bấm <strong className="font-semibold text-slate-700">+ / −</strong>{' '}
+              để gấp gọn hoặc mở nhánh
+            </span>
+          </span>
+          <span className="hidden sm:inline text-slate-400">Bấm thẻ để xem chi tiết</span>
         </div>
       </div>
 
-      {/* Selected Radical Expansion Panel */}
+      {/* Selected Component Inspector Panel */}
       {activeRadical && (
-        <div className="mt-4 p-4 rounded-2xl bg-white border border-teal-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200 space-y-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800 font-serif font-black text-2xl shadow-2xs">
+        <div className="p-4 rounded-xl bg-white border border-teal-200 shadow-xs animate-in fade-in slide-in-from-top-1 duration-150 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800 font-kanji font-black text-2xl shrink-0">
                 {activeRadical.radical}
               </div>
-              <div>
+              <div className="min-w-0">
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 flex-wrap">
-                  Bộ phận: {activeRadical.hanViet || activeRadical.radical} ({activeRadical.radical})
-                  <span className="text-xs font-normal text-slate-500">
-                    - {activeRadical.strokeCount} nét chuẩn
+                  <span>
+                    Bộ phận: {activeRadical.hanViet || activeRadical.radical} (
+                    {activeRadical.radical})
+                  </span>
+                  <span className="text-xs font-normal text-slate-500 tabular-nums">
+                    · {activeRadical.strokeCount} nét chuẩn
                     {activeRadical.actualPathCount &&
                     activeRadical.actualPathCount !== activeRadical.strokeCount
                       ? ` (${activeRadical.actualPathCount} nét vẽ)`
@@ -508,29 +557,40 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
                 onClick={() => onSelectRadical(activeRadical.radical)}
                 className="px-3 py-1.5 text-xs font-semibold text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
               >
-                Tra trong 214 Bộ thủ
+                <span>Tra 214 Bộ thủ</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Nếu bộ thủ được chọn có subComponents, hiển thị nhanh danh sách thành phần con */}
+          {/* Direct children inside selected component */}
           {activeRadical.subComponents && activeRadical.subComponents.length > 0 && (
-            <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-100 text-xs space-y-1.5">
-              <span className="text-[11px] font-bold text-teal-900 block">
-                Cấu tạo của bộ phận này gồm:
+            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-700 block">
+                Thành phần bên trong [{activeRadical.radical}]:
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {activeRadical.subComponents.map((sc, scIdx) => (
                   <button
                     key={scIdx}
                     type="button"
-                    onClick={() => setActiveRadical(sc)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-teal-200 text-xs font-medium hover:border-teal-400 cursor-pointer shadow-2xs"
+                    onClick={() => {
+                      const nextPath = selectedPath ? `${selectedPath}-${scIdx}` : null;
+                      setActiveRadical(sc);
+                      setSelectedPath(nextPath);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-teal-400 text-xs font-medium cursor-pointer transition-colors"
                   >
-                    <span className="font-kanji font-bold text-teal-900">{sc.radical}</span>
-                    {sc.hanViet && <span className="text-slate-700 text-[10px]">{sc.hanViet}</span>}
-                    {sc.meaning && <span className="text-slate-400 text-[10px]">({sc.meaning})</span>}
+                    <span className="font-kanji font-bold text-base text-teal-900 leading-none">
+                      {sc.radical}
+                    </span>
+                    {sc.hanViet && <span className="text-slate-700 text-xs">{sc.hanViet}</span>}
+                    {sc.meaning && (
+                      <span className="text-slate-400 text-[11px] max-w-[140px] truncate">
+                        · {sc.meaning}
+                      </span>
+                    )}
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
                   </button>
                 ))}
               </div>
@@ -541,8 +601,8 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
           {getRelatedKanjiForRadical(activeRadical.radical).length > 0 && (
             <div className="pt-2 border-t border-slate-100">
               <span className="text-[11px] text-slate-500 font-medium block mb-2">
-                Các Kanji thông dụng khác có chứa bộ thủ{' '}
-                <span className="text-slate-900 font-bold">{activeRadical.radical}</span>:
+                Các chữ Kanji cùng chứa bộ{' '}
+                <strong className="text-slate-900 font-kanji">{activeRadical.radical}</strong>:
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {getRelatedKanjiForRadical(activeRadical.radical).map((k, i) => (
@@ -550,7 +610,7 @@ export const KanjiRadicalTree: React.FC<KanjiRadicalTreeProps> = ({
                     key={i}
                     type="button"
                     onClick={() => onSelectKanji && onSelectKanji(k)}
-                    className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-900 hover:text-teal-800 font-serif font-bold text-base transition-colors flex items-center justify-center shadow-2xs cursor-pointer"
+                    className="w-9 h-9 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-slate-900 hover:text-teal-800 font-kanji font-bold text-base transition-colors flex items-center justify-center cursor-pointer"
                     title={`Xem chi tiết chữ ${k}`}
                   >
                     {k}
