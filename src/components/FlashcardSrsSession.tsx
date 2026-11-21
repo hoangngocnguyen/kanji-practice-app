@@ -315,10 +315,10 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-6xl h-full max-h-[96dvh] sm:max-h-[92dvh] bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl p-2.5 sm:p-5 flex flex-col gap-2 sm:gap-3 overflow-hidden"
+        className="w-full max-w-6xl h-full max-h-[96dvh] sm:max-h-[92dvh] bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl p-2.5 sm:p-4 lg:p-5 flex flex-col gap-2 sm:gap-2.5 overflow-hidden"
       >
         {/* 1. Compact Top Control Bar + Progress */}
-        <div className="space-y-2 shrink-0 w-full max-w-[960px] mx-auto">
+        <div className="space-y-2 shrink-0 w-full">
           <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 sm:px-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <button
@@ -517,25 +517,25 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col justify-between sm:justify-center gap-2.5 sm:gap-3.5">
+          <div className="flex-1 min-h-0 flex flex-col justify-between gap-2 sm:gap-2.5">
             {/* Card Row + Desktop Left/Right Arrows */}
-            <div className="flex-1 min-h-0 w-full flex items-stretch sm:items-center justify-center gap-3 lg:gap-5">
+            <div className="flex-1 min-h-0 w-full flex items-stretch justify-center gap-2 sm:gap-3">
               {/* Desktop Left Arrow */}
               <button
                 type="button"
                 onClick={handlePrevCard}
                 disabled={currentIndex <= 0}
-                className="hidden sm:flex w-11 h-11 rounded-full bg-white border border-slate-200 hover:border-teal-300 hover:bg-teal-50 text-slate-600 hover:text-teal-800 disabled:opacity-30 disabled:pointer-events-none items-center justify-center shadow-2xs transition-all cursor-pointer shrink-0"
+                className="hidden sm:flex self-center w-10 h-10 rounded-full bg-white border border-slate-200 hover:border-teal-300 hover:bg-teal-50 text-slate-600 hover:text-teal-800 disabled:opacity-30 disabled:pointer-events-none items-center justify-center shadow-2xs transition-all cursor-pointer shrink-0"
                 title="Thẻ trước (←)"
                 aria-label="Thẻ trước"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              {/* Expanded Flashcard Container: fills mobile height cleanly, expands horizontally on PC */}
+              {/* Expanded Flashcard Container: stretches full height & width inside modal on both Mobile & PC */}
               <div
                 onClick={() => setIsFlipped((f) => !f)}
-                className="w-full max-w-[920px] h-full sm:h-auto sm:min-h-[380px] lg:min-h-[420px] sm:max-h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 overflow-hidden"
+                className="flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 lg:p-7 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 overflow-hidden"
               >
                 {/* Card Metadata Header */}
                 <div className="flex items-center justify-between text-xs text-slate-500 shrink-0 pb-1.5 border-b border-slate-100">
@@ -849,7 +849,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                 type="button"
                 onClick={handleNextCard}
                 disabled={currentIndex >= queue.length - 1}
-                className="hidden sm:flex w-11 h-11 rounded-full bg-white border border-slate-200 hover:border-teal-300 hover:bg-teal-50 text-slate-600 hover:text-teal-800 disabled:opacity-30 disabled:pointer-events-none items-center justify-center shadow-2xs transition-all cursor-pointer shrink-0"
+                className="hidden sm:flex self-center w-10 h-10 rounded-full bg-white border border-slate-200 hover:border-teal-300 hover:bg-teal-50 text-slate-600 hover:text-teal-800 disabled:opacity-30 disabled:pointer-events-none items-center justify-center shadow-2xs transition-all cursor-pointer shrink-0"
                 title="Thẻ tiếp theo (→)"
                 aria-label="Thẻ tiếp theo"
               >
@@ -857,8 +857,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               </button>
             </div>
 
-            {/* 3. Bottom Thumb-Zone Action Bar (aligned with widened Card width) */}
-            <div className="w-full max-w-[920px] mx-auto space-y-2 shrink-0">
+            {/* 3. Bottom Thumb-Zone Action Bar */}
+            <div className="w-full space-y-2 shrink-0">
               {!isFlipped ? (
                 <div className="flex items-center gap-2">
                   <button
