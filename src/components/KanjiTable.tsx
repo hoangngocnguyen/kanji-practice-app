@@ -262,12 +262,12 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
               </div>
 
               {/* Action Buttons Row */}
-              <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-100">
+              <div className="pt-1.5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => onCopyImage(item)}
                   disabled={isCopying}
-                  className={`h-9 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap border ${
+                  className={`w-full h-9 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-2xs whitespace-nowrap border ${
                     isCopied
                       ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300/40 shadow-xs'
                       : isCopying
@@ -292,16 +292,6 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       <span>Sao chép ảnh</span>
                     </>
                   )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onInspect(item)}
-                  className="h-9 px-2.5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-teal-50 text-slate-700 hover:text-teal-900 transition-all cursor-pointer border border-slate-200 hover:border-teal-300 shadow-2xs hover:shadow-xs active:scale-95 whitespace-nowrap"
-                  title="Xem chi tiết nét vẽ"
-                >
-                  <Info className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                  <span>Chi tiết</span>
                 </button>
               </div>
             </div>
@@ -535,21 +525,11 @@ export const KanjiTable: React.FC<KanjiTableProps> = ({
                       <div className="flex items-center gap-1.5 w-full justify-center">
                         <button
                           type="button"
-                          onClick={() => onInspect(item)}
-                          className="h-8 inline-flex items-center gap-1 px-2.5 text-xs text-teal-800 hover:text-teal-950 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer font-semibold shadow-2xs hover:shadow-xs active:scale-95"
-                          title="Xem chi tiết nét vẽ"
-                        >
-                          <Info className="w-3.5 h-3.5 text-teal-600" />
-                          <span>Chi tiết</span>
-                        </button>
-
-                        <button
-                          type="button"
                           onClick={() => onDownloadPng(item)}
-                          className="h-8 inline-flex items-center gap-1 px-2.5 text-xs text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer font-semibold shadow-2xs hover:shadow-xs active:scale-95"
+                          className="h-8 inline-flex items-center gap-1.5 px-3 text-xs text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all cursor-pointer font-semibold shadow-2xs hover:shadow-xs active:scale-95 whitespace-nowrap"
                           title="Tải ảnh PNG nền trắng về máy tính"
                         >
-                          <Download className="w-3.5 h-3.5 text-slate-600" />
+                          <Download className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                           <span>Tải ảnh</span>
                         </button>
 

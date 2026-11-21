@@ -12,13 +12,10 @@ import {
   FolderPlus,
   CheckSquare,
   Square,
-  Sparkles,
   BookOpen,
   ArrowUp,
-  Languages,
   Loader2,
   X,
-  Plus,
 } from 'lucide-react';
 import { KanjiDetail, KanjiItem } from '../types/kanji';
 import { useKanji } from '../context/KanjiContext';
@@ -37,7 +34,7 @@ import {
   loadKanjiSentencesStatic,
 } from '../services/kanjiLevelService';
 import { speakJapanese } from '../utils/speech';
-import { getPrimaryHiragana } from '../utils/kanji';
+import { QuizTileIcon } from '../components/icons/QuizTileIcon';
 
 const LOAD_MORE_BATCH = 48;
 
@@ -52,7 +49,6 @@ export const KanjiByLevelPage: React.FC = () => {
   const [activeLevel, setActiveLevel] = useState<KanjiLevelTab>('N5');
   const [subMode, setSubMode] = useState<'list' | 'quiz'>('list');
   const [viewMode, setViewMode] = useState<'rows' | 'grid'>('rows');
-  const [showFurigana, setShowFurigana] = useState<boolean>(false);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [strokeFilter, setStrokeFilter] = useState<string>('all');
@@ -283,7 +279,7 @@ export const KanjiByLevelPage: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <QuizTileIcon className="w-4 h-4" />
               <span>Quiz ôn tập</span>
             </button>
           </div>
@@ -392,19 +388,6 @@ export const KanjiByLevelPage: React.FC = () => {
                   <option value="7-12">7 – 12 nét</option>
                   <option value="13+">13+ nét</option>
                 </select>
-
-                <button
-                  type="button"
-                  onClick={() => setShowFurigana((v) => !v)}
-                  className={`h-9 px-2.5 text-xs font-semibold rounded-xl border flex items-center gap-1.5 cursor-pointer transition-all ${
-                    showFurigana
-                      ? 'bg-teal-50 border-teal-600 text-teal-900'
-                      : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
-                >
-                  <Languages className="w-3.5 h-3.5" />
-                  <span>Phiên âm</span>
-                </button>
 
                 <button
                   type="button"
@@ -522,7 +505,6 @@ export const KanjiByLevelPage: React.FC = () => {
                 const item = visibleItems[idx];
                 const isSelected = selectedCharSet.has(entry.c);
                 const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
-                const primaryKana = item.detail ? getPrimaryHiragana(item.detail) : '';
 
                 return (
                   <div
@@ -533,15 +515,18 @@ export const KanjiByLevelPage: React.FC = () => {
                         : 'border-slate-200/90 hover:border-teal-400'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-mono text-slate-400 tabular-nums">
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 text-[11px]">
+                      <span className="justify-self-start min-w-0 font-mono text-slate-400 tabular-nums truncate">
                         #{idx + 1}
                         {activeLevel === 'JOYO' ? ` · ${entry.lv}` : ''}
+                      </span>
+                      <span className="justify-self-center font-sans text-[10px] text-slate-500 font-medium tabular-nums whitespace-nowrap text-center">
+                        {entry.st} nét
                       </span>
                       <button
                         type="button"
                         onClick={() => toggleSelectChar(entry.c)}
-                        className={`p-0.5 rounded cursor-pointer ${
+                        className={`justify-self-end p-0.5 rounded cursor-pointer shrink-0 ${
                           isSelected ? 'text-teal-700' : 'text-slate-300 hover:text-teal-700'
                         }`}
                         title={isSelected ? 'Bỏ chọn chữ này' : 'Chọn để thêm vào bộ thẻ'}
@@ -577,11 +562,6 @@ export const KanjiByLevelPage: React.FC = () => {
                     </div>
 
                     <div className="text-center space-y-0.5 min-w-0">
-                      {showFurigana && primaryKana && (
-                        <div className="text-[10px] font-semibold text-teal-700">
-                          {primaryKana}
-                        </div>
-                      )}
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
@@ -602,20 +582,7 @@ export const KanjiByLevelPage: React.FC = () => {
                       <div className="text-[11px] text-slate-600 truncate">
                         {entry.vi.join(', ')}
                       </div>
-                      <div className="text-[10px] text-slate-400 tabular-nums">
-                        {entry.st} nét
-                      </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
-                      className="mt-auto w-full py-1 px-2 text-[11px] font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg cursor-pointer flex items-center justify-center gap-1"
-                      title="Thêm vào bộ thẻ Flashcard"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Bộ thẻ</span>
-                    </button>
                   </div>
                 );
               })}
@@ -627,7 +594,6 @@ export const KanjiByLevelPage: React.FC = () => {
                 const item = visibleItems[idx];
                 const isSelected = selectedCharSet.has(entry.c);
                 const animState = animStateMap[item.hex] || { animKey: 0, mode: 'off' };
-                const primaryKana = item.detail ? getPrimaryHiragana(item.detail) : '';
                 const staticExamples = staticSentencesLoaded
                   ? getStaticSentencesForKanji(entry.c, 1)
                   : [];
@@ -661,33 +627,28 @@ export const KanjiByLevelPage: React.FC = () => {
                         <span className="text-[10px] text-slate-500 font-sans font-medium mt-0.5">{entry.st} nét</span>
                       </div>
 
-                      {/* Kanji Character + Hán-Việt below + Audio */}
-                      <div className="flex flex-col items-center text-center">
-                        <div className="flex items-center gap-1.5">
+                      {/* Kanji Character + Hán-Việt centered together + Audio */}
+                      <div className="flex items-center justify-center gap-1.5 min-w-[92px] sm:min-w-[112px]">
+                        <div className="flex flex-col items-center justify-center text-center min-w-[60px]">
                           <ruby
                             onClick={() => handleInspectEntryChar(entry.c)}
                             className="font-kanji font-black text-4xl sm:text-5xl text-slate-900 leading-none cursor-pointer hover:text-teal-700 transition-colors inline-flex flex-col items-center"
                             title="Nhấp để mở modal luyện viết nét"
                           >
-                            {showFurigana && primaryKana && (
-                              <rt className="text-[11px] font-semibold text-teal-700 pb-0.5">
-                                {primaryKana}
-                              </rt>
-                            )}
                             <span>{entry.c}</span>
                           </ruby>
-                          <button
-                            type="button"
-                            onClick={() => speakJapanese(entry.c)}
-                            className="p-1 text-slate-400 hover:text-teal-700 rounded cursor-pointer"
-                            title="Nghe phát âm"
-                          >
-                            <Volume2 className="w-4 h-4" />
-                          </button>
+                          <span className="text-xs sm:text-sm font-extrabold text-teal-900 mt-1.5 leading-tight">
+                            {entry.hv}
+                          </span>
                         </div>
-                        <span className="text-xs sm:text-sm font-extrabold text-teal-900 mt-1">
-                          {entry.hv}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => speakJapanese(entry.c)}
+                          className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50/70 rounded-lg cursor-pointer transition-colors shrink-0"
+                          title="Nghe phát âm"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -777,19 +738,6 @@ export const KanjiByLevelPage: React.FC = () => {
                           </div>
                         </div>
                       )}
-                    </div>
-
-                    {/* Right Section: ONLY "+ Bộ thẻ" Button */}
-                    <div className="shrink-0 flex items-center justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => openSaveToDeck([entry], `${entry.lv} · ${entry.c}`)}
-                        className="px-4 py-2.5 rounded-xl text-xs sm:text-[13px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                        title="Thêm chữ này vào bộ thẻ Flashcard"
-                      >
-                        <Plus className="w-4 h-4 shrink-0" />
-                        <span>Bộ thẻ</span>
-                      </button>
                     </div>
                   </article>
                 );
@@ -886,7 +834,7 @@ export const KanjiByLevelPage: React.FC = () => {
               onClick={() => setSubMode('quiz')}
               className="px-3 py-1.5 text-xs font-bold text-teal-950 bg-teal-100 hover:bg-white rounded-xl cursor-pointer flex items-center gap-1"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <QuizTileIcon className="w-4 h-4" />
               <span>Quiz ({selectedEntries.length})</span>
             </button>
             <button

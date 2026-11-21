@@ -6,13 +6,15 @@ import {
   ArrowRight,
   RotateCcw,
   FolderPlus,
-  Sparkles,
   Award,
   PenTool,
   Flame,
   Keyboard,
   MousePointerClick,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
+import { QuizTileIcon } from './icons/QuizTileIcon';
 import { KanjiDetail } from '../types/kanji';
 import {
   KanjiCatalogEntry,
@@ -82,6 +84,13 @@ function maskSentenceWithBlank(sentence: string, targetChar: string): string {
   return sentence.split(targetChar).join('【 ＿ 】');
 }
 
+const ALL_CONCRETE_MODES: ConcreteQuizMode[] = [
+  'kanji-to-meaning',
+  'meaning-to-kanji',
+  'reading',
+  'sentence-cloze',
+];
+
 export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
   levelLabel,
   levelPool,
@@ -91,7 +100,9 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
   onExportWrongKanji,
   onExitQuiz,
 }) => {
-  const [quizMode, setQuizMode] = useState<QuizModeType>('kanji-to-meaning');
+  const [selectedModes, setSelectedModes] = useState<ConcreteQuizMode[]>([
+    'kanji-to-meaning',
+  ]);
   const [scope, setScope] = useState<QuizScopeType>(
     selectedPool.length >= 4 ? 'selected' : 'displayed'
   );
@@ -131,54 +142,69 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
     return levelPool.length >= 10 ? levelPool : activeSourcePool;
   }, [levelPool, activeSourcePool]);
 
+  const toggleQuizMode = useCallback((mode: ConcreteQuizMode) => {
+    setSelectedModes((prev) => {
+      if (prev.includes(mode)) {
+        // Always keep at least 1 mode selected
+        if (prev.length === 1) return prev;
+        return prev.filter((m) => m !== mode);
+      }
+      return [...prev, mode];
+    });
+  }, []);
+
+  const selectAllModes = useCallback(() => {
+    setSelectedModes(ALL_CONCRETE_MODES);
+  }, []);
+
+  const isAllModesSelected = selectedModes.length === ALL_CONCRETE_MODES.length;
+
   const buildQuestions = useCallback(
     (
       pool: KanjiCatalogEntry[],
-      desiredMode: QuizModeType,
+      desiredModes: ConcreteQuizMode[],
       count: number
     ): QuizQuestion[] => {
-      // For sentence-cloze mode, prefer items that have static sentences containing the target character
-      const candidatePool =
-        desiredMode === 'sentence-cloze'
-          ? (() => {
-              const withSent = pool.filter((e) =>
-                getStaticSentencesForKanji(e.c, 2).some((s) => s.jp.includes(e.c))
-              );
-              return withSent.length > 0 ? withSent : pool;
-            })()
-          : pool;
+      const modesToUse: ConcreteQuizMode[] =
+        desiredModes.length > 0 ? desiredModes : ['kanji-to-meaning'];
+      const onlyClozeSelected =
+        modesToUse.length === 1 && modesToUse[0] === 'sentence-cloze';
+
+      // If only sentence-cloze is selected, prefer items that have static sentences containing the target character
+      const candidatePool = onlyClozeSelected
+        ? (() => {
+            const withSent = pool.filter((e) =>
+              getStaticSentencesForKanji(e.c, 2).some((s) => s.jp.includes(e.c))
+            );
+            return withSent.length > 0 ? withSent : pool;
+          })()
+        : pool;
 
       const shuffledTargets = shuffleArray(candidatePool).slice(
         0,
         count === -1 ? candidatePool.length : Math.min(count, candidatePool.length)
       );
 
-      const concreteModes: ConcreteQuizMode[] = [
-        'kanji-to-meaning',
-        'meaning-to-kanji',
-        'reading',
-        'sentence-cloze',
-      ];
-
       const built: QuizQuestion[] = [];
 
       for (let i = 0; i < shuffledTargets.length; i++) {
         const target = shuffledTargets[i];
-        let mode: ConcreteQuizMode =
-          desiredMode === 'mixed'
-            ? concreteModes[i % concreteModes.length]
-            : desiredMode;
+        let mode: ConcreteQuizMode = modesToUse[i % modesToUse.length];
 
         const staticSentences = getStaticSentencesForKanji(target.c, 2).filter((s) =>
           s.jp.includes(target.c)
         );
+        const hasReading = target.on.length > 0 || target.kun.length > 0;
 
-        if (mode === 'sentence-cloze' && staticSentences.length === 0) {
-          mode = 'kanji-to-meaning';
-        }
+        const isCompatible = (m: ConcreteQuizMode) => {
+          if (m === 'sentence-cloze') return staticSentences.length > 0;
+          if (m === 'reading') return hasReading;
+          return true;
+        };
 
-        if (mode === 'reading' && target.on.length === 0 && target.kun.length === 0) {
-          mode = 'kanji-to-meaning';
+        if (!isCompatible(mode)) {
+          const fallbackSelected = modesToUse.find((m) => isCompatible(m));
+          mode = fallbackSelected || 'kanji-to-meaning';
         }
 
         // Select 3 distractors that do not collide visually or by primary answer text
@@ -286,7 +312,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
         }
       }
 
-      return built;
+      return shuffleArray(built);
     },
     [distractorPool, levelPool]
   );
@@ -299,7 +325,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
       const actualCount =
         questionCount === -1 ? Math.min(pool.length, 200) : Math.min(questionCount, pool.length);
 
-      const generated = buildQuestions(pool, quizMode, actualCount);
+      const generated = buildQuestions(pool, selectedModes, actualCount);
       setQuestions(generated);
       setCurrentIdx(0);
       setSelectedOptionId(null);
@@ -311,7 +337,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
       setWrongEntries([]);
       setSessionState('active');
     },
-    [activeSourcePool, questionCount, quizMode, buildQuestions]
+    [activeSourcePool, questionCount, selectedModes, buildQuestions]
   );
 
   const currentQuestion = questions[currentIdx] || null;
@@ -423,7 +449,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
   }, [sessionState, currentQuestion, isAnswered, handleSelectOption, handleNextQuestion]);
 
   const modeCards: Array<{
-    key: QuizModeType;
+    key: ConcreteQuizMode;
     title: string;
     desc: string;
   }> = [
@@ -447,11 +473,6 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
       title: 'Điền Kanji vào câu ví dụ',
       desc: 'Hoàn thiện câu tiếng Nhật thực tế — mở ngay lập tức (0ms).',
     },
-    {
-      key: 'mixed',
-      title: 'Tổng hợp cả 4 dạng',
-      desc: 'Trộn ngẫu nhiên nghĩa, âm đọc và câu ví dụ.',
-    },
   ];
 
   // 1. SETUP VIEW
@@ -464,7 +485,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
               Luyện tập & Kiểm tra nhanh · {levelLabel}
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-              Chọn dạng câu hỏi, phạm vi từ vựng và bắt đầu kiểm tra trí nhớ. Hỗ trợ phím 1–4 và Enter.
+              Chọn 1, nhiều hoặc tất cả dạng câu hỏi, chọn phạm vi từ vựng và bắt đầu kiểm tra. Hỗ trợ phím 1–4 và Enter.
             </p>
           </div>
           {onExitQuiz && (
@@ -478,30 +499,95 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           )}
         </div>
 
-        {/* Mode selection */}
+        {/* Mode selection (1, multiple, or all) */}
         <div className="space-y-2.5">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            1. Chọn dạng bài Quiz
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              1. Chọn dạng bài Quiz{' '}
+              <span className="normal-case font-semibold text-teal-700">
+                (Đã chọn {selectedModes.length}/{ALL_CONCRETE_MODES.length})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                isAllModesSelected
+                  ? setSelectedModes(['kanji-to-meaning'])
+                  : selectAllModes()
+              }
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${
+                isAllModesSelected
+                  ? 'bg-teal-700 text-white border-teal-800'
+                  : 'bg-slate-50 hover:bg-teal-50 text-teal-800 border-slate-200 hover:border-teal-300'
+              }`}
+            >
+              {isAllModesSelected ? 'Đã chọn tất cả 4 dạng' : 'Chọn tất cả'}
+            </button>
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {modeCards.map((mc) => {
-              const active = quizMode === mc.key;
+              const active = selectedModes.includes(mc.key);
               return (
                 <button
                   key={mc.key}
                   type="button"
-                  onClick={() => setQuizMode(mc.key)}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                  onClick={() => toggleQuizMode(mc.key)}
+                  aria-pressed={active}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex items-start justify-between gap-3 ${
                     active
                       ? 'bg-teal-50/80 border-teal-600 ring-1 ring-teal-500/30'
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
                   }`}
                 >
-                  <div className="font-bold text-sm text-slate-900">{mc.title}</div>
-                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">{mc.desc}</p>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-slate-900">{mc.title}</div>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">{mc.desc}</p>
+                  </div>
+                  <span
+                    className={`shrink-0 mt-0.5 ${
+                      active ? 'text-teal-700' : 'text-slate-300'
+                    }`}
+                  >
+                    {active ? (
+                      <CheckSquare className="w-4 h-4" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </span>
                 </button>
               );
             })}
+
+            {/* Select All / Mixed shortcut card */}
+            <button
+              type="button"
+              onClick={selectAllModes}
+              aria-pressed={isAllModesSelected}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                isAllModesSelected
+                  ? 'bg-teal-50/80 border-teal-600 ring-1 ring-teal-500/30'
+                  : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
+              }`}
+            >
+              <div className="min-w-0">
+                <div className="font-bold text-sm text-slate-900">Tổng hợp cả 4 dạng</div>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Chọn nhanh tất cả dạng bài, trộn ngẫu nhiên nghĩa, âm đọc và câu ví dụ.
+                </p>
+              </div>
+              <span
+                className={`shrink-0 mt-0.5 ${
+                  isAllModesSelected ? 'text-teal-700' : 'text-slate-300'
+                }`}
+              >
+                {isAllModesSelected ? (
+                  <CheckSquare className="w-4 h-4" />
+                ) : (
+                  <Square className="w-4 h-4" />
+                )}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -589,7 +675,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             onClick={() => startQuiz()}
             className="px-6 py-2.5 min-h-[42px] bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs sm:text-[13px] rounded-xl shadow-xs cursor-pointer flex items-center gap-2 transition-all active:scale-95"
           >
-            <Sparkles className="w-4 h-4" />
+            <QuizTileIcon className="w-[18px] h-[18px]" />
             <span>Bắt đầu Quiz ngay</span>
           </button>
         </div>

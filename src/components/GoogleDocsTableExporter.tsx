@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Copy, Check, Download, X, Table, CheckSquare, Square } from 'lucide-react';
 import { KanjiItem } from '../types/kanji';
 import { convertSvgToPngBlob, getPrimaryHiragana, katakanaToHiragana } from '../utils/kanji';
@@ -18,7 +18,12 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
   showToast,
 }) => {
   const [isCopying, setIsCopying] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [feedback, setFeedback] = useState<{
+    text: string;
+    type: 'success' | 'error' | 'info';
+  } | null>(null);
 
   // Column selection states
   const [includeStt, setIncludeStt] = useState<boolean>(false);
@@ -26,7 +31,19 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
   const [includeReadings, setIncludeReadings] = useState<boolean>(false);
   const [includeImage, setIncludeImage] = useState<boolean>(true);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setFeedback(null);
+      setCopied(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const notify = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setFeedback({ text, type });
+    showToast?.(text, type);
+  };
 
   const blobToDataUrl = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -37,7 +54,57 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
     });
   };
 
+  const copyHtmlViaSelectionFallback = (html: string): boolean => {
+    try {
+      const container = document.createElement('div');
+      container.setAttribute('contenteditable', 'true');
+      container.style.position = 'fixed';
+      container.style.left = '-99999px';
+      container.style.top = '0';
+      container.style.opacity = '0';
+      container.innerHTML = html;
+      document.body.appendChild(container);
+
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(container);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
+      const ok = document.execCommand('copy');
+      selection?.removeAllRanges();
+      document.body.removeChild(container);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const generateTableHtmlAndImages = async (): Promise<{ html: string; text: string }> => {
+    const resolvedImages: string[] = new Array(kanjiList.length).fill('');
+    if (includeImage) {
+      const concurrency = 4;
+      for (let start = 0; start < kanjiList.length; start += concurrency) {
+        const chunk = kanjiList.slice(start, start + concurrency);
+        await Promise.all(
+          chunk.map(async (item, offset) => {
+            const idx = start + offset;
+            try {
+              const pngBlob = await convertSvgToPngBlob(item.svgUrl, false);
+              resolvedImages[idx] = await blobToDataUrl(pngBlob);
+            } catch (e) {
+              console.warn(`Không thể chuyển đổi SVG sang PNG cho chữ ${item.kanji}:`, e);
+              try {
+                resolvedImages[idx] = new URL(item.svgUrl, window.location.origin).href;
+              } catch {
+                resolvedImages[idx] = item.svgUrl;
+              }
+            }
+          })
+        );
+      }
+    }
+
     let htmlRows = '';
     let plainTextLines = '';
 
@@ -50,16 +117,7 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
       const hanViet = item.detail?.hanViet || '';
       const jlpt = item.detail?.jlpt;
       const strokeCount = item.detail?.strokeCount;
-
-      let imgSrc = item.svgUrl;
-      if (includeImage) {
-        try {
-          const pngBlob = await convertSvgToPngBlob(item.svgUrl, false);
-          imgSrc = await blobToDataUrl(pngBlob);
-        } catch (e) {
-          console.warn(`Không thể chuyển đổi SVG sang PNG cho chữ ${item.kanji}:`, e);
-        }
-      }
+      const imgSrc = resolvedImages[i] || item.svgUrl;
 
       const onStr = onReadings.join(', ');
       const kunStr = kunReadings.join(', ');
@@ -144,47 +202,72 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
 
   const handleCopyTableToClipboard = async () => {
     if (kanjiList.length === 0) {
-      showToast('Danh sách Kanji đang trống!', 'error');
+      notify('Danh sách Kanji đang trống!', 'error');
       return;
     }
     if (!includeStt && !includeKanji && !includeReadings && !includeImage) {
-      showToast('Vui lòng chọn ít nhất một cột để sao chép!', 'error');
+      notify('Vui lòng chọn ít nhất một cột để sao chép!', 'error');
       return;
     }
 
     setIsCopying(true);
+    setFeedback(null);
     try {
-      showToast('Đang tạo bảng và ảnh theo các cột đã chọn...', 'info');
+      notify('Đang tạo bảng và ảnh theo các cột đã chọn...', 'info');
       const { html, text } = await generateTableHtmlAndImages();
 
+      let copySucceeded = false;
       if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
-        const clipboardItem = new ClipboardItem({
-          'text/html': new Blob([html], { type: 'text/html' }),
-          'text/plain': new Blob([text], { type: 'text/plain' }),
-        });
-        await navigator.clipboard.write([clipboardItem]);
+        try {
+          const clipboardItem = new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+          });
+          await navigator.clipboard.write([clipboardItem]);
+          copySucceeded = true;
+        } catch (clipErr) {
+          console.warn('ClipboardItem write failed, trying selection copy fallback:', clipErr);
+        }
+      }
 
+      if (!copySucceeded) {
+        copySucceeded = copyHtmlViaSelectionFallback(html);
+      }
+
+      if (copySucceeded) {
         setCopied(true);
-        showToast('Đã sao chép bảng vào Clipboard! Bạn có thể dán thẳng (Ctrl + V) vào Google Docs!', 'success');
+        notify(
+          'Đã sao chép bảng vào Clipboard! Mở Google Docs hoặc Word và nhấn Ctrl + V để dán.',
+          'success'
+        );
         setTimeout(() => setCopied(false), 3000);
       } else {
-        showToast('Trình duyệt không hỗ trợ ClipboardItem nâng cao. Hãy dùng nút Tải File HTML.', 'error');
+        notify(
+          'Trình duyệt đang chặn ghi Clipboard tự động. Vui lòng dùng nút "Tải File HTML" rồi mở file để sao chép.',
+          'error'
+        );
       }
     } catch (e) {
       console.error('Lỗi sao chép bảng:', e);
-      showToast('Không thể sao chép bảng vào clipboard.', 'error');
+      notify('Không thể sao chép bảng vào clipboard.', 'error');
     } finally {
       setIsCopying(false);
     }
   };
 
   const handleDownloadHtmlFile = async () => {
-    if (!includeStt && !includeKanji && !includeReadings && !includeImage) {
-      showToast('Vui lòng chọn ít nhất một cột!', 'error');
+    if (kanjiList.length === 0) {
+      notify('Danh sách Kanji đang trống!', 'error');
       return;
     }
+    if (!includeStt && !includeKanji && !includeReadings && !includeImage) {
+      notify('Vui lòng chọn ít nhất một cột!', 'error');
+      return;
+    }
+    setIsDownloading(true);
+    setFeedback(null);
     try {
-      showToast('Đang chuẩn bị file HTML xuất bảng...', 'info');
+      notify('Đang chuẩn bị file HTML xuất bảng...', 'info');
       const { html } = await generateTableHtmlAndImages();
 
       const fullDoc = `<!DOCTYPE html>
@@ -213,11 +296,14 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 
-      showToast('Đã tải xuống file HTML bảng Kanji thành công!', 'success');
+      notify('Đã tải xuống file HTML bảng Kanji thành công!', 'success');
     } catch (e) {
-      showToast('Lỗi tải xuống file HTML.', 'error');
+      console.error('Lỗi tải xuống file HTML:', e);
+      notify('Lỗi tải xuống file HTML.', 'error');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -238,8 +324,9 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -287,42 +374,69 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
         </div>
 
         {/* Toolbar & Action summary */}
-        <div className="px-6 py-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-slate-600">
-            Tổng số: <strong className="text-slate-900 font-bold">{kanjiList.length}</strong> chữ Kanji
+        <div className="px-6 py-3 bg-white border-b border-slate-200 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-slate-600">
+              Tổng số: <strong className="text-slate-900 font-bold">{kanjiList.length}</strong> chữ Kanji
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadHtmlFile}
+                disabled={isDownloading || isCopying || kanjiList.length === 0}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              >
+                {isDownloading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    <span>Đang tạo file...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 text-slate-500" />
+                    <span>Tải File HTML</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyTableToClipboard}
+                disabled={isCopying || isDownloading || kanjiList.length === 0}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 text-white" />
+                    <span>Đã Sao Chép Thành Công!</span>
+                  </>
+                ) : isCopying ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Đang Xử Lý & Tạo Ảnh...</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Sao Chép Bảng Vào Clipboard</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownloadHtmlFile}
-              disabled={kanjiList.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs disabled:opacity-50"
+
+          {feedback && (
+            <div
+              className={`px-3 py-2 rounded-xl text-xs font-medium border ${
+                feedback.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : feedback.type === 'error'
+                  ? 'bg-rose-50 border-rose-200 text-rose-800'
+                  : 'bg-sky-50 border-sky-200 text-sky-800'
+              }`}
             >
-              <Download className="w-4 h-4 text-slate-500" />
-              Tải File HTML
-            </button>
-            <button
-              onClick={handleCopyTableToClipboard}
-              disabled={isCopying || kanjiList.length === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-white" />
-                  Đã Sao Chép Thành Công!
-                </>
-              ) : isCopying ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Đang Xử Lý & Tạo Ảnh...
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  📋 Sao Chép Bảng Vào Clipboard (1 Click)
-                </>
-              )}
-            </button>
-          </div>
+              {feedback.text}
+            </div>
+          )}
         </div>
 
         {/* Scrollable Preview Table */}
@@ -421,8 +535,9 @@ export const GoogleDocsTableExporter: React.FC<GoogleDocsTableExporterProps> = (
         <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span>Mẹo: Sau khi bấm sao chép, hãy mở Google Docs và nhấn <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[11px] font-mono text-slate-700">Ctrl + V</kbd></span>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-xl transition-colors"
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-xl transition-colors cursor-pointer"
           >
             Đóng
           </button>
