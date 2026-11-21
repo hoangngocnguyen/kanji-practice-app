@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { PublicProfilePageSkeleton } from '../components/PageSkeletons';
 import {
   apiGetPublicProfile,
   apiToggleFollowUser,
@@ -129,13 +131,10 @@ export const PublicProfilePage: React.FC = () => {
       });
   };
 
+  usePageLoadingIndicator('public-profile', loading);
+
   if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-10 flex items-center justify-center gap-2 text-sm text-slate-500">
-        <Loader2 className="w-4 h-4 animate-spin text-teal-700" />
-        <span>Đang tải hồ sơ cộng đồng...</span>
-      </div>
-    );
+    return <PublicProfilePageSkeleton />;
   }
 
   if (error || !data) {

@@ -9,6 +9,8 @@ import { ArrowUp } from 'lucide-react';
 import { KanjiProvider, useKanji } from './context/KanjiContext';
 import { AuthProvider } from './context/AuthContext';
 import { DeckProvider } from './context/DeckContext';
+import { LoadingProvider } from './context/LoadingContext';
+import { TopProgressBar } from './components/TopProgressBar';
 import { Header } from './components/Header';
 import { AppSidebar } from './components/AppSidebar';
 import { InputSection } from './components/InputSection';
@@ -68,6 +70,10 @@ function AppLayout() {
     isLicenseOpen,
     setIsLicenseOpen,
     recentlyViewed,
+    historyLimit,
+    setHistoryLimit,
+    removeHistoryChars,
+    trimHistoryToLimit,
     clearRecentHistory,
     updateEnrichedDetail,
   } = useKanji() as any;
@@ -107,6 +113,7 @@ function AppLayout() {
 
   return (
     <div className="min-h-screen flex w-full bg-slate-50/70 text-slate-800 antialiased selection:bg-teal-700 selection:text-white relative">
+      <TopProgressBar />
       {/* Sidebar with NavLinks */}
       <AppSidebar
         isCollapsed={isSidebarCollapsed}
@@ -189,6 +196,11 @@ function AppLayout() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         historyCount={recentlyViewed.length}
+        historyItems={recentlyViewed}
+        historyLimit={historyLimit}
+        onChangeHistoryLimit={setHistoryLimit}
+        onRemoveHistoryChars={removeHistoryChars}
+        onTrimHistoryToLimit={trimHistoryToLimit}
         onClearHistory={clearRecentHistory}
       />
 
@@ -228,13 +240,15 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <KanjiProvider>
-          <DeckProvider>
-            <AppLayout />
-          </DeckProvider>
-        </KanjiProvider>
-      </AuthProvider>
+      <LoadingProvider>
+        <AuthProvider>
+          <KanjiProvider>
+            <DeckProvider>
+              <AppLayout />
+            </DeckProvider>
+          </KanjiProvider>
+        </AuthProvider>
+      </LoadingProvider>
     </BrowserRouter>
   );
 }

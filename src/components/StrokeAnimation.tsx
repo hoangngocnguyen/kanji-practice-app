@@ -11,11 +11,28 @@ import {
   Repeat,
   Palette,
   Check,
-  X
+  X,
+  RefreshCw,
 } from 'lucide-react';
 import { speakJapanese } from '../utils/speech';
 import { KanjiGridOverlay } from './KanjiGridOverlay';
 import { fetchKanjiSvg, saveKanjiSvgToCache } from '../utils/kanji';
+
+export const DEFAULT_STROKE_SPEED_KEY = 'kanji_setting_default_stroke_speed';
+export const STROKE_SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.5, 2.0] as const;
+
+export function getSavedDefaultStrokeSpeed(): number {
+  try {
+    const raw = localStorage.getItem(DEFAULT_STROKE_SPEED_KEY);
+    if (raw !== null) {
+      const parsed = parseFloat(raw);
+      if (STROKE_SPEED_OPTIONS.includes(parsed as (typeof STROKE_SPEED_OPTIONS)[number])) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return 1.0;
+}
 
 // Mazii-style multi-color palette for stroke order visualization
 export const MAZII_STROKE_COLORS = [
@@ -45,22 +62,27 @@ interface StrokeNumber {
 interface StrokeAnimationProps {
   svgUrl: string;
   kanji: string;
+  hex?: string;
   size?: number;
   showGrid?: boolean;
   onToggleGrid?: (show: boolean) => void;
+  isTabActive?: boolean;
 }
 
 export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   svgUrl,
   kanji,
+  hex,
   size = 320,
   showGrid: showGridProp,
   onToggleGrid,
+  isTabActive = true,
 }) => {
   const [strokes, setStrokes] = useState<StrokeItem[]>([]);
   const [strokeNumbers, setStrokeNumbers] = useState<StrokeNumber[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState<number>(0);
 
   // Stroke color configuration (Mazii multi-color vs Single color mode, saved to localStorage)
   const [colorMode, setColorMode] = useState<'multi' | 'single'>(() => {
@@ -86,7 +108,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   const [isLooping, setIsLooping] = useState<boolean>(false); // Mặc định TẮT chế độ tự động vẽ lặp lại liên tục (Vẽ 1 lần)
   const [currentStrokeIdx, setCurrentStrokeIdx] = useState<number>(0);
   const [currentProgress, setCurrentProgress] = useState<number>(0); // 0 to 1 for current stroke
-  const [speed, setSpeed] = useState<number>(1.0);
+  const [speed, setSpeed] = useState<number>(() => getSavedDefaultStrokeSpeed());
   const [showNumbers, setShowNumbers] = useState<boolean>(true);
   const [internalShowGrid, setInternalShowGrid] = useState<boolean>(true);
   const strokeIdxRef = useRef<number>(0);
@@ -123,7 +145,25 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     };
   }, []);
 
-  // Parse SVG
+  // Sync speed immediately when updated from SettingsModal (even while modal is open)
+  useEffect(() => {
+    const handleSpeedSync = (event: Event) => {
+      const custom = event as CustomEvent<{ speed?: number }>;
+      if (custom.detail && typeof custom.detail.speed === 'number') {
+        setSpeed(custom.detail.speed);
+        return;
+      }
+      setSpeed(getSavedDefaultStrokeSpeed());
+    };
+    window.addEventListener('kanji-stroke-speed-change', handleSpeedSync);
+    window.addEventListener('storage', handleSpeedSync);
+    return () => {
+      window.removeEventListener('kanji-stroke-speed-change', handleSpeedSync);
+      window.removeEventListener('storage', handleSpeedSync);
+    };
+  }, []);
+
+  // Parse SVG (runs only when svgUrl changes or user clicks Retry)
   useEffect(() => {
     let isCancelled = false;
     clearLoopTimer();
@@ -131,15 +171,20 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     strokeIdxRef.current = 0;
     progressRef.current = 0;
     lastTimeRef.current = null;
+    setSpeed(getSavedDefaultStrokeSpeed());
     setLoading(true);
     setError(null);
     setCurrentStrokeIdx(0);
     setCurrentProgress(0);
     setIsPlaying(true);
 
+    const resolvedHex =
+      hex ||
+      (kanji ? (kanji.codePointAt(0) ?? kanji.charCodeAt(0)).toString(16).toLowerCase().padStart(5, '0') : undefined);
+
     async function fetchSvg() {
       try {
-        const text = await fetchKanjiSvg(svgUrl);
+        const text = await fetchKanjiSvg(svgUrl, resolvedHex);
         if (isCancelled) return;
         saveKanjiSvgToCache(svgUrl, text);
 
@@ -148,6 +193,10 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
 
         // Lấy tất cả các nét vẽ path trong cụm StrokePaths
         const pathElements = Array.from(doc.querySelectorAll('path[d]'));
+        if (pathElements.length === 0) {
+          throw new Error('Không tìm thấy dữ liệu đường nét trong file SVG.');
+        }
+
         const parsedStrokes: StrokeItem[] = pathElements.map((el, i) => ({
           id: el.getAttribute('id') || `stroke-${i}`,
           d: el.getAttribute('d') || '',
@@ -167,7 +216,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
         setLoading(false);
       } catch (err: any) {
         if (!isCancelled) {
-          setError(err.message || 'Không thể tải nét vẽ');
+          setError(err?.message || 'Không thể tải nét vẽ');
           setLoading(false);
         }
       }
@@ -179,7 +228,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
       isCancelled = true;
       clearLoopTimer();
     };
-  }, [svgUrl]);
+  }, [svgUrl, hex, kanji, retryNonce]);
 
   // Đo chiều dài thực tế của từng nét sau khi render
   useEffect(() => {
@@ -198,12 +247,15 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     }
   }, [strokes]);
 
-  // RequestAnimationFrame animation loop with continuous auto-repeat support
+  // RequestAnimationFrame animation loop with continuous auto-repeat and tab-switch preservation
   useEffect(() => {
-    if (!isPlaying || strokes.length === 0) {
+    if (!isPlaying || !isTabActive || strokes.length === 0) {
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
+      }
+      if (!isTabActive) {
+        clearLoopTimer();
       }
       lastTimeRef.current = null;
       return;
@@ -279,7 +331,7 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
         animFrameRef.current = null;
       }
     };
-  }, [isPlaying, strokes.length, speed, isLooping]);
+  }, [isPlaying, isTabActive, strokes.length, speed, isLooping]);
 
   const handlePlayPause = () => {
     if (!isPlaying && strokeIdxRef.current >= strokes.length - 1 && progressRef.current >= 1) {
@@ -352,9 +404,16 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   };
 
   const handleSpeedChange = () => {
-    const speeds = [0.5, 1.0, 1.5, 2.0];
-    const nextIdx = (speeds.indexOf(speed) + 1) % speeds.length;
+    const speeds = [...STROKE_SPEED_OPTIONS];
+    const currentIdx = speeds.indexOf(speed as (typeof STROKE_SPEED_OPTIONS)[number]);
+    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % speeds.length;
     setSpeed(speeds[nextIdx]);
+  };
+
+  const handleRetryLoad = () => {
+    setError(null);
+    setLoading(true);
+    setRetryNonce((prev) => prev + 1);
   };
 
   // Helper to get stroke color based on mode (Mazii multi-color vs single color)
@@ -369,9 +428,9 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     return (
       <div
         style={{ width: size, height: size }}
-        className="flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-200"
+        className="flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-200 mx-auto"
       >
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-3 border-teal-700 border-t-transparent rounded-full animate-spin"></div>
         <span className="text-xs text-slate-500 mt-3 font-medium">Đang tải hoạt ảnh nét...</span>
       </div>
     );
@@ -381,9 +440,26 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
     return (
       <div
         style={{ width: size, height: size }}
-        className="flex flex-col items-center justify-center bg-rose-50/50 rounded-2xl border border-rose-200 text-rose-600 p-4 text-center"
+        className="flex flex-col items-center justify-center gap-3 bg-rose-50/50 rounded-2xl border border-rose-200 text-rose-700 p-5 text-center mx-auto"
       >
-        <span className="text-xs font-semibold">Chưa có dữ liệu hoạt ảnh nét cho chữ này</span>
+        <div className="space-y-1">
+          <p className="text-xs font-bold">
+            Chưa tải được hoạt ảnh nét cho chữ &ldquo;{kanji}&rdquo;
+          </p>
+          <p className="text-[11px] text-rose-600/85 leading-relaxed">
+            {error || 'Dữ liệu nét vẽ tạm thời chưa phản hồi. Hãy bấm tải lại.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleRetryLoad}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 shadow-2xs text-xs font-bold transition-all cursor-pointer active:scale-95 min-h-[36px]"
+          title="Tải lại hoạt ảnh nét vẽ"
+          aria-label="Tải lại hoạt ảnh nét vẽ"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Tải lại hoạt ảnh</span>
+        </button>
       </div>
     );
   }

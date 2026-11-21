@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDecks } from '../context/DeckContext';
+import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { SharedDecksManagerSkeleton } from './PageSkeletons';
 import {
   apiGetMyShares,
   apiUnpublishShareBySlug,
@@ -62,6 +64,8 @@ export const SharedDecksManager: React.FC = () => {
   useEffect(() => {
     void loadShares();
   }, [loadShares]);
+
+  usePageLoadingIndicator('shared-decks', loading);
 
   const totalLikes = useMemo(
     () => shares.reduce((sum, s) => sum + (s.likesCount || 0), 0),
@@ -198,41 +202,40 @@ export const SharedDecksManager: React.FC = () => {
         </button>
       </div>
 
-      {/* Metrics Strip */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 p-3 sm:p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 tabular-nums text-xs">
-        <div className="min-w-0">
-          <div className="text-[11px] sm:text-xs text-slate-500 truncate">Bộ đã chia sẻ</div>
-          <div className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">{shares.length}</div>
-        </div>
-        <div className="min-w-0">
-          <div className="text-[11px] sm:text-xs text-slate-500 truncate">Tổng lượt thích</div>
-          <div className="text-base sm:text-lg font-bold text-rose-600 mt-0.5">{totalLikes}</div>
-        </div>
-        <div className="min-w-0">
-          <div className="text-[11px] sm:text-xs text-slate-500 truncate">Tổng lượt tải</div>
-          <div className="text-base sm:text-lg font-bold text-teal-700 mt-0.5">{totalDownloads}</div>
-        </div>
-      </div>
-
-      {notice && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
-          {notice}
-        </div>
-      )}
-
-      {error && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
       {loading && shares.length === 0 ? (
-        <div className="py-10 flex items-center justify-center gap-2 text-xs text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin text-teal-700" />
-          <span>Đang tải danh sách bộ thẻ đã chia sẻ...</span>
-        </div>
-      ) : shares.length === 0 ? (
+        <SharedDecksManagerSkeleton />
+      ) : (
+        <>
+          {/* Metrics Strip */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 p-3 sm:p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 tabular-nums text-xs">
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs text-slate-500 truncate">Bộ đã chia sẻ</div>
+              <div className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">{shares.length}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs text-slate-500 truncate">Tổng lượt thích</div>
+              <div className="text-base sm:text-lg font-bold text-rose-600 mt-0.5">{totalLikes}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs text-slate-500 truncate">Tổng lượt tải</div>
+              <div className="text-base sm:text-lg font-bold text-teal-700 mt-0.5">{totalDownloads}</div>
+            </div>
+          </div>
+
+          {notice && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+              {notice}
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {shares.length === 0 ? (
         <div className="py-10 px-4 text-center space-y-2 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
           <Globe className="w-7 h-7 text-slate-300 mx-auto" />
           <p className="text-xs font-semibold text-slate-700">
@@ -426,6 +429,8 @@ export const SharedDecksManager: React.FC = () => {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );

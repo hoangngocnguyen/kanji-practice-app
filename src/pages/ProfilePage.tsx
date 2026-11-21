@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDecks } from '../context/DeckContext';
+import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { ProfilePageSkeleton } from '../components/PageSkeletons';
 import {
   apiGetMyFollows,
   apiGetMyShares,
@@ -75,13 +77,20 @@ export const ProfilePage: React.FC = () => {
 
   const [followModalOpen, setFollowModalOpen] = useState(false);
   const [followModalTab, setFollowModalTab] = useState<FollowModalTab>('followers');
+  const [isLoadingStats, setIsLoadingStats] = useState<boolean>(() =>
+    Boolean(user && supabaseEnabled)
+  );
 
   useEffect(() => {
     setNameInput(displayName);
   }, [displayName]);
 
   const loadSummaryStats = useCallback(async () => {
-    if (!user || !supabaseEnabled) return;
+    if (!user || !supabaseEnabled) {
+      setIsLoadingStats(false);
+      return;
+    }
+    setIsLoadingStats(true);
     try {
       const [followsRes, sharesRes] = await Promise.all([
         apiGetMyFollows().catch(() => null),
@@ -101,6 +110,8 @@ export const ProfilePage: React.FC = () => {
       }
     } catch {
       // Non-blocking
+    } finally {
+      setIsLoadingStats(false);
     }
   }, [user, supabaseEnabled]);
 
@@ -108,13 +119,11 @@ export const ProfilePage: React.FC = () => {
     void loadSummaryStats();
   }, [loadSummaryStats]);
 
-  if (isAuthLoading) {
-    return (
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-10 flex items-center justify-center gap-2 text-sm text-slate-500">
-        <Loader2 className="w-4 h-4 animate-spin text-teal-700" />
-        <span>Đang tải thông tin tài khoản...</span>
-      </div>
-    );
+  const isPageLoading = isAuthLoading || (Boolean(user && supabaseEnabled) && isLoadingStats);
+  usePageLoadingIndicator('profile', isPageLoading);
+
+  if (isPageLoading) {
+    return <ProfilePageSkeleton />;
   }
 
   if (!user) {

@@ -105,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs print:hidden">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs print:hidden">
         <div className="w-full px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Left: Mobile Menu Toggle & Brand Logo (min-w-0 so it never collides with Login/Avatar on small phones) */}
           <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1 md:flex-initial shrink-0">

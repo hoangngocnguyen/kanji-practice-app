@@ -17,6 +17,10 @@ interface KanjiContextType {
   mergedKanjiList: KanjiItem[];
   enrichedDetails: Record<string, KanjiDetail>;
   recentlyViewed: KanjiItem[];
+  historyLimit: number | null;
+  setHistoryLimit: (limit: number | null) => void;
+  removeHistoryChars: (charsToRemove: string[]) => void;
+  trimHistoryToLimit: (limit: number) => void;
   saveToRecentHistory: (charOrItem: string | KanjiItem) => void;
   clearRecentHistory: () => void;
   includeGrid: boolean;
@@ -60,6 +64,7 @@ interface KanjiContextType {
 const KanjiContext = createContext<KanjiContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_HISTORY_KEY = 'luyenkanji_history_items_v2';
+const LOCAL_STORAGE_HISTORY_LIMIT_KEY = 'luyenkanji_history_limit';
 const LOCAL_STORAGE_DETAILS_CACHE_KEY = 'luyenkanji_details_cache_v2';
 
 export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -107,7 +112,31 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // History list of full KanjiItem objects (unlimited, persistent in localStorage)
+  // History storage limit (null = unlimited, default 50)
+  const [historyLimit, setHistoryLimitState] = useState<number | null>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_HISTORY_LIMIT_KEY);
+      if (saved === 'unlimited') return null;
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!Number.isNaN(parsed) && parsed >= 5) return parsed;
+      }
+    } catch {}
+    return 50;
+  });
+
+  const setHistoryLimit = useCallback((limit: number | null) => {
+    const normalized = limit === null ? null : Math.max(5, Math.floor(limit));
+    setHistoryLimitState(normalized);
+    try {
+      localStorage.setItem(
+        LOCAL_STORAGE_HISTORY_LIMIT_KEY,
+        normalized === null ? 'unlimited' : String(normalized)
+      );
+    } catch {}
+  }, []);
+
+  // History list of full KanjiItem objects (persistent in localStorage)
   const [historyItems, setHistoryItems] = useState<KanjiItem[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_HISTORY_KEY);
@@ -349,7 +378,7 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, [historyItems, enrichedDetails]);
 
-  // Save to recent history (unlimited, caches full details so no repeat API calls)
+  // Save to recent history (respecting configured historyLimit)
   const saveToRecentHistory = useCallback(
     (charOrItem: string | KanjiItem) => {
       const char = typeof charOrItem === 'string' ? charOrItem : charOrItem.kanji;
@@ -371,10 +400,29 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setHistoryItems((prev) => {
         const filtered = prev.filter((k) => k.kanji !== char);
-        return [item, ...filtered];
+        const next = [item, ...filtered];
+        if (historyLimit !== null && next.length > historyLimit) {
+          return next.slice(0, historyLimit);
+        }
+        return next;
       });
     },
-    [mergedKanjiList, enrichedDetails]
+    [mergedKanjiList, enrichedDetails, historyLimit]
+  );
+
+  const removeHistoryChars = useCallback((charsToRemove: string[]) => {
+    if (!charsToRemove || charsToRemove.length === 0) return;
+    const removeSet = new Set(charsToRemove);
+    setHistoryItems((prev) => prev.filter((item) => !removeSet.has(item.kanji)));
+  }, []);
+
+  const trimHistoryToLimit = useCallback(
+    (limit: number) => {
+      const safeLimit = Math.max(5, Math.floor(limit));
+      setHistoryItems((prev) => prev.slice(0, safeLimit));
+      setHistoryLimit(safeLimit);
+    },
+    [setHistoryLimit]
   );
 
   const clearRecentHistory = useCallback(() => {
@@ -513,6 +561,10 @@ export const KanjiProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         mergedKanjiList,
         enrichedDetails,
         recentlyViewed: mergedHistoryItems,
+        historyLimit,
+        setHistoryLimit,
+        removeHistoryChars,
+        trimHistoryToLimit,
         saveToRecentHistory,
         clearRecentHistory,
         includeGrid,

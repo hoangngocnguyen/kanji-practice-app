@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { KanjiDetail, KanjiItem } from '../types/kanji';
 import { useKanji } from '../context/KanjiContext';
+import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { KanjiListRowsSkeleton } from '../components/PageSkeletons';
 import { KanjiSvgView } from '../components/KanjiSvgView';
 import { KanjiGridOverlay } from '../components/KanjiGridOverlay';
 import { KanjiLevelQuiz } from '../components/KanjiLevelQuiz';
@@ -93,6 +95,8 @@ export const KanjiByLevelPage: React.FC = () => {
       mounted = false;
     };
   }, []);
+
+  usePageLoadingIndicator('kanji-by-level', isLoadingCatalog);
 
   const currentLevelMeta = useMemo(
     () => LEVEL_METADATA.find((m) => m.key === activeLevel) || LEVEL_METADATA[0],
@@ -324,12 +328,7 @@ export const KanjiByLevelPage: React.FC = () => {
       </div>
 
       {isLoadingCatalog ? (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-14 text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-teal-700 mx-auto" />
-          <p className="text-sm font-semibold text-slate-700">
-            Đang nạp danh mục 2.136 chữ Kanji &amp; câu ví dụ tĩnh...
-          </p>
-        </div>
+        <KanjiListRowsSkeleton />
       ) : catalogError ? (
         <div className="bg-white rounded-2xl border border-rose-200 p-8 text-center text-sm text-rose-700">
           {catalogError}

@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { KanjiDetail } from '../types/kanji';
 import { useKanji } from '../context/KanjiContext';
+import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { KanjiSearchResultsSkeleton } from '../components/PageSkeletons';
 import { KanjiSvgView } from '../components/KanjiSvgView';
 import { KanjiGridOverlay } from '../components/KanjiGridOverlay';
 import { AddKanjiToDeckModal } from '../components/AddKanjiToDeckModal';
@@ -192,6 +194,8 @@ export const KanjiSearchPage: React.FC = () => {
   const [staticSentences, setStaticSentences] = useState<Record<string, StaticSentencePair[]>>({});
   const [isLoadingIndex, setIsLoadingIndex] = useState<boolean>(true);
   const [indexError, setIndexError] = useState<string | null>(null);
+
+  usePageLoadingIndicator('kanji-search', isLoadingIndex);
 
   // Per-row interactive states
   const [copiedChar, setCopiedChar] = useState<string | null>(null);
@@ -611,12 +615,7 @@ export const KanjiSearchPage: React.FC = () => {
 
       {/* Main Content Area: Loading / Prompt / Empty / Results */}
       {isLoadingIndex ? (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-12 text-center space-y-3">
-          <Loader2 className="w-7 h-7 animate-spin text-teal-700 mx-auto" />
-          <p className="text-sm font-medium text-slate-600">
-            Đang nạp chỉ mục 3.000+ chữ Kanji và từ điển Hán-Việt...
-          </p>
-        </div>
+        <KanjiSearchResultsSkeleton />
       ) : indexError ? (
         <div className="bg-white rounded-2xl border border-rose-200 p-8 text-center space-y-2">
           <p className="text-sm font-bold text-rose-700">{indexError}</p>

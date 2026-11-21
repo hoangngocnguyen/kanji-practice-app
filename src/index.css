@@ -191,6 +191,43 @@
   }
 }
 
+/* Shimmer Skeleton Loading Effect (GPU-accelerated, respects reduced motion) */
+@keyframes lk-shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.lk-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #e2e8f0;
+}
+
+.lk-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.72) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: lk-shimmer-slide 1.3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lk-shimmer::after {
+    animation: none;
+    display: none;
+  }
+}
+
 /* Print View Styles: Tối ưu chuẩn in ấn A4 đa trang (Worksheet Bảng Luyện Viết) */
 @media print {
   @page {

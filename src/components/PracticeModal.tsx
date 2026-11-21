@@ -139,12 +139,23 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     clearCanvas();
   };
 
-  useEffect(() => {
-    if (!item) return;
+  const lastKanjiRef = useRef<string | null>(null);
 
-    setActiveTab('animation');
-    setNestedKanjiItem(null);
-    resetPracticeTest();
+  useEffect(() => {
+    if (!item) {
+      lastKanjiRef.current = null;
+      return;
+    }
+
+    const isKanjiChanged = lastKanjiRef.current !== item.kanji;
+    lastKanjiRef.current = item.kanji;
+
+    if (isKanjiChanged) {
+      setActiveTab('animation');
+      setNestedKanjiItem(null);
+      resetPracticeTest();
+      clearCanvas();
+    }
     // Seed immediately with any catalog detail already attached to item
     setDetail(item.detail || null);
 
@@ -201,8 +212,6 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
         })
         .catch(() => {});
     }
-
-    clearCanvas();
 
     return () => {
       isMounted = false;
@@ -730,37 +739,37 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
         {/* Tab Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-5">
-          {/* TAB 1: STROKE ANIMATION */}
-          {activeTab === 'animation' && (
-            <div className="space-y-4 sm:space-y-5">
-              <StrokeAnimation
-                svgUrl={item.svgUrl}
-                kanji={item.kanji}
-                size={280}
-                showGrid={showGrid}
-                onToggleGrid={onToggleGrid}
-              />
+          {/* TAB 1: STROKE ANIMATION (Kept mounted via CSS so drawn strokes remain intact across tab switches) */}
+          <div className={activeTab === 'animation' ? 'space-y-4 sm:space-y-5' : 'hidden'}>
+            <StrokeAnimation
+              svgUrl={item.svgUrl}
+              kanji={item.kanji}
+              hex={item.hex}
+              size={280}
+              showGrid={showGrid}
+              onToggleGrid={onToggleGrid}
+              isTabActive={activeTab === 'animation'}
+            />
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
-                <button
-                  onClick={() => onCopyImage(item)}
-                  className="py-2.5 sm:py-3 px-3 sm:px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs cursor-pointer active:scale-95 transition-all min-h-[40px]"
-                >
-                  <Copy className="w-4 h-4 shrink-0" />
-                  <span>Sao chép ảnh</span>
-                </button>
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
+              <button
+                onClick={() => onCopyImage(item)}
+                className="py-2.5 sm:py-3 px-3 sm:px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs cursor-pointer active:scale-95 transition-all min-h-[40px]"
+              >
+                <Copy className="w-4 h-4 shrink-0" />
+                <span>Sao chép ảnh</span>
+              </button>
 
-                <button
-                  onClick={() => onDownloadPng(item)}
-                  className="py-2.5 sm:py-3 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer transition-colors border border-slate-200/80 min-h-[40px]"
-                >
-                  <Download className="w-4 h-4 shrink-0" />
-                  <span>Tải ảnh PNG</span>
-                </button>
-              </div>
+              <button
+                onClick={() => onDownloadPng(item)}
+                className="py-2.5 sm:py-3 px-3 sm:px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer transition-colors border border-slate-200/80 min-h-[40px]"
+              >
+                <Download className="w-4 h-4 shrink-0" />
+                <span>Tải ảnh PNG</span>
+              </button>
             </div>
-          )}
+          </div>
 
           {/* TAB 2: DICTIONARY & EXAMPLES */}
           {activeTab === 'dictionary' && (
@@ -986,9 +995,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: TRACING & WRITING PRACTICE */}
-          {activeTab === 'practice' && (
-            <div className="space-y-3.5">
+          {/* TAB 4: TRACING & WRITING PRACTICE (Kept mounted via CSS so handwriting canvas stays intact across tab switches) */}
+          <div className={activeTab === 'practice' ? 'space-y-3.5' : 'hidden'}>
               {/* Practice Sub-Mode Switcher */}
               <div className="flex items-center justify-between gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
                 <button
@@ -1276,8 +1284,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
                   🎯 Đặt bút/ngón tay vào <strong className="text-emerald-700 font-bold">chấm xanh #{currentStrokeIdx + 1}</strong> và vẽ dọc theo nét đứt. Hệ thống sẽ nhận diện hướng vẽ, thứ tự nét và chấm điểm độ chính xác.
                 </div>
               )}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Footer info & Navigation */}

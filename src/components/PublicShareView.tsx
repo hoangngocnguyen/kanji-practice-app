@@ -24,6 +24,8 @@ import {
 } from '../utils/supabaseClient';
 import { useDecks } from '../context/DeckContext';
 import { useAuth } from '../context/AuthContext';
+import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { PublicShareViewSkeleton } from './PageSkeletons';
 import { speakJapanese } from '../utils/speech';
 import { cleanMeaningsList, cleanReadingsList } from '../utils/kanjiApi';
 import {
@@ -318,12 +320,10 @@ export const PublicShareView: React.FC = () => {
       });
   };
 
+  usePageLoadingIndicator('public-share', loading);
+
   if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 p-12 text-center text-sm text-slate-500">
-        Đang tải bộ ôn tập được chia sẻ...
-      </div>
-    );
+    return <PublicShareViewSkeleton />;
   }
 
   if (error || !record) {
