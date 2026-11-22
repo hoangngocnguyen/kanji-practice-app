@@ -373,3 +373,44 @@ export async function apiGetStreakLeaderboard(
     viewerRank: typeof data?.viewerRank === 'number' ? data.viewerRank : null,
   };
 }
+
+export function getFlameStyle(streak: number, isActiveToday: boolean) {
+  if (streak <= 0) {
+    return {
+      bg: 'bg-slate-100 border-slate-200',
+      icon: 'text-slate-400',
+      text: 'text-slate-500',
+      label: 'Chưa có chuỗi',
+    };
+  }
+  if (!isActiveToday) {
+    return {
+      bg: 'bg-amber-50 border-amber-200/80',
+      icon: 'text-amber-500',
+      text: 'text-amber-800',
+      label: 'Chờ giữ lửa hôm nay',
+    };
+  }
+  if (streak >= 30) {
+    return {
+      bg: 'bg-gradient-to-br from-orange-500 to-rose-500 border-orange-400 shadow-xs',
+      icon: 'text-white fill-amber-200',
+      text: 'text-rose-700',
+      label: 'Siêu bền bỉ',
+    };
+  }
+  if (streak >= 7) {
+    return {
+      bg: 'bg-gradient-to-br from-amber-400 to-orange-500 border-orange-400 shadow-xs',
+      icon: 'text-white fill-amber-100',
+      text: 'text-orange-700',
+      label: 'Đang rực cháy',
+    };
+  }
+  return {
+    bg: 'bg-orange-50 border-orange-200',
+    icon: 'text-orange-500 fill-orange-400',
+    text: 'text-orange-700',
+    label: 'Đang giữ lửa',
+  };
+}

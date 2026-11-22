@@ -19,6 +19,7 @@ import {
   GraduationCap,
   Search,
   ChevronDown,
+  Trophy,
   LucideIcon,
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
@@ -205,6 +206,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           icon: GraduationCap,
           badge: '2.136',
           desc: 'JLPT N5–N1, 2.136 Jōyō, Quiz & Ví dụ',
+        },
+        {
+          to: '/leaderboard',
+          label: 'Bảng xếp hạng',
+          icon: Trophy,
+          badge: null,
+          desc: 'Chuỗi Streak & thi đua cộng đồng',
         },
         {
           to: '/history',

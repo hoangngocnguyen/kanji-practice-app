@@ -9,15 +9,21 @@ import {
   ArrowRight,
   RotateCcw,
   FolderPlus,
-  Sparkles,
   Loader2,
   Award,
 } from 'lucide-react';
 import { KanjiDetail } from '../types/kanji';
 import { RADICALS_LIST, getKanjiDecomposition } from '../data/radicalsData';
 import { fetchAndDecomposeKanji } from '../utils/kanjiSubElementParser';
-import { getKanjiInfo, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
-import { getFullKanjiDetail } from '../utils/kanjiApi';
+import { KANJI_DICTIONARY, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
+import {
+  cleanMeaningsList,
+  cleanReadingsList,
+  getFullKanjiDetail,
+  getQuickLocalKanjiDetails,
+  isPlaceholderKanjiText,
+  sanitizeKanjiDetail,
+} from '../utils/kanjiApi';
 import { speakJapanese } from '../utils/speech';
 
 export interface DrillCompoundSeed {
@@ -111,6 +117,70 @@ function buildRadicalTray(
   }));
 
   return shuffleArray([...requiredTiles, ...distractorTiles]);
+}
+
+async function resolveCleanKanjiDetailsMap(
+  chars: string[]
+): Promise<Record<string, KanjiDetail>> {
+  const unique = Array.from(new Set(chars));
+  if (unique.length === 0) return {};
+
+  const quickMap = await getQuickLocalKanjiDetails(unique).catch(
+    () => ({} as Record<string, KanjiDetail>)
+  );
+
+  const result: Record<string, KanjiDetail> = {};
+  const missingChars: string[] = [];
+
+  for (const ch of unique) {
+    const candidate = quickMap[ch] || KANJI_DICTIONARY[ch];
+    if (candidate) {
+      const clean = sanitizeKanjiDetail(candidate);
+      result[ch] = clean;
+      if (
+        clean.meanings.length === 0 ||
+        (clean.on.length === 0 && clean.kun.length === 0)
+      ) {
+        missingChars.push(ch);
+      }
+    } else {
+      missingChars.push(ch);
+    }
+  }
+
+  if (missingChars.length > 0) {
+    const fetched = await Promise.all(
+      missingChars.slice(0, 16).map(async (ch) => {
+        try {
+          const full = await getFullKanjiDetail(ch);
+          return [ch, sanitizeKanjiDetail(full)] as const;
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    for (const pair of fetched) {
+      if (!pair) continue;
+      const [ch, detail] = pair;
+      const prev = result[ch];
+      result[ch] = prev
+        ? {
+            ...prev,
+            hanViet:
+              prev.hanViet && prev.hanViet !== 'Chưa rõ'
+                ? prev.hanViet
+                : detail.hanViet,
+            meanings: prev.meanings.length > 0 ? prev.meanings : detail.meanings,
+            on: prev.on.length > 0 ? prev.on : detail.on,
+            kun: prev.kun.length > 0 ? prev.kun : detail.kun,
+            examples: prev.examples.length > 0 ? prev.examples : detail.examples,
+          }
+        : detail;
+    }
+  }
+
+  return result;
 }
 
 const EMPTY_COMPOUND_SEEDS: DrillCompoundSeed[] = [];
@@ -208,20 +278,25 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
 
     try {
       const sampleChars = shuffleArray(uniqueChars).slice(0, 16);
-      const decomps = await Promise.all(
-        sampleChars.map(async (char) => {
-          const info = getKanjiInfo(char);
-          try {
-            const dec = await fetchAndDecomposeKanji(char, info?.hanViet);
-            return { char, dec, info };
-          } catch {
-            return { char, dec: getKanjiDecomposition(char, info?.hanViet), info };
-          }
-        })
-      );
+      const [detailsMap, decomps] = await Promise.all([
+        resolveCleanKanjiDetailsMap(sampleChars),
+        Promise.all(
+          sampleChars.map(async (char) => {
+            const localHv =
+              SINO_VIETNAMESE_MAP[char] || KANJI_DICTIONARY[char]?.hanViet;
+            try {
+              const dec = await fetchAndDecomposeKanji(char, localHv);
+              return { char, dec };
+            } catch {
+              return { char, dec: getKanjiDecomposition(char, localHv) };
+            }
+          })
+        ),
+      ]);
 
       const questions: RadicalQuestion[] = [];
-      for (const { char, dec, info } of decomps) {
+      for (const { char, dec } of decomps) {
+        const info = detailsMap[char];
         const rawParts =
           dec.directComponents && dec.directComponents.length >= 2
             ? dec.directComponents
@@ -239,9 +314,12 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
 
         if (cleanParts.length < 2) continue;
 
-        const hv = dec.hanViet || info?.hanViet || SINO_VIETNAMESE_MAP[char] || '';
+        const rawHv =
+          dec.hanViet || info?.hanViet || SINO_VIETNAMESE_MAP[char] || '';
+        const hv = !isPlaceholderKanjiText(rawHv) ? rawHv : '';
+        const cleanMeanings = cleanMeaningsList(info?.meanings);
         const meaning =
-          info?.meanings?.slice(0, 3).join(', ') ||
+          cleanMeanings.slice(0, 3).join(', ') ||
           (hv ? `Chữ Hán ${hv}` : 'Lắp ghép theo cấu tạo bộ thủ');
 
         questions.push({
@@ -266,7 +344,8 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
   }, [uniqueChars]);
 
   // Prepare Pair Matching Rounds (uses real compounds if >=4, otherwise Kanji <-> Nghĩa & Hán-Việt)
-  const prepareMatchDrill = useCallback(() => {
+  const prepareMatchDrill = useCallback(async () => {
+    const reqId = ++prepRequestIdRef.current;
     setRoundIdx(0);
     setMatchedIds([]);
     setSelectedLeftId(null);
@@ -275,51 +354,85 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
     setMatchFinished(false);
     setWrongKanjiChars([]);
 
-    let pool: MatchPairItem[] = [];
-    const validCompounds = compoundSeedsRef.current.filter((c) => c.word && c.meaning);
+    const validCompounds = compoundSeedsRef.current.filter(
+      (c) => c.word && c.meaning && !isPlaceholderKanjiText(c.meaning)
+    );
 
     if (validCompounds.length >= 4) {
-      pool = shuffleArray(validCompounds)
+      const pool: MatchPairItem[] = shuffleArray(validCompounds)
         .slice(0, 15)
         .map((c, idx) => ({
           id: `cmp-${idx}-${c.word}`,
           leftWord: c.word,
           rightMeaning: c.meaning,
-          readingHint: [c.reading, c.hanViet].filter(Boolean).join(' · '),
+          readingHint: [
+            !isPlaceholderKanjiText(c.reading) ? c.reading : '',
+            !isPlaceholderKanjiText(c.hanViet) ? c.hanViet : '',
+          ]
+            .filter(Boolean)
+            .join(' · '),
           kanjiChar: c.kanji,
         }));
-    } else {
-      pool = shuffleArray(uniqueChars)
-        .slice(0, 15)
+
+      const chunks: MatchPairItem[][] = [];
+      for (let i = 0; i < pool.length; i += 4) {
+        const slice = pool.slice(i, i + 4);
+        if (slice.length >= 2) chunks.push(slice);
+      }
+
+      setMatchRounds(chunks);
+      setRightOptions(chunks.length > 0 ? shuffleArray(chunks[0]) : []);
+      setIsPreparing(false);
+      return;
+    }
+
+    if (uniqueChars.length < 2) {
+      setMatchRounds([]);
+      setRightOptions([]);
+      setIsPreparing(false);
+      return;
+    }
+
+    setIsPreparing(true);
+    try {
+      const sampleChars = shuffleArray(uniqueChars).slice(0, 15);
+      const detailsMap = await resolveCleanKanjiDetailsMap(sampleChars);
+
+      if (reqId !== prepRequestIdRef.current) return;
+
+      const pool: MatchPairItem[] = sampleChars
         .map((char, idx) => {
-          const info = getKanjiInfo(char);
-          const hv = info?.hanViet || SINO_VIETNAMESE_MAP[char] || '';
-          const mean = info?.meanings?.slice(0, 2).join(', ') || '';
-          const reading = [...(info?.on || []).slice(0, 1), ...(info?.kun || []).slice(0, 1)]
-            .filter(Boolean)
-            .join('・');
+          const info = detailsMap[char];
+          const rawHv = info?.hanViet || SINO_VIETNAMESE_MAP[char] || '';
+          const hv = !isPlaceholderKanjiText(rawHv) ? rawHv : '';
+          const cleanMeanings = cleanMeaningsList(info?.meanings);
+          const mean = cleanMeanings.slice(0, 2).join(', ');
+          const cleanOn = cleanReadingsList(info?.on).slice(0, 1);
+          const cleanKun = cleanReadingsList(info?.kun).slice(0, 1);
+          const reading = [...cleanOn, ...cleanKun].filter(Boolean).join('・');
+
           return {
             id: `kan-${idx}-${char}`,
             leftWord: char,
-            rightMeaning: mean || hv || char,
+            rightMeaning: mean || (hv ? `Âm Hán-Việt: ${hv}` : ''),
             readingHint: [hv, reading].filter(Boolean).join(' · '),
             kanjiChar: char,
           };
         })
-        .filter((p) => p.rightMeaning);
-    }
+        .filter((p) => Boolean(p.rightMeaning));
 
-    const chunks: MatchPairItem[][] = [];
-    for (let i = 0; i < pool.length; i += 4) {
-      const slice = pool.slice(i, i + 4);
-      if (slice.length >= 2) chunks.push(slice);
-    }
+      const chunks: MatchPairItem[][] = [];
+      for (let i = 0; i < pool.length; i += 4) {
+        const slice = pool.slice(i, i + 4);
+        if (slice.length >= 2) chunks.push(slice);
+      }
 
-    setMatchRounds(chunks);
-    if (chunks.length > 0) {
-      setRightOptions(shuffleArray(chunks[0]));
-    } else {
-      setRightOptions([]);
+      setMatchRounds(chunks);
+      setRightOptions(chunks.length > 0 ? shuffleArray(chunks[0]) : []);
+    } finally {
+      if (reqId === prepRequestIdRef.current) {
+        setIsPreparing(false);
+      }
     }
   }, [uniqueChars]);
 
@@ -332,7 +445,7 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
     if (drillMode === 'radicals') {
       void prepareRadicalDrill();
     } else {
-      prepareMatchDrill();
+      void prepareMatchDrill();
     }
   }, [
     isOpen,
@@ -435,10 +548,11 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
 
   const handleExportWrong = async () => {
     if (!onSaveWrongKanji || wrongKanjiChars.length === 0) return;
+    const detailsMap = await resolveCleanKanjiDetailsMap(wrongKanjiChars);
     const details = await Promise.all(
       wrongKanjiChars.map(async (ch) => {
-        const local = getKanjiInfo(ch);
-        if (local) return local;
+        const resolved = detailsMap[ch];
+        if (resolved && resolved.meanings.length > 0) return resolved;
         return await getFullKanjiDetail(ch);
       })
     );
@@ -555,7 +669,7 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
                   onClick={() =>
                     drillMode === 'radicals'
                       ? void prepareRadicalDrill()
-                      : prepareMatchDrill()
+                      : void prepareMatchDrill()
                   }
                   className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl flex items-center gap-1.5 cursor-pointer"
                 >
@@ -575,15 +689,17 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
                 )}
               </div>
             </div>
+          ) : isPreparing ? (
+            <div className="py-16 text-center space-y-2">
+              <Loader2 className="w-7 h-7 animate-spin text-teal-700 mx-auto" />
+              <p className="text-xs font-semibold text-slate-600">
+                {drillMode === 'radicals'
+                  ? 'Đang phân tách cấu tạo bộ thủ các chữ Kanji...'
+                  : 'Đang nạp nghĩa và âm đọc chuẩn cho các cặp nối từ...'}
+              </p>
+            </div>
           ) : drillMode === 'radicals' ? (
-            isPreparing ? (
-              <div className="py-16 text-center space-y-2">
-                <Loader2 className="w-7 h-7 animate-spin text-teal-700 mx-auto" />
-                <p className="text-xs font-semibold text-slate-600">
-                  Đang phân tách cấu tạo bộ thủ các chữ Kanji...
-                </p>
-              </div>
-            ) : !currentRadQ ? (
+            !currentRadQ ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
                 <p className="text-sm font-bold text-slate-700">
                   Chưa đủ chữ có từ 2 bộ thủ trở lên để ghép
@@ -725,9 +841,8 @@ export const InteractiveDrillsModal: React.FC<InteractiveDrillsModalProps> = ({
                             <Volume2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <p className="text-xs text-slate-700 leading-relaxed flex items-start gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-teal-700 shrink-0 mt-0.5" />
-                          <span>{currentRadQ.mnemonicStory}</span>
+                        <p className="text-xs text-slate-700 leading-relaxed">
+                          {currentRadQ.mnemonicStory}
                         </p>
                       </div>
                     )}
