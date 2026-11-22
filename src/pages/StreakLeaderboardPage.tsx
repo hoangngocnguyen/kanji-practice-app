@@ -9,7 +9,6 @@ import {
   LogIn,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
   Play,
   Target,
   ExternalLink,
@@ -224,7 +223,7 @@ export const StreakLeaderboardPage: React.FC = () => {
       ) : data && !data.tableReady ? (
         <div className="bg-white rounded-2xl border border-amber-200 p-6 space-y-2.5 text-xs sm:text-sm text-amber-900">
           <div className="flex items-center gap-2 font-bold text-base">
-            <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
             <span>Chưa kích hoạt bảng Streak trên Supabase</span>
           </div>
           <p className="leading-relaxed text-amber-800">

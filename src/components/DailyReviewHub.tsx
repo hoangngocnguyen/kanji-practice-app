@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   Play,
   Layers3,
-  ChevronDown,
-  ChevronUp,
-  Sparkles,
   BookOpen,
+  GraduationCap,
+  X,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import {
@@ -36,7 +35,7 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
   } = useDecks();
 
   const [catalog, setCatalog] = useState<KanjiCatalogEntry[]>([]);
-  const [showJlptDetails, setShowJlptDetails] = useState<boolean>(false);
+  const [isJlptModalOpen, setIsJlptModalOpen] = useState<boolean>(false);
 
   // Lazy load Joyo 2.136 catalog for N5 -> N1 mastery breakdown
   useEffect(() => {
@@ -50,6 +49,16 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
       mounted = false;
     };
   }, []);
+
+  // Close modal on Escape
+  useEffect(() => {
+    if (!isJlptModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsJlptModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isJlptModalOpen]);
 
   // Unified due queue metrics
   const allDueCards = useMemo(
@@ -84,8 +93,6 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
   }, [folders, getDueCountForFolderRecursive]);
 
   // JLPT N5 -> N1 + JOYO mastery calculation
-  // Mastered ("Đã nhớ vững"): repetitions >= 2 AND intervalMinutes >= 7 days
-  // Learning ("Đang ôn tập"): exists in personal decks below threshold
   const jlptProgress = useMemo(() => {
     if (catalog.length === 0) return [];
 
@@ -141,158 +148,176 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
   }, [items]);
 
   return (
-    <div className="space-y-3">
+    <div>
       {/* Main Full-Width Daily Review Command Card */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex flex-col justify-between gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div className="space-y-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700">
-                  Trung tâm ôn tập hằng ngày
-                </span>
-              </div>
-              <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight tabular-nums">
-                {dueBreakdown.total > 0
-                  ? `${dueBreakdown.total} thẻ đến hạn ôn hôm nay`
-                  : totalAllCards > 0
-                  ? 'Bạn đã hoàn thành hết thẻ đến hạn hôm nay!'
-                  : 'Chưa có thẻ Kanji trong thư mục'}
-              </h2>
-              <p className="text-xs text-slate-500 tabular-nums">
-                {dueBreakdown.total > 0 ? (
-                  <>
-                    {dueBreakdown.kanji} thẻ Kanji · {dueBreakdown.compound} từ ghép ·{' '}
-                    {foldersWithDue.length} thư mục cần ôn
-                  </>
-                ) : (
-                  <>
-                    Tổng {items.length} chữ Kanji · {totalAllCards} thẻ SRS · {totalMasteredAll} chữ đã nhớ vững
-                  </>
-                )}
-              </p>
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700">
+                Trung tâm ôn tập hằng ngày
+              </span>
             </div>
-
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
-              <button
-                type="button"
-                disabled={totalAllCards === 0}
-                onClick={() =>
-                  onStartUnifiedReview('__ALL__', 'all', dueBreakdown.total > 0)
-                }
-                className="flex-1 sm:flex-none justify-center px-4 py-2.5 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shadow-2xs"
-              >
-                <Play className="w-3.5 h-3.5 fill-current shrink-0" />
-                <span className="tabular-nums">
-                  {dueBreakdown.total > 0
-                    ? `Ôn gộp hôm nay (${dueBreakdown.total})`
-                    : `Ôn lại tất cả (${totalAllCards})`}
-                </span>
-              </button>
-
-              {items.length >= 2 && (
-                <button
-                  type="button"
-                  onClick={onStartInteractiveDrills}
-                  className="px-3 py-2.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  title="Luyện ghép bộ thủ thành chữ Kanji & nối từ ghép"
-                >
-                  <Layers3 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Ghép bộ thủ</span>
-                </button>
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight tabular-nums">
+              {dueBreakdown.total > 0
+                ? `${dueBreakdown.total} thẻ đến hạn ôn hôm nay`
+                : totalAllCards > 0
+                ? 'Bạn đã hoàn thành hết thẻ đến hạn hôm nay!'
+                : 'Chưa có thẻ Kanji trong thư mục'}
+            </h2>
+            <p className="text-xs text-slate-500 tabular-nums">
+              {dueBreakdown.total > 0 ? (
+                <>
+                  {dueBreakdown.kanji} thẻ Kanji · {dueBreakdown.compound} từ ghép ·{' '}
+                  {foldersWithDue.length} thư mục cần ôn
+                </>
+              ) : (
+                <>
+                  Tổng {items.length} chữ Kanji · {totalAllCards} thẻ SRS · {totalMasteredAll} chữ đã nhớ vững
+                </>
               )}
-            </div>
+            </p>
           </div>
 
-          {/* Quick Per-Folder Due Shortcuts */}
-          {foldersWithDue.length > 0 && (
-            <div className="pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-500 shrink-0">
-                Ôn từng thư mục:
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={totalAllCards === 0}
+              onClick={() =>
+                onStartUnifiedReview('__ALL__', 'all', dueBreakdown.total > 0)
+              }
+              className="flex-1 sm:flex-none justify-center px-4 py-2.5 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shadow-2xs"
+            >
+              <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+              <span className="tabular-nums">
+                {dueBreakdown.total > 0
+                  ? `Ôn gộp hôm nay (${dueBreakdown.total})`
+                  : `Ôn lại tất cả (${totalAllCards})`}
               </span>
-              {foldersWithDue.map(({ folder, dueCount }) => (
-                <button
-                  key={folder.id}
-                  type="button"
-                  onClick={() => onStartUnifiedReview(folder.id, 'all', true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-teal-900 bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 rounded-lg transition-colors cursor-pointer max-w-[200px]"
-                  title={`Ôn riêng thư mục ${folder.name}`}
-                >
-                  <span className="truncate">{folder.name}</span>
-                  <span className="text-[11px] font-bold text-teal-700 tabular-nums shrink-0">
-                    ({dueCount})
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
+            </button>
+
+            {items.length >= 2 && (
+              <button
+                type="button"
+                onClick={onStartInteractiveDrills}
+                className="px-3 py-2.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                title="Luyện ghép bộ thủ thành chữ Kanji & nối từ ghép"
+              >
+                <Layers3 className="w-3.5 h-3.5 shrink-0" />
+                <span>Ghép bộ thủ</span>
+              </button>
+            )}
+
+            {jlptProgress.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsJlptModalOpen(true)}
+                className="px-3 py-2.5 text-xs font-semibold text-slate-700 hover:text-teal-900 bg-slate-50 hover:bg-teal-50/70 border border-slate-200 hover:border-teal-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                title="Xem tiến độ ghi nhớ Kanji theo cấp độ JLPT N5 → N1"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                <span>Tiến độ JLPT</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Per-Folder Due Shortcuts */}
+        {foldersWithDue.length > 0 && (
+          <div className="pt-3 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-500 shrink-0">
+              Ôn từng thư mục:
+            </span>
+            {foldersWithDue.map(({ folder, dueCount }) => (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => onStartUnifiedReview(folder.id, 'all', true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-teal-900 bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 rounded-lg transition-colors cursor-pointer max-w-[200px]"
+                title={`Ôn riêng thư mục ${folder.name}`}
+              >
+                <span className="truncate">{folder.name}</span>
+                <span className="text-[11px] font-bold text-teal-700 tabular-nums shrink-0">
+                  ({dueCount})
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Collapsible JLPT N5 -> N1 & Joyo Mastery Bar */}
-      {jlptProgress.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowJlptDetails((v) => !v)}
-            className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors cursor-pointer text-left"
+      {/* JLPT N5 -> N1 & Joyo Mastery Modal */}
+      {isJlptModalOpen && (
+        <div
+          onClick={() => setIsJlptModalOpen(false)}
+          className="fixed inset-0 z-50 max-h-[100dvh] bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-2.5 sm:p-4 overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tiến độ ghi nhớ JLPT"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-3xl max-h-[92dvh] bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <Sparkles className="w-4 h-4 text-teal-700 shrink-0" />
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs min-w-0">
-                <span className="font-bold text-slate-900">
-                  Tiến độ ghi nhớ JLPT (N5 → N1)
-                </span>
-                <span className="text-slate-400 hidden sm:inline">·</span>
-                <span className="text-slate-600 tabular-nums truncate">
-                  {jlptProgress
-                    .slice(0, 5)
-                    .map((lvl) => `${lvl.label}: ${lvl.mastered}/${lvl.total}`)
-                    .join(' · ')}
-                </span>
+            {/* Modal Header */}
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+                    Tiến độ ghi nhớ JLPT (N5 → N1)
+                  </h2>
+                  <p className="text-[11px] sm:text-xs text-slate-500 truncate tabular-nums">
+                    Đã nhớ vững {totalMasteredAll} chữ · Tổng {items.length} chữ trong bộ thẻ
+                  </p>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsJlptModalOpen(false)}
+                className="w-9 h-9 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center justify-center cursor-pointer shrink-0 transition-colors"
+                aria-label="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-teal-800 shrink-0">
-              <span className="hidden sm:inline">
-                {showJlptDetails ? 'Thu gọn' : 'Chi tiết'}
-              </span>
-              {showJlptDetails ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-            </div>
-          </button>
-
-          {showJlptDetails && (
-            <div className="px-4 sm:px-5 pb-4 pt-2 border-t border-slate-100 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+            {/* Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                 <span>
-                  "Đã nhớ vững": thẻ có <strong className="text-slate-700">≥ 2 lần nhớ đúng</strong> và chu kỳ ôn{' '}
+                  &ldquo;Đã nhớ vững&rdquo;: thẻ có <strong className="text-slate-700">≥ 2 lần nhớ đúng</strong> và chu kỳ ôn{' '}
                   <strong className="text-slate-700">≥ 7 ngày</strong>. Bấm từng cấp để học chữ còn thiếu.
                 </span>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-xs bg-emerald-600 inline-block" />
                     Đã nhớ vững
                   </span>
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-xs bg-teal-300 inline-block" />
                     Đang ôn tập
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {jlptProgress.map((lvl) => (
                   <button
                     key={lvl.key}
                     type="button"
-                    onClick={() => navigate(`/levels?level=${lvl.key}`)}
-                    className="p-3 rounded-xl border border-slate-200/80 hover:border-teal-400 bg-slate-50/50 hover:bg-teal-50/30 text-left transition-colors cursor-pointer space-y-2"
+                    onClick={() => {
+                      setIsJlptModalOpen(false);
+                      navigate(`/levels?level=${lvl.key}`);
+                    }}
+                    className="p-3.5 rounded-2xl border border-slate-200/90 hover:border-teal-400 bg-slate-50/60 hover:bg-teal-50/35 text-left transition-colors cursor-pointer space-y-2.5"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-teal-700" />
+                        <BookOpen className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                         <span>{lvl.label}</span>
                       </span>
                       <span className="text-[11px] font-bold text-slate-700 tabular-nums">
@@ -322,7 +347,7 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
                 ))}
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
