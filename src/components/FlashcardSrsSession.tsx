@@ -450,14 +450,14 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   return (
     <div
       onClick={onExit}
-      className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+      className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 lg:p-6 overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Phiên ôn tập Flashcard"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl h-[88vh] sm:h-[85vh] max-h-[760px] bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl p-2.5 sm:p-3.5 lg:p-4 flex flex-col gap-2 overflow-hidden"
+        className="w-full max-w-6xl h-full max-h-[96dvh] sm:max-h-[92dvh] bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl p-2.5 sm:p-4 lg:p-5 flex flex-col gap-2 sm:gap-2.5 overflow-hidden"
       >
         {/* 1. Compact Top Control Bar + Progress */}
         <div className="space-y-2 shrink-0 w-full">
@@ -711,12 +711,12 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     setIsFlipped((f) => !f);
                   }
                 }}
-                className={`flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 lg:p-5 flex flex-col justify-between select-none transition-transform duration-150 overflow-hidden ${
+                className={`flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 lg:p-7 flex flex-col justify-between select-none transition-transform duration-150 overflow-hidden ${
                   studyStyle === 'flip' || isFlipped ? 'cursor-pointer' : 'cursor-default'
                 }`}
               >
                 {/* Card Metadata Header */}
-                <div className="flex items-center justify-between text-xs text-slate-500 shrink-0 pb-1 border-b border-slate-100">
+                <div className="flex items-center justify-between text-xs text-slate-500 shrink-0 pb-1.5 border-b border-slate-100">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="font-semibold text-teal-800 shrink-0">
                       {currentCard.cardType === 'kanji' ? 'Thẻ Kanji' : 'Thẻ Từ ghép'}
@@ -992,8 +992,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                             </div>
                           </div>
 
-                          {/* Right Column: On/Kun + Meaning + Example Sentences (Scrollable) */}
-                          <div className="sm:col-span-7 overflow-y-auto max-h-[220px] sm:max-h-[300px] pr-1.5 space-y-2.5">
+                          {/* Right Column: On/Kun + Meaning + Example Sentences */}
+                          <div className="sm:col-span-7 space-y-2.5">
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                                 <span className="text-[11px] font-semibold text-slate-500 block">
@@ -1143,8 +1143,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                             )}
                           </div>
 
-                          {/* Right Column: Meaning + Practical Example Sentences (Scrollable) */}
-                          <div className="sm:col-span-7 overflow-y-auto max-h-[220px] sm:max-h-[300px] pr-1.5 space-y-2.5">
+                          {/* Right Column: Meaning + 2 Practical Example Sentences */}
+                          <div className="sm:col-span-7 space-y-2.5">
                             <div className="p-3 sm:p-3.5 rounded-xl bg-teal-50/60 border border-teal-100 text-center sm:text-left">
                               <span className="text-[11px] font-semibold text-teal-800 block mb-0.5">
                                 Nghĩa tiếng Việt
