@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Loader2,
   Layers,
+  Layers3,
   LayoutList,
   Printer,
 } from 'lucide-react';
@@ -42,6 +43,7 @@ import { BatchImportCompoundModal } from './BatchImportCompoundModal';
 import { KanjiItemDetailModal } from './KanjiItemDetailModal';
 import { MoveKanjiItemsModal } from './MoveKanjiItemsModal';
 import { KanjiPrintModal } from './KanjiPrintModal';
+import { DrillCompoundSeed, InteractiveDrillsModal } from './InteractiveDrillsModal';
 
 interface FolderKanjiTableProps {
   onStartReview: (mode: ReviewFilterMode, onlyDue: boolean) => void;
@@ -100,6 +102,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   const [openKanjiMenuId, setOpenKanjiMenuId] = useState<string | null>(null);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isDrillsOpen, setIsDrillsOpen] = useState(false);
 
   const [editingKanjiId, setEditingKanjiId] = useState<string | null>(null);
   const [editHv, setEditHv] = useState('');
@@ -613,6 +616,20 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               {selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}
                             </span>
                           </button>
+
+                          {folderItems.length >= 2 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsHeaderMenuOpen(false);
+                                setIsDrillsOpen(true);
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer font-medium"
+                            >
+                              <Layers3 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                              <span>Ghép bộ thủ &amp; Từ</span>
+                            </button>
+                          )}
                         </>
                       )}
 
@@ -694,6 +711,18 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                     {selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}
                   </span>
                 </button>
+
+                {folderItems.length >= 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDrillsOpen(true)}
+                    className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                    title="Luyện ghép bộ thủ & nối từ ghép trong thư mục này"
+                  >
+                    <Layers3 className="w-3.5 h-3.5 text-teal-700" />
+                    <span>Ghép bộ thủ</span>
+                  </button>
+                )}
               </>
             )}
 
@@ -2068,6 +2097,23 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             ? `${selectedFolder.name} · ${printableDeckItems.length} chữ đã chọn`
             : `Bộ thẻ: ${selectedFolder.name} (${printableDeckItems.length} chữ)`
         }
+      />
+
+      <InteractiveDrillsModal
+        isOpen={isDrillsOpen}
+        title={selectedFolder.name}
+        seedChars={getActiveKanjiCharsForAction()}
+        compoundSeeds={folderItems.flatMap<DrillCompoundSeed>((it) =>
+          (it.compoundWords || []).map((cw) => ({
+            word: cw.word,
+            reading: cw.reading,
+            hanViet: cw.hanViet,
+            meaning: cw.meaning,
+            kanji: it.kanji,
+          }))
+        )}
+        onInspectChar={(ch) => openKanjiPracticeModal(ch, deckKanjiChars)}
+        onClose={() => setIsDrillsOpen(false)}
       />
     </div>
   );

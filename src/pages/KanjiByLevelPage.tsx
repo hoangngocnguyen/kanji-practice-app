@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   LayoutGrid,
@@ -17,6 +18,7 @@ import {
   Loader2,
   X,
   Printer,
+  Layers3,
 } from 'lucide-react';
 import { KanjiDetail, KanjiItem } from '../types/kanji';
 import { useKanji } from '../context/KanjiContext';
@@ -27,6 +29,7 @@ import { KanjiGridOverlay } from '../components/KanjiGridOverlay';
 import { KanjiLevelQuiz } from '../components/KanjiLevelQuiz';
 import { AddKanjiToDeckModal } from '../components/AddKanjiToDeckModal';
 import { KanjiPrintModal } from '../components/KanjiPrintModal';
+import { InteractiveDrillsModal } from '../components/InteractiveDrillsModal';
 import {
   KanjiCatalogEntry,
   KanjiLevelTab,
@@ -44,15 +47,31 @@ const LOAD_MORE_BATCH = 48;
 
 export const KanjiByLevelPage: React.FC = () => {
   const { openKanjiPracticeModal, includeGrid, setIncludeGrid } = useKanji();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [catalog, setCatalog] = useState<KanjiCatalogEntry[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [staticSentencesLoaded, setStaticSentencesLoaded] = useState<boolean>(false);
 
-  const [activeLevel, setActiveLevel] = useState<KanjiLevelTab>('N5');
+  const initialLevelFromUrl = searchParams.get('level');
+  const validInitialLevel: KanjiLevelTab = LEVEL_METADATA.some(
+    (m) => m.key === initialLevelFromUrl
+  )
+    ? (initialLevelFromUrl as KanjiLevelTab)
+    : 'N5';
+
+  const [activeLevel, setActiveLevel] = useState<KanjiLevelTab>(validInitialLevel);
   const [subMode, setSubMode] = useState<'list' | 'quiz'>('list');
   const [viewMode, setViewMode] = useState<'rows' | 'grid'>('rows');
+
+  useEffect(() => {
+    const lvl = searchParams.get('level');
+    if (lvl && LEVEL_METADATA.some((m) => m.key === lvl)) {
+      setActiveLevel(lvl as KanjiLevelTab);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [strokeFilter, setStrokeFilter] = useState<string>('all');
@@ -67,11 +86,12 @@ export const KanjiByLevelPage: React.FC = () => {
   const [isSelectMode, setIsSelectMode] = useState<boolean>(false);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
 
-  // Add to deck & print modal state
+  // Add to deck, drills & print modal state
   const [deckModalEntries, setDeckModalEntries] = useState<KanjiDetail[]>([]);
   const [isDeckModalOpen, setIsDeckModalOpen] = useState<boolean>(false);
   const [suggestedDeckName, setSuggestedDeckName] = useState<string>('JLPT N5 · Ôn tập');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [isDrillsModalOpen, setIsDrillsModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -270,31 +290,44 @@ export const KanjiByLevelPage: React.FC = () => {
             </p>
           </div>
 
-          {/* List vs Quiz Mode Toggle */}
-          <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 self-start lg:self-auto shrink-0">
+          {/* List vs Quiz & Radical Drills Mode Controls */}
+          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto shrink-0">
+            <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setSubMode('list')}
+                className={`px-3.5 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  subMode === 'list'
+                    ? 'bg-white text-teal-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Danh sách học</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubMode('quiz')}
+                className={`px-3.5 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                  subMode === 'quiz'
+                    ? 'bg-teal-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <QuizTileIcon className="w-4 h-4" />
+                <span>Quiz ôn tập</span>
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => setSubMode('list')}
-              className={`px-3.5 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                subMode === 'list'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              disabled={levelPool.length < 2}
+              onClick={() => setIsDrillsModalOpen(true)}
+              className="px-3.5 py-2 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-45 whitespace-nowrap"
+              title="Luyện ghép bộ thủ cấu tạo chữ & nối từ theo cấp độ"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Danh sách học</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSubMode('quiz')}
-              className={`px-3.5 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                subMode === 'quiz'
-                  ? 'bg-teal-700 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <QuizTileIcon className="w-4 h-4" />
-              <span>Quiz ôn tập</span>
+              <Layers3 className="w-3.5 h-3.5 shrink-0" />
+              <span>Ghép bộ thủ</span>
             </button>
           </div>
         </div>
@@ -902,6 +935,30 @@ export const KanjiByLevelPage: React.FC = () => {
             ? `${currentLevelMeta.label} · ${selectedEntries.length} chữ đã chọn`
             : `${currentLevelMeta.label} (${visibleItems.length} chữ đang hiện)`
         }
+      />
+
+      <InteractiveDrillsModal
+        isOpen={isDrillsModalOpen}
+        title={
+          selectedEntries.length >= 2
+            ? `${currentLevelMeta.label} (${selectedEntries.length} chữ đang chọn)`
+            : currentLevelMeta.label
+        }
+        seedChars={
+          selectedEntries.length >= 2
+            ? selectedEntries.map((e) => e.c)
+            : visibleEntries.length >= 4
+            ? visibleEntries.map((e) => e.c)
+            : levelPool.map((e) => e.c)
+        }
+        onInspectChar={handleInspectEntryChar}
+        onSaveWrongKanji={(details) => {
+          setIsDrillsModalOpen(false);
+          setDeckModalEntries(details);
+          setSuggestedDeckName(`Ghép bộ thủ hay sai · ${currentLevelMeta.label}`);
+          setIsDeckModalOpen(true);
+        }}
+        onClose={() => setIsDrillsModalOpen(false)}
       />
     </section>
   );

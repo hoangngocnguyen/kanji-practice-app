@@ -23,7 +23,8 @@ import {
   Globe,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
-import { StudyFolder } from '../types/deck';
+import { useKanji } from '../context/KanjiContext';
+import { ReviewFilterMode, StudyFolder } from '../types/deck';
 import {
   FolderFormModal,
   MoveFolderModal,
@@ -32,11 +33,15 @@ import {
   SupabaseCloudModal,
 } from './DeckModals';
 import { SharedDecksManager } from './SharedDecksManager';
+import { DailyReviewHub } from './DailyReviewHub';
+import { FlashcardSrsSession } from './FlashcardSrsSession';
+import { DrillCompoundSeed, InteractiveDrillsModal } from './InteractiveDrillsModal';
 
 export const DecksView: React.FC = () => {
   const navigate = useNavigate();
   const {
     folders,
+    items,
     getDueCountForFolderRecursive,
     getItemsForFolderRecursive,
     buildExportBundle,
@@ -55,8 +60,15 @@ export const DecksView: React.FC = () => {
     syncError,
     clearSyncMessage,
   } = useDecks();
+  const { openKanjiPracticeModal } = useKanji();
 
   const [activeTab, setActiveTab] = useState<'folders' | 'shares'>('folders');
+  const [unifiedReviewSession, setUnifiedReviewSession] = useState<{
+    folderId: string;
+    mode: ReviewFilterMode;
+    onlyDue: boolean;
+  } | null>(null);
+  const [isDrillsModalOpen, setIsDrillsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -983,6 +995,14 @@ export const DecksView: React.FC = () => {
         </div>
       )}
 
+      {/* Daily Review Hub: Unified Today Queue, Duolingo Flame Streak + Leaderboard & JLPT Mastery */}
+      <DailyReviewHub
+        onStartUnifiedReview={(targetFolderId, mode, onlyDue) =>
+          setUnifiedReviewSession({ folderId: targetFolderId, mode, onlyDue })
+        }
+        onStartInteractiveDrills={() => setIsDrillsModalOpen(true)}
+      />
+
       {/* View Switcher: Thư mục của tôi | Quản lý chia sẻ */}
       <div className="flex items-center justify-between gap-3">
         <div className="inline-flex p-1 bg-slate-200/70 rounded-xl">
@@ -1237,6 +1257,37 @@ export const DecksView: React.FC = () => {
         isOpen={isCloudOpen}
         shareFolderId={null}
         onClose={() => setIsCloudOpen(false)}
+      />
+
+      {unifiedReviewSession && (
+        <FlashcardSrsSession
+          folderId={unifiedReviewSession.folderId}
+          initialMode={unifiedReviewSession.mode}
+          onlyDue={unifiedReviewSession.onlyDue}
+          onExit={() => setUnifiedReviewSession(null)}
+        />
+      )}
+
+      <InteractiveDrillsModal
+        isOpen={isDrillsModalOpen}
+        title="Tất cả thư mục cá nhân"
+        seedChars={items.map((it) => it.kanji)}
+        compoundSeeds={items.flatMap<DrillCompoundSeed>((it) =>
+          (it.compoundWords || []).map((cw) => ({
+            word: cw.word,
+            reading: cw.reading,
+            hanViet: cw.hanViet,
+            meaning: cw.meaning,
+            kanji: it.kanji,
+          }))
+        )}
+        onInspectChar={(ch) =>
+          openKanjiPracticeModal(
+            ch,
+            items.map((it) => it.kanji)
+          )
+        }
+        onClose={() => setIsDrillsModalOpen(false)}
       />
     </div>
   );

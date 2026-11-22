@@ -12,6 +12,11 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Headphones,
+  MessageSquareQuote,
+  Eye,
+  Check,
+  XCircle,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
@@ -24,11 +29,14 @@ import {
 import { previewNextIntervals } from '../utils/srsAlgorithm';
 import { speakJapanese } from '../utils/speech';
 import { extractUniqueKanji } from '../utils/kanji';
-import { getKanjiInfo } from '../data/kanjiDictionary';
+import { getKanjiInfo, KANJI_DICTIONARY } from '../data/kanjiDictionary';
 import {
   getStaticSentencesForKanji,
   loadKanjiSentencesStatic,
 } from '../services/kanjiLevelService';
+import { BlindWritingPad } from './BlindWritingPad';
+
+type SrsStudyStyle = 'flip' | 'write' | 'listen' | 'cloze';
 
 interface FlashcardSrsSessionProps {
   folderId: string;
@@ -83,6 +91,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
 }) => {
   const {
     folders,
+    items,
     srsConfig,
     setSrsConfig,
     getReviewCardsForFolder,
@@ -91,6 +100,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   const { inspectedKanji, openKanjiPracticeModal } = useKanji();
 
   const [filterMode, setFilterMode] = useState<ReviewFilterMode>(initialMode);
+  const [studyStyle, setStudyStyle] = useState<SrsStudyStyle>('flip');
   const [cramMode, setCramMode] = useState<boolean>(!onlyDue);
   const [queue, setQueue] = useState<FlashcardReviewItem[]>(() =>
     getReviewCardsForFolder(folderId, initialMode, onlyDue)
@@ -100,6 +110,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     getReviewCardsForFolder(folderId, initialMode, onlyDue).length
   );
   const [isFlipped, setIsFlipped] = useState(false);
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const [showConfig, setShowConfig] = useState(false);
   const [requeuedIds, setRequeuedIds] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState({ hard: 0, good: 0, easy: 0 });
@@ -113,6 +124,10 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   }, []);
 
   const folder = folders.find((f) => f.id === folderId);
+  const sessionTitle =
+    folderId === '__ALL__'
+      ? 'Ôn gộp hôm nay (Mọi thư mục)'
+      : folder?.name || 'Bài học';
 
   const reloadSession = useCallback(
     (mode: ReviewFilterMode, isCram: boolean) => {
@@ -121,6 +136,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
       setCurrentIndex(0);
       setInitialTotal(cards.length);
       setIsFlipped(false);
+      setSelectedChoice(null);
       setRequeuedIds(new Set());
       setStats({ hard: 0, good: 0, easy: 0 });
     },
@@ -130,6 +146,12 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   const handleModeChange = (mode: ReviewFilterMode) => {
     setFilterMode(mode);
     reloadSession(mode, cramMode);
+  };
+
+  const handleStudyStyleChange = (style: SrsStudyStyle) => {
+    setStudyStyle(style);
+    setIsFlipped(false);
+    setSelectedChoice(null);
   };
 
   const currentCard = queue[currentIndex] || null;
@@ -204,16 +226,127 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     return [];
   }, [currentCard, staticSentencesReady]);
 
+  // Build 4 smart choices for Listen & Cloze active recall modes
+  const recallTargetText = useMemo(() => {
+    if (!currentCard) return '';
+    return currentCard.cardType === 'compound'
+      ? currentCard.word || currentCard.kanji
+      : currentCard.kanji;
+  }, [currentCard]);
+
+  const activeRecallOptions = useMemo(() => {
+    if (!currentCard || !recallTargetText) return [];
+
+    const poolTexts = new Set<string>();
+    if (currentCard.cardType === 'compound') {
+      for (const it of items) {
+        for (const cw of it.compoundWords || []) {
+          if (cw.word && cw.word !== recallTargetText) poolTexts.add(cw.word);
+        }
+      }
+      for (const qCard of queue) {
+        if (qCard.cardType === 'compound' && qCard.word && qCard.word !== recallTargetText) {
+          poolTexts.add(qCard.word);
+        }
+      }
+    } else {
+      for (const it of items) {
+        if (it.kanji && it.kanji !== recallTargetText) poolTexts.add(it.kanji);
+      }
+      for (const qCard of queue) {
+        if (qCard.kanji && qCard.kanji !== recallTargetText) poolTexts.add(qCard.kanji);
+      }
+    }
+
+    // Pad with dictionary Kanji/words if deck pool is tiny
+    if (poolTexts.size < 6) {
+      const dictKeys = Object.keys(KANJI_DICTIONARY);
+      for (let i = 0; i < dictKeys.length && poolTexts.size < 12; i += 3) {
+        const k = dictKeys[i];
+        if (k && k !== recallTargetText) poolTexts.add(k);
+      }
+    }
+
+    const distractors = Array.from(poolTexts)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3);
+
+    const opts = [recallTargetText, ...distractors];
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    return opts;
+  }, [currentCard, recallTargetText, items, queue]);
+
+  const clozePromptData = useMemo(() => {
+    if (!currentCard) return null;
+    const matchTarget =
+      currentCard.cardType === 'compound'
+        ? currentCard.word || currentCard.kanji
+        : currentCard.kanji;
+    const exWithTarget =
+      resolvedExamples.find((ex) => matchTarget && ex.jp.includes(matchTarget)) ||
+      resolvedExamples.find((ex) => currentCard.kanji && ex.jp.includes(currentCard.kanji));
+
+    if (exWithTarget) {
+      const tokenToMask = exWithTarget.jp.includes(matchTarget)
+        ? matchTarget
+        : currentCard.kanji;
+      return {
+        hasSentence: true,
+        maskedJp: exWithTarget.jp.split(tokenToMask).join('【 ＿ 】'),
+        fullJp: exWithTarget.jp,
+        kana: exWithTarget.kana,
+        vi: exWithTarget.vi,
+        correctToken: tokenToMask,
+      };
+    }
+
+    const clueMeaning =
+      currentCard.cardType === 'compound'
+        ? currentCard.wordMeaning || 'Từ ghép tiếng Nhật'
+        : currentCard.meanings.join(', ') || currentCard.hanViet;
+    const clueReading =
+      currentCard.cardType === 'compound'
+        ? currentCard.reading || ''
+        : [...currentCard.onReadings.slice(0, 2), ...currentCard.kunReadings.slice(0, 2)]
+            .filter(Boolean)
+            .join(' · ');
+
+    return {
+      hasSentence: false,
+      maskedJp: '',
+      fullJp: recallTargetText,
+      kana: clueReading,
+      vi: clueMeaning,
+      correctToken: recallTargetText,
+    };
+  }, [currentCard, resolvedExamples, recallTargetText]);
+
+  // Reset choice & auto-speak in Listen mode when moving to a card
+  useEffect(() => {
+    setSelectedChoice(null);
+    if (!isFlipped && currentCard && studyStyle === 'listen' && recallTargetText) {
+      const timer = window.setTimeout(() => {
+        speakJapanese(recallTargetText);
+      }, 150);
+      return () => window.clearTimeout(timer);
+    }
+  }, [currentCard?.cardId, studyStyle, isFlipped, recallTargetText]);
+
   const handlePrevCard = useCallback(() => {
     if (queue.length <= 1 || currentIndex <= 0) return;
     setCurrentIndex((i) => Math.max(0, i - 1));
     setIsFlipped(false);
+    setSelectedChoice(null);
   }, [queue.length, currentIndex]);
 
   const handleNextCard = useCallback(() => {
     if (queue.length <= 1 || currentIndex >= queue.length - 1) return;
     setCurrentIndex((i) => Math.min(queue.length - 1, i + 1));
     setIsFlipped(false);
+    setSelectedChoice(null);
   }, [queue.length, currentIndex]);
 
   const handleRate = useCallback(
@@ -233,6 +366,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
         nextQueue.length === 0 ? 0 : Math.min(prevIdx, nextQueue.length - 1)
       );
       setIsFlipped(false);
+      setSelectedChoice(null);
     },
     [currentCard, currentIndex, queue, gradeFlashcard, requeuedIds]
   );
@@ -252,7 +386,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
       if (inspectedKanji) return;
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
       ) {
         return;
       }
@@ -265,9 +400,14 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
         }
         return;
       }
+      if (e.target instanceof HTMLButtonElement && (e.code === 'Space' || e.code === 'Enter')) {
+        return;
+      }
       if (e.code === 'Space' || e.code === 'Enter') {
-        e.preventDefault();
-        if (currentCard) setIsFlipped((f) => !f);
+        if (studyStyle === 'flip' || isFlipped || selectedChoice !== null) {
+          e.preventDefault();
+          if (currentCard) setIsFlipped((f) => !f);
+        }
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         handlePrevCard();
@@ -286,6 +426,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     inspectedKanji,
     currentCard,
     isFlipped,
+    studyStyle,
+    selectedChoice,
     handleRate,
     handlePrevCard,
     handleNextCard,
@@ -331,8 +473,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                 <X className="w-4 h-4" />
               </button>
               <div className="min-w-0">
-                <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[140px] sm:max-w-[320px]">
-                  {folder?.name || 'Bài học'}
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[160px] sm:max-w-[320px]">
+                  {sessionTitle}
                 </h2>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500 tabular-nums">
                   <span>
@@ -344,7 +486,37 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Active Recall Study Style Switcher */}
+              <div className="flex items-center gap-0.5 p-0.5 bg-teal-50/90 border border-teal-200/80 rounded-xl">
+                {(
+                  [
+                    { id: 'flip', label: 'Lật thẻ', icon: RotateCw },
+                    { id: 'write', label: 'Viết mù', icon: PenTool },
+                    { id: 'listen', label: 'Nghe', icon: Headphones },
+                    { id: 'cloze', label: 'Điền câu', icon: MessageSquareQuote },
+                  ] as const
+                ).map((m) => {
+                  const Icon = m.icon;
+                  const active = studyStyle === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => handleStudyStyleChange(m.id)}
+                      className={`px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                        active
+                          ? 'bg-teal-700 text-white shadow-2xs font-bold'
+                          : 'text-teal-900 hover:bg-teal-100/70'
+                      }`}
+                    >
+                      <Icon className="w-3 h-3 shrink-0" />
+                      <span>{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-xl">
                 {(
                   [
@@ -534,8 +706,14 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
 
               {/* Expanded Flashcard Container: stretches full height & width inside modal on both Mobile & PC */}
               <div
-                onClick={() => setIsFlipped((f) => !f)}
-                className="flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 lg:p-7 flex flex-col justify-between cursor-pointer select-none transition-transform duration-150 overflow-hidden"
+                onClick={() => {
+                  if (studyStyle === 'flip' || isFlipped) {
+                    setIsFlipped((f) => !f);
+                  }
+                }}
+                className={`flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-6 lg:p-7 flex flex-col justify-between select-none transition-transform duration-150 overflow-hidden ${
+                  studyStyle === 'flip' || isFlipped ? 'cursor-pointer' : 'cursor-default'
+                }`}
               >
                 {/* Card Metadata Header */}
                 <div className="flex items-center justify-between text-xs text-slate-500 shrink-0 pb-1.5 border-b border-slate-100">
@@ -546,43 +724,239 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     <span aria-hidden="true">·</span>
                     <span className="truncate">{currentCard.folderName}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      speakJapanese(
-                        currentCard.cardType === 'kanji'
-                          ? currentCard.kanji
-                          : currentCard.word || currentCard.kanji
-                      );
-                    }}
-                    className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-colors cursor-pointer shrink-0"
-                    title="Nghe phát âm tiếng Nhật"
-                    aria-label="Nghe phát âm từ đang học"
-                  >
-                    <Volume2 className="w-4 h-4" />
-                  </button>
+                  {(studyStyle === 'flip' || isFlipped) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speakJapanese(
+                          currentCard.cardType === 'kanji'
+                            ? currentCard.kanji
+                            : currentCard.word || currentCard.kanji
+                        );
+                      }}
+                      className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition-colors cursor-pointer shrink-0"
+                      title="Nghe phát âm tiếng Nhật"
+                      aria-label="Nghe phát âm từ đang học"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Card Center Content (independently scrollable only if tall content exceeds frame) */}
                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col py-2 sm:py-3">
                   {!isFlipped ? (
-                    <div className="text-center space-y-3 my-auto px-2">
+                    studyStyle === 'write' ? (
+                      <BlindWritingPad
+                        key={`${currentCard.cardId}-blind`}
+                        kanjiChars={
+                          constituentKanjiChars.length > 0
+                            ? constituentKanjiChars
+                            : [currentCard.kanji]
+                        }
+                        hanViet={
+                          currentCard.cardType === 'compound'
+                            ? currentCard.wordHanViet || currentCard.hanViet
+                            : currentCard.hanViet
+                        }
+                        meaning={
+                          currentCard.cardType === 'compound'
+                            ? currentCard.wordMeaning || 'Từ ghép tiếng Nhật'
+                            : currentCard.meanings.join(', ') || 'Chưa cập nhật nghĩa'
+                        }
+                        readingHint={
+                          currentCard.cardType === 'compound'
+                            ? currentCard.reading
+                            : [
+                                currentCard.onReadings.length > 0
+                                  ? `On: ${currentCard.onReadings.slice(0, 2).join(', ')}`
+                                  : '',
+                                currentCard.kunReadings.length > 0
+                                  ? `Kun: ${currentCard.kunReadings.slice(0, 2).join(', ')}`
+                                  : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')
+                        }
+                        audioText={recallTargetText}
+                        onCompleteOrReveal={() => setIsFlipped(true)}
+                      />
+                    ) : studyStyle === 'listen' ? (
                       <div
-                        className={`font-kanji font-black text-slate-900 tracking-wide leading-tight ${
-                          currentCard.cardType === 'kanji'
-                            ? 'text-7xl sm:text-8xl lg:text-9xl'
-                            : getFrontWordSizeClass(currentCard.word || currentCard.kanji)
-                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="my-auto max-w-xl w-full mx-auto space-y-4 px-2 text-center"
                       >
-                        {currentCard.cardType === 'kanji'
-                          ? currentCard.kanji
-                          : currentCard.word}
+                        <div className="space-y-2">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-teal-700">
+                            Nghe phát âm &amp; chọn chữ đúng
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => speakJapanese(recallTargetText)}
+                            className="mx-auto w-16 h-16 rounded-2xl bg-teal-50 hover:bg-teal-100 border-2 border-teal-200 text-teal-800 flex items-center justify-center transition-transform active:scale-95 cursor-pointer shadow-2xs"
+                            title="Nghe lại phát âm"
+                            aria-label="Nghe lại phát âm"
+                          >
+                            <Volume2 className="w-7 h-7" />
+                          </button>
+                          <p className="text-xs text-slate-500">
+                            Bấm vào loa để nghe lại rồi chọn đáp án đúng bên dưới
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {activeRecallOptions.map((opt) => {
+                            const isSelected = selectedChoice === opt;
+                            const isCorrect = opt === recallTargetText;
+                            const showResult = selectedChoice !== null;
+
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                disabled={showResult}
+                                onClick={() => {
+                                  setSelectedChoice(opt);
+                                  if (opt === recallTargetText) {
+                                    window.setTimeout(() => setIsFlipped(true), 450);
+                                  }
+                                }}
+                                className={`min-h-[68px] px-3 py-3 rounded-2xl border-2 font-kanji text-2xl sm:text-3xl font-black transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-default ${
+                                  showResult && isCorrect
+                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                                    : showResult && isSelected && !isCorrect
+                                    ? 'bg-rose-50 border-rose-400 text-rose-900'
+                                    : 'bg-slate-50 hover:bg-teal-50 border-slate-200 hover:border-teal-400 text-slate-900'
+                                }`}
+                              >
+                                <span>{opt}</span>
+                                {showResult && isCorrect && (
+                                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+                                )}
+                                {showResult && isSelected && !isCorrect && (
+                                  <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {selectedChoice !== null && selectedChoice !== recallTargetText && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsFlipped(true)}
+                              className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Xem chi tiết &amp; Chấm SRS</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-400">
-                        Chạm vào thẻ hoặc nhấn Space để lật
-                      </p>
-                    </div>
+                    ) : studyStyle === 'cloze' && clozePromptData ? (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="my-auto max-w-xl w-full mx-auto space-y-4 px-2 text-center"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-teal-700">
+                            {clozePromptData.hasSentence
+                              ? 'Điền chữ vào câu ngữ cảnh'
+                              : 'Nhớ chữ theo nghĩa & âm đọc'}
+                          </div>
+
+                          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1.5">
+                            {clozePromptData.hasSentence && (
+                              <p className="font-kanji text-lg sm:text-xl font-bold text-slate-900 leading-relaxed">
+                                {clozePromptData.maskedJp}
+                              </p>
+                            )}
+                            <p className="text-sm font-bold text-teal-900">
+                              {clozePromptData.vi}
+                            </p>
+                            {clozePromptData.kana && (
+                              <p className="text-xs font-mono text-slate-500">
+                                {clozePromptData.kana}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {activeRecallOptions.map((opt) => {
+                            const isSelected = selectedChoice === opt;
+                            const isCorrect =
+                              opt === clozePromptData.correctToken ||
+                              opt === recallTargetText;
+                            const showResult = selectedChoice !== null;
+
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                disabled={showResult}
+                                onClick={() => {
+                                  setSelectedChoice(opt);
+                                  speakJapanese(clozePromptData.fullJp || recallTargetText);
+                                  if (isCorrect) {
+                                    window.setTimeout(() => setIsFlipped(true), 500);
+                                  }
+                                }}
+                                className={`min-h-[62px] px-3 py-2.5 rounded-2xl border-2 font-kanji text-2xl sm:text-3xl font-black transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-default ${
+                                  showResult && isCorrect
+                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900'
+                                    : showResult && isSelected && !isCorrect
+                                    ? 'bg-rose-50 border-rose-400 text-rose-900'
+                                    : 'bg-white hover:bg-teal-50 border-slate-200 hover:border-teal-400 text-slate-900'
+                                }`}
+                              >
+                                <span>{opt}</span>
+                                {showResult && isCorrect && (
+                                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+                                )}
+                                {showResult && isSelected && !isCorrect && (
+                                  <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {selectedChoice !== null &&
+                          selectedChoice !== clozePromptData.correctToken &&
+                          selectedChoice !== recallTargetText && (
+                            <div className="pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setIsFlipped(true)}
+                                className="px-4 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Mở đáp án &amp; Chấm SRS</span>
+                              </button>
+                            </div>
+                          )}
+                      </div>
+                    ) : (
+                      <div className="text-center space-y-3 my-auto px-2">
+                        <div
+                          className={`font-kanji font-black text-slate-900 tracking-wide leading-tight ${
+                            currentCard.cardType === 'kanji'
+                              ? 'text-7xl sm:text-8xl lg:text-9xl'
+                              : getFrontWordSizeClass(currentCard.word || currentCard.kanji)
+                          }`}
+                        >
+                          {currentCard.cardType === 'kanji'
+                            ? currentCard.kanji
+                            : currentCard.word}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Chạm vào thẻ hoặc nhấn Space để lật
+                        </p>
+                      </div>
+                    )
                   ) : (
                     <div className="my-auto animate-in fade-in duration-150 space-y-3">
                       {currentCard.cardType === 'kanji' ? (

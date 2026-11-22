@@ -18,6 +18,7 @@ import { useKanji } from '../context/KanjiContext';
 import { useAuth } from '../context/AuthContext';
 import { useDecks } from '../context/DeckContext';
 import { FollowListModal } from './auth/FollowListModal';
+import { HeaderStreakControl } from './HeaderStreakControl';
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void;
@@ -209,6 +210,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                 <Search className="w-4 h-4 shrink-0" />
               )}
             </button>
+
+            <HeaderStreakControl />
+
             {!user && (
               <button
                 type="button"

@@ -66,6 +66,7 @@ import {
   applyCollisionResolutions,
   threeWayMergeDecks,
 } from '../utils/threeWayMerge';
+import { recordStudyReview } from '../services/studyStatsService';
 
 const STORAGE_FOLDERS_KEY = 'kanji_decks_folders_v1';
 const STORAGE_ITEMS_KEY = 'kanji_decks_items_v1';
@@ -689,6 +690,9 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getItemsForFolderRecursive = useCallback(
     (folderId: string): FolderKanjiItem[] => {
+      if (folderId === '__ALL__') {
+        return items;
+      }
       const ids = new Set(getDescendantFolderIds(folderId));
       return items.filter((item) => ids.has(item.folderId));
     },
@@ -1690,6 +1694,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
       markLocalMutation();
+      recordStudyReview(rating);
     },
     [srsConfig, markLocalMutation]
   );

@@ -586,6 +586,107 @@ export default async function handler(
       });
     }
 
+    // 1b. Public & Auth-optional GET: Streak Leaderboard
+    if (req.method === 'GET' && action === 'streak_leaderboard') {
+      const limit = Math.max(5, Math.min(50, Number(req.query?.limit) || 30));
+      const ctx = await optionalAuth(req, res);
+      if (!ctx) return;
+      const { user, supabaseAdmin } = ctx;
+
+      const { data: rows, error: lbErr } = await supabaseAdmin
+        .from('user_study_streaks')
+        .select('user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, updated_at')
+        .order('current_streak', { ascending: false })
+        .order('total_reviewed', { ascending: false })
+        .limit(100);
+
+      if (lbErr) {
+        const errCode = String((lbErr as any)?.code || '');
+        const errMsg = String(lbErr.message || '').toLowerCase();
+        if (
+          errCode === '42P01' ||
+          errCode === 'PGRST205' ||
+          errMsg.includes('does not exist') ||
+          errMsg.includes('user_study_streaks')
+        ) {
+          return res.status(200).json({
+            tableReady: false,
+            entries: [],
+            viewerEntry: null,
+            viewerRank: null,
+          });
+        }
+        throw lbErr;
+      }
+
+      const now = new Date();
+      const formatVnDate = (d: Date) =>
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(d);
+
+      const todayVn = formatVnDate(now);
+      const yesterdayVn = formatVnDate(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+      const tomorrowVn = formatVnDate(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+      const activeDateSet = new Set([yesterdayVn, todayVn, tomorrowVn]);
+
+      const rawRows = rows || [];
+      const userIds = rawRows.map((r: any) => r.user_id);
+      if (user?.id && !userIds.includes(user.id)) {
+        userIds.push(user.id);
+      }
+      const usersMap = await fetchPublicUsersMap(supabaseAdmin, userIds);
+
+      const normalizedEntries = rawRows.map((r: any) => {
+        const lastDate = typeof r.last_study_date === 'string' ? r.last_study_date : null;
+        const isStreakActive = Boolean(lastDate && activeDateSet.has(lastDate));
+        const effectiveStreak = isStreakActive ? Math.max(0, Number(r.current_streak || 0)) : 0;
+        const todayCount =
+          lastDate === todayVn || lastDate === tomorrowVn
+            ? Math.max(0, Number(r.today_count || 0))
+            : 0;
+        const prof = usersMap.get(r.user_id);
+
+        return {
+          userId: r.user_id as string,
+          displayName: prof?.displayName || 'Thành viên',
+          avatarUrl: prof?.avatarUrl || null,
+          currentStreak: effectiveStreak,
+          longestStreak: Math.max(effectiveStreak, Number(r.longest_streak || 0)),
+          todayCount,
+          dailyGoal: Math.max(1, Number(r.daily_goal || 20)),
+          totalReviewed: Math.max(0, Number(r.total_reviewed || 0)),
+          lastStudyDate: lastDate,
+          isActiveToday: lastDate === todayVn || lastDate === tomorrowVn,
+          isSelf: Boolean(user && user.id === r.user_id),
+        };
+      });
+
+      normalizedEntries.sort((a, b) => {
+        if (b.currentStreak !== a.currentStreak) return b.currentStreak - a.currentStreak;
+        if (b.todayCount !== a.todayCount) return b.todayCount - a.todayCount;
+        if (b.longestStreak !== a.longestStreak) return b.longestStreak - a.longestStreak;
+        return b.totalReviewed - a.totalReviewed;
+      });
+
+      const ranked = normalizedEntries.map((entry, idx) => ({
+        ...entry,
+        rank: idx + 1,
+      }));
+
+      const viewerRanked = user ? ranked.find((e) => e.userId === user.id) || null : null;
+
+      return res.status(200).json({
+        tableReady: true,
+        entries: ranked.slice(0, limit),
+        viewerEntry: viewerRanked,
+        viewerRank: viewerRanked ? viewerRanked.rank : null,
+      });
+    }
+
     if (req.method === 'GET' && action === 'search_users') {
       const q = String(req.query?.q || '').trim();
 
@@ -621,6 +722,93 @@ export default async function handler(
           isFollowing: myFollowingSet.has(row.id),
         })),
       });
+    }
+
+    if (req.method === 'GET' && action === 'my_study_streak') {
+      const { data: row, error } = await supabaseAdmin
+        .from('user_study_streaks')
+        .select('current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, activity_by_date, updated_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        const errCode = String((error as any)?.code || '');
+        if (errCode === '42P01' || errCode === 'PGRST205') {
+          return res.status(200).json({ tableReady: false, streak: null });
+        }
+        throw error;
+      }
+
+      return res.status(200).json({
+        tableReady: true,
+        streak: row || null,
+      });
+    }
+
+    if (req.method === 'POST' && action === 'upsert_study_streak') {
+      const sanitizeInt = (val: unknown, min: number, max: number, fallback = 0) => {
+        const n = Math.floor(Number(val));
+        if (!Number.isFinite(n)) return fallback;
+        return Math.max(min, Math.min(max, n));
+      };
+
+      const currentStreak = sanitizeInt(req.body?.currentStreak, 0, 5000, 0);
+      const longestStreak = Math.max(currentStreak, sanitizeInt(req.body?.longestStreak, 0, 5000, 0));
+      const todayCount = sanitizeInt(req.body?.todayCount, 0, 10000, 0);
+      const dailyGoal = sanitizeInt(req.body?.dailyGoal, 1, 500, 20);
+      const totalReviewed = sanitizeInt(req.body?.totalReviewed, 0, 5000000, 0);
+
+      const rawDate = typeof req.body?.lastStudyDate === 'string' ? req.body.lastStudyDate.trim() : '';
+      const lastStudyDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
+
+      // Sanitize recent 65 date keys in activityByDate
+      const cleanActivity: Record<string, { reviewed: number; hard: number; good: number; easy: number }> = {};
+      if (req.body?.activityByDate && typeof req.body.activityByDate === 'object') {
+        const validKeys = Object.keys(req.body.activityByDate)
+          .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+          .sort()
+          .slice(-65);
+
+        for (const key of validKeys) {
+          const entry = req.body.activityByDate[key];
+          if (entry && typeof entry === 'object') {
+            cleanActivity[key] = {
+              reviewed: sanitizeInt(entry.reviewed, 0, 10000, 0),
+              hard: sanitizeInt(entry.hard, 0, 10000, 0),
+              good: sanitizeInt(entry.good, 0, 10000, 0),
+              easy: sanitizeInt(entry.easy, 0, 10000, 0),
+            };
+          }
+        }
+      }
+
+      const { data: saved, error: upErr } = await supabaseAdmin
+        .from('user_study_streaks')
+        .upsert(
+          {
+            user_id: user.id,
+            current_streak: currentStreak,
+            longest_streak: longestStreak,
+            today_count: todayCount,
+            daily_goal: dailyGoal,
+            total_reviewed: totalReviewed,
+            last_study_date: lastStudyDate,
+            activity_by_date: cleanActivity,
+          },
+          { onConflict: 'user_id' }
+        )
+        .select('current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date')
+        .maybeSingle();
+
+      if (upErr) {
+        const errCode = String((upErr as any)?.code || '');
+        if (errCode === '42P01' || errCode === 'PGRST205') {
+          return res.status(200).json({ tableReady: false, saved: null });
+        }
+        throw upErr;
+      }
+
+      return res.status(200).json({ tableReady: true, saved });
     }
 
     return res.status(400).json({ error: `Action "${action}" không hợp lệ.` });
