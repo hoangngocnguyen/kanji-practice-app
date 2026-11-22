@@ -479,21 +479,23 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   return (
     <>
     <div
-      className={`fixed inset-0 ${backdropZClass} bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4`}
+      className={`fixed inset-0 max-h-[100dvh] ${backdropZClass} bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-hidden overscroll-contain`}
       onClick={handleBackdropClick}
     >
       <div
         className={`relative ${
           stackDepth > 0 ? 'max-w-2xl' : 'max-w-3xl'
-        } w-full flex items-center justify-center`}
-        onClick={(event) => event.stopPropagation()}
+        } w-full h-full max-h-full min-h-0 flex items-center justify-center pointer-events-none`}
       >
         {/* Desktop Floating Left Arrow */}
         {hasPrev && (
           <button
             type="button"
-            onClick={goToPrev}
-            className="hidden md:flex absolute -left-14 top-1/2 -translate-y-1/2 w-11 h-11 bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-full shadow-xl items-center justify-center border border-slate-200/90 transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToPrev();
+            }}
+            className="pointer-events-auto hidden md:flex absolute -left-14 top-1/2 -translate-y-1/2 w-11 h-11 bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-full shadow-xl items-center justify-center border border-slate-200/90 transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
             title="Chữ Kanji trước (Phím ←)"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -504,17 +506,23 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
         {hasNext && (
           <button
             type="button"
-            onClick={goToNext}
-            className="hidden md:flex absolute -right-14 top-1/2 -translate-y-1/2 w-11 h-11 bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-full shadow-xl items-center justify-center border border-slate-200/90 transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
+            onClick={(e) => {
+              e.stopPropagation();
+              goToNext();
+            }}
+            className="pointer-events-auto hidden md:flex absolute -right-14 top-1/2 -translate-y-1/2 w-11 h-11 bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 rounded-full shadow-xl items-center justify-center border border-slate-200/90 transition-all hover:scale-110 active:scale-95 cursor-pointer z-30"
             title="Chữ Kanji tiếp theo (Phím →)"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         )}
 
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-h-[94vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div
+          className="pointer-events-auto bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-h-full sm:max-h-[90dvh] min-h-0 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          onClick={(event) => event.stopPropagation()}
+        >
           {/* Header with Kanji & Sino-Vietnamese Reading */}
-          <div className="flex items-start sm:items-center justify-between gap-2 px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50/80">
+          <div className="shrink-0 flex items-start sm:items-center justify-between gap-2 px-3.5 sm:px-6 py-2.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <span
                 onClick={() => speakJapanese(item.kanji)}
@@ -622,7 +630,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
           {/* Mobile 5-Kanji Carousel Strip (Placed cleanly below Kanji header and above Tabs) */}
           {kanjiList && kanjiList.length > 1 && currentIndex >= 0 && (
-            <div className="md:hidden flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-100 bg-white">
+            <div className="shrink-0 md:hidden flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-100 bg-white">
               <div className="flex items-center gap-1 flex-1 min-w-0 justify-center bg-slate-100/90 border border-slate-200/80 rounded-xl p-1">
                 <button
                   type="button"
@@ -679,7 +687,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           )}
 
         {/* Tab Navigation with color indicators */}
-        <div className="flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold overflow-x-auto scrollbar-none">
+        <div className="shrink-0 flex items-center border-b border-slate-200 bg-slate-100/50 p-1 sm:p-1.5 gap-1 text-xs font-semibold overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab('animation')}
@@ -738,7 +746,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
         </div>
 
         {/* Tab Content Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 sm:space-y-5">
+        <div className="p-3.5 sm:p-6 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-4 sm:space-y-5">
           {/* TAB 1: STROKE ANIMATION (Kept mounted via CSS so drawn strokes remain intact across tab switches) */}
           <div className={activeTab === 'animation' ? 'space-y-4 sm:space-y-5' : 'hidden'}>
             <StrokeAnimation
@@ -1288,7 +1296,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
         </div>
 
         {/* Footer info & Navigation */}
-        <div className="px-4 sm:px-6 py-3 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 flex items-center justify-between">
+        <div className="shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>Tra cứu chi tiết & Luyện nét</span>
             <span className="hidden sm:inline text-slate-400 font-mono">

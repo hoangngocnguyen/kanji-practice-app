@@ -316,15 +316,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 max-h-[100dvh] z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2.5 sm:p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-full sm:max-h-[90dvh] min-h-0 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200/80">
               <Settings className="w-5 h-5 text-teal-700" />
@@ -349,7 +349,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs sm:text-sm">
+        <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-5 text-xs sm:text-sm">
           {/* SECTION 1: KANJI STROKE COLOR & SPEED */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 font-bold text-slate-800">
@@ -832,7 +832,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end">
+        <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}

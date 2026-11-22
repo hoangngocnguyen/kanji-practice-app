@@ -427,8 +427,8 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   if (loading) {
     return (
       <div
-        style={{ width: size, height: size }}
-        className="flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-200 mx-auto"
+        style={{ maxWidth: size, maxHeight: size }}
+        className="w-full aspect-square flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-200 mx-auto"
       >
         <div className="w-8 h-8 border-3 border-teal-700 border-t-transparent rounded-full animate-spin"></div>
         <span className="text-xs text-slate-500 mt-3 font-medium">Đang tải hoạt ảnh nét...</span>
@@ -439,8 +439,8 @@ export const StrokeAnimation: React.FC<StrokeAnimationProps> = ({
   if (error || strokes.length === 0) {
     return (
       <div
-        style={{ width: size, height: size }}
-        className="flex flex-col items-center justify-center gap-3 bg-rose-50/50 rounded-2xl border border-rose-200 text-rose-700 p-5 text-center mx-auto"
+        style={{ maxWidth: size, maxHeight: size }}
+        className="w-full aspect-square flex flex-col items-center justify-center gap-3 bg-rose-50/50 rounded-2xl border border-rose-200 text-rose-700 p-5 text-center mx-auto"
       >
         <div className="space-y-1">
           <p className="text-xs font-bold">

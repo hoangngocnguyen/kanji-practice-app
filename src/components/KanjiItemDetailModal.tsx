@@ -162,15 +162,15 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/45 backdrop-blur-[1px]"
+      className="fixed inset-0 max-h-[100dvh] z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-900/45 backdrop-blur-[1px] overflow-hidden overscroll-contain"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-full sm:max-h-[90dvh] min-h-0 flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Modal Header */}
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div className="shrink-0 px-4 sm:px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
             <BookOpen className="w-4 h-4 text-teal-700" />
             <span>Chi tiết chữ Kanji &amp; Từ ghép</span>
@@ -186,7 +186,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-5 overflow-y-auto space-y-5 flex-1">
+        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain space-y-5 flex-1 min-h-0">
           {/* Root Kanji Info Card */}
           <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:items-start">
             <div className="flex items-center gap-3 shrink-0">
