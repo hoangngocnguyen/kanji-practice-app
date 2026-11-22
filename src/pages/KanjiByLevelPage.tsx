@@ -427,7 +427,7 @@ export const KanjiByLevelPage: React.FC = () => {
                     }`}
                   >
                     <TableIcon className="w-3.5 h-3.5" />
-                    <span>Danh sách (1 hàng)</span>
+                    <span>Danh sách</span>
                   </button>
                   <button
                     type="button"
