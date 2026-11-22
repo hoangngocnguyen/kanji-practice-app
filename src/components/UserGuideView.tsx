@@ -700,10 +700,10 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate('/print')}
+                  onClick={() => navigate('/kanji')}
                   className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                 >
-                  Tới trang In A4 <ChevronRight className="w-3.5 h-3.5" />
+                  Tới Nét viết Kanji <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -714,7 +714,7 @@ export const UserGuideView: React.FC<UserGuideViewProps> = ({ onOpenScanner }) =
                     In phiếu tập viết A4 có chọn lọc
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Trong cửa sổ <strong>In trang tập viết</strong>, bạn có thể tự do chọn hoặc bỏ chọn từng chữ Kanji cần in (kèm nút <em>Chọn tất cả</em> và <em>Bỏ chọn tất cả</em>). Chỉ những chữ bạn muốn ôn tập mới được in ra giấy A4 với định dạng ô mễ chữ điền chuẩn mực.
+                    Nhấn nút <strong>In tập viết</strong> ngay tại trang <strong>Nét viết Kanji</strong>, <strong>Kanji theo cấp độ</strong>, <strong>Chi tiết bộ thẻ</strong> hoặc <strong>Lịch sử tra cứu</strong>. Cửa sổ in tự động nạp đúng danh sách chữ đang xem (hoặc các chữ bạn đang tick chọn) để xuất ra giấy A4 có ô luyện viết tay.
                   </p>
                 </div>
 

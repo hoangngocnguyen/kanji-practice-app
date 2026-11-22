@@ -859,101 +859,109 @@ export const DecksView: React.FC = () => {
 
   return (
     <div className="w-full space-y-5">
-      {/* Top Toolbar */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-base sm:text-lg font-bold text-slate-900">
-            Thư mục bài học Kanji
-          </h1>
-          <p className="text-xs text-slate-500">
-            Quản lý thư mục trực quan như Google Drive · Chọn để thao tác hoặc mở bài học SRS
-          </p>
+      {/* Top Workspace Header & Utility Toolbar */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+              Thư mục bài học Kanji
+            </h1>
+            <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed">
+              Quản lý thư mục trực quan như Google Drive · Chọn để thao tác hoặc mở bài học SRS
+            </p>
+          </div>
+
+          <div className="shrink-0 flex items-center">
+            <button
+              type="button"
+              onClick={() =>
+                setFolderModal({
+                  isOpen: true,
+                  mode: 'create',
+                  parentId: null,
+                  folder: null,
+                })
+              }
+              className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-2xs"
+            >
+              <FolderPlus className="w-4 h-4 shrink-0" />
+              <span>Thư mục mới</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-2 shrink-0">
-          <button
-            type="button"
-            disabled={isSyncing}
-            onClick={() => triggerAnkiSync()}
-            className={`px-3 py-2 text-xs sm:text-[13px] font-semibold border rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60 ${
-              cloudUser
-                ? 'text-teal-800 bg-teal-50/80 hover:bg-teal-100 border-teal-200'
-                : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
-            }`}
-            title={
-              cloudUser
-                ? 'Kiểm tra và đồng bộ bộ thẻ Flashcard lên Cloud'
-                : 'Đăng nhập để đồng bộ bộ thẻ Flashcard lên Cloud'
-            }
-          >
-            <Cloud
-              className={`w-3.5 h-3.5 ${
-                isSyncing
-                  ? 'animate-spin text-teal-700'
-                  : cloudUser
-                  ? 'text-teal-700'
-                  : 'text-slate-400'
+        <div className="pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={() => triggerAnkiSync()}
+              className={`px-3.5 py-2 text-xs sm:text-[13px] font-semibold border rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60 ${
+                cloudUser
+                  ? 'text-teal-800 bg-teal-50/80 hover:bg-teal-100 border-teal-200'
+                  : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border-slate-200'
               }`}
-            />
-            <span className="tabular-nums">
-              {isSyncing
-                ? 'Đang đồng bộ...'
-                : cloudUser && hasUnsyncedChanges
-                ? 'Chờ đồng bộ Cloud*'
-                : cloudUser && syncStatus === 'error'
-                ? 'Thử đồng bộ lại'
-                : cloudUser && lastSyncedVersion > 0
-                ? `Đã đồng bộ · v${lastSyncedVersion}`
-                : 'Đồng bộ Cloud'}
-            </span>
-          </button>
+              title={
+                cloudUser
+                  ? 'Kiểm tra và đồng bộ bộ thẻ Flashcard lên Cloud'
+                  : 'Đăng nhập để đồng bộ bộ thẻ Flashcard lên Cloud'
+              }
+            >
+              <Cloud
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  isSyncing
+                    ? 'animate-spin text-teal-700'
+                    : cloudUser
+                    ? 'text-teal-700'
+                    : 'text-slate-400'
+                }`}
+              />
+              <span className="tabular-nums">
+                {isSyncing
+                  ? 'Đang đồng bộ...'
+                  : cloudUser && hasUnsyncedChanges
+                  ? 'Chờ đồng bộ Cloud*'
+                  : cloudUser && syncStatus === 'error'
+                  ? 'Thử đồng bộ lại'
+                  : cloudUser && lastSyncedVersion > 0
+                  ? `Đã đồng bộ · v${lastSyncedVersion}`
+                  : 'Đồng bộ Cloud'}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            disabled={isSyncing}
-            onClick={() => openCloudInspector()}
-            className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
-            title="Xem dữ liệu hiện có trên Cloud và so sánh khác biệt trước/sau khi sync"
-          >
-            <Eye className="w-3.5 h-3.5 text-teal-700" />
-            <span>Xem Cloud</span>
-          </button>
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={() => openCloudInspector()}
+              className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap disabled:opacity-60"
+              title="Xem dữ liệu hiện có trên Cloud và so sánh khác biệt trước/sau khi sync"
+            >
+              <Eye className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span>Xem Cloud</span>
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setIsImportOpen(true)}
-            className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-          >
-            <Upload className="w-3.5 h-3.5 text-teal-700" />
-            <span>Nhập JSON</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Upload className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span>Nhập JSON</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={handleExportAllFolders}
-            disabled={folders.length === 0}
-            className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
-            title="Xuất toàn bộ cây thư mục và thẻ Kanji ra 1 file JSON"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Xuất toàn bộ</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setFolderModal({
-                isOpen: true,
-                mode: 'create',
-                parentId: null,
-                folder: null,
-              })
-            }
-            className="px-4 py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-          >
-            <FolderPlus className="w-4 h-4" />
-            <span>Thư mục mới</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleExportAllFolders}
+              disabled={folders.length === 0}
+              className="px-3.5 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+              title="Xuất toàn bộ cây thư mục và thẻ Kanji ra 1 file JSON"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>Xuất toàn bộ</span>
+            </button>
+          </div>
         </div>
       </div>
 

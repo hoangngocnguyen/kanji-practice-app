@@ -15,13 +15,15 @@ import {
   ChevronUp,
   Check,
   Columns3,
-  ArrowRight
+  ArrowRight,
+  Printer,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useKanji } from '../context/KanjiContext';
 import { KanjiTable } from './KanjiTable';
 import { KanjiGrid } from './KanjiGrid';
 import { KanjiQuickBar } from './KanjiQuickBar';
+import { KanjiPrintModal } from './KanjiPrintModal';
 import { useJapaneseIme } from '../utils/useJapaneseIme';
 import { ImeCandidatePopover } from './ImeCandidatePopover';
 import { isKanjiChar, getPrimaryHiragana } from '../utils/kanji';
@@ -79,6 +81,7 @@ export const KanjiStrokesView: React.FC = () => {
   });
 
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
   const filteredKanjiList = useMemo(() => {
     if (!searchFilter.trim()) return mergedKanjiList;
@@ -383,6 +386,18 @@ export const KanjiStrokesView: React.FC = () => {
                 <span className="sm:hidden">Docs</span>
               </button>
 
+              <button
+                type="button"
+                disabled={filteredKanjiList.length === 0}
+                onClick={() => setIsPrintModalOpen(true)}
+                className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 text-slate-700 border border-slate-200/90 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
+                title={`In phiếu tập viết cho ${filteredKanjiList.length} chữ đang hiển thị`}
+              >
+                <Printer className="w-3.5 h-3.5 text-teal-700" />
+                <span className="hidden sm:inline">In tập viết</span>
+                <span className="sm:hidden">In</span>
+              </button>
+
               <div className="h-8 sm:h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0 ml-auto sm:ml-0">
                 <button
                   type="button"
@@ -600,6 +615,12 @@ export const KanjiStrokesView: React.FC = () => {
           </div>
         </div>
       )}
+      <KanjiPrintModal
+        kanjiList={filteredKanjiList}
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        sourceLabel={`Nét viết Kanji (${filteredKanjiList.length} chữ)`}
+      />
     </section>
   );
 };

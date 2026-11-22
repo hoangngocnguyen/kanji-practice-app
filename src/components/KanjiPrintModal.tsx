@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Printer, X, CheckSquare, Square, Check } from 'lucide-react';
 import { KanjiItem } from '../types/kanji';
 import { getPrimaryHiragana, katakanaToHiragana } from '../utils/kanji';
@@ -8,6 +8,7 @@ interface KanjiPrintModalProps {
   kanjiList: KanjiItem[];
   isOpen: boolean;
   onClose: () => void;
+  sourceLabel?: string;
   showToast?: (text: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -15,6 +16,7 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
   kanjiList,
   isOpen,
   onClose,
+  sourceLabel,
   showToast,
 }) => {
   // Column selection states for printing
@@ -24,10 +26,16 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
   const [printImage, setPrintImage] = useState<boolean>(true);
   const [printPracticeBoxes, setPrintPracticeBoxes] = useState<boolean>(true);
 
-  // Kanji selection set (default all selected)
+  // Kanji selection set (default all selected when opened)
   const [selectedHexes, setSelectedHexes] = useState<Set<string>>(
     () => new Set(kanjiList.map((k) => k.hex))
   );
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedHexes(new Set(kanjiList.map((k) => k.hex)));
+    }
+  }, [isOpen, kanjiList]);
 
   if (!isOpen) return null;
 
@@ -72,20 +80,26 @@ export const KanjiPrintModal: React.FC<KanjiPrintModalProps> = ({
   });
 
   return (
-    <div className="kanji-print-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="kanji-print-modal-dialog bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+    <div
+      className="kanji-print-modal-backdrop fixed inset-0 max-h-[100dvh] z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2 sm:p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="kanji-print-modal-dialog bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-5xl max-h-full sm:max-h-[92dvh] min-h-0 flex flex-col overflow-hidden border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Clean Light Modal Header */}
-        <div className="kanji-print-modal-header px-6 py-4 bg-white border-b border-slate-200/90 text-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="kanji-print-modal-header px-4 sm:px-6 py-3.5 sm:py-4 bg-white border-b border-slate-200/90 text-slate-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shrink-0">
               <Printer className="w-5 h-5 text-teal-700" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
                 Tùy Chọn &amp; In Phiếu Luyện Viết Kanji
               </h2>
-              <p className="text-xs text-slate-500">
-                Chọn chữ Kanji và các cột cần in • Chuẩn định dạng giấy A4 đa trang
+              <p className="text-xs text-slate-500 truncate">
+                {sourceLabel ? `${sourceLabel} · ` : ''}Chọn chữ Kanji và các cột cần in · Khổ giấy A4 đa trang
               </p>
             </div>
           </div>

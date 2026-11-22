@@ -16,6 +16,7 @@ import {
   ArrowUp,
   Loader2,
   X,
+  Printer,
 } from 'lucide-react';
 import { KanjiDetail, KanjiItem } from '../types/kanji';
 import { useKanji } from '../context/KanjiContext';
@@ -25,6 +26,7 @@ import { KanjiSvgView } from '../components/KanjiSvgView';
 import { KanjiGridOverlay } from '../components/KanjiGridOverlay';
 import { KanjiLevelQuiz } from '../components/KanjiLevelQuiz';
 import { AddKanjiToDeckModal } from '../components/AddKanjiToDeckModal';
+import { KanjiPrintModal } from '../components/KanjiPrintModal';
 import {
   KanjiCatalogEntry,
   KanjiLevelTab,
@@ -65,10 +67,11 @@ export const KanjiByLevelPage: React.FC = () => {
   const [isSelectMode, setIsSelectMode] = useState<boolean>(false);
   const [selectedChars, setSelectedChars] = useState<string[]>([]);
 
-  // Add to deck modal state
+  // Add to deck & print modal state
   const [deckModalEntries, setDeckModalEntries] = useState<KanjiDetail[]>([]);
   const [isDeckModalOpen, setIsDeckModalOpen] = useState<boolean>(false);
   const [suggestedDeckName, setSuggestedDeckName] = useState<string>('JLPT N5 · Ôn tập');
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -163,6 +166,13 @@ export const KanjiByLevelPage: React.FC = () => {
   );
 
   const selectedCharSet = useMemo(() => new Set(selectedChars), [selectedChars]);
+
+  const printableLevelItems = useMemo<KanjiItem[]>(() => {
+    if (selectedEntries.length > 0) {
+      return selectedEntries.map((entry, idx) => catalogEntryToKanjiItem(entry, idx));
+    }
+    return visibleItems;
+  }, [selectedEntries, visibleItems]);
 
   const handleTogglePlayMode = (hex: string) => {
     setAnimStateMap((prev) => {
@@ -415,6 +425,24 @@ export const KanjiByLevelPage: React.FC = () => {
                   {selectedChars.length > 0 && (
                     <span className="tabular-nums font-black">({selectedChars.length})</span>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={printableLevelItems.length === 0}
+                  onClick={() => setIsPrintModalOpen(true)}
+                  className="h-9 px-3 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 text-slate-700 flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                  title={
+                    selectedEntries.length > 0
+                      ? `In phiếu tập viết cho ${selectedEntries.length} chữ đang chọn`
+                      : `In phiếu tập viết cho ${visibleItems.length} chữ đang hiển thị (${currentLevelMeta.label})`
+                  }
+                >
+                  <Printer className="w-3.5 h-3.5 text-teal-700" />
+                  <span>
+                    In tập viết
+                    {selectedEntries.length > 0 ? ` (${selectedEntries.length})` : ''}
+                  </span>
                 </button>
 
                 {/* Rows / Grid Switcher */}
@@ -830,6 +858,15 @@ export const KanjiByLevelPage: React.FC = () => {
             </button>
             <button
               type="button"
+              onClick={() => setIsPrintModalOpen(true)}
+              className="px-3 py-1.5 text-xs font-bold text-slate-900 bg-white hover:bg-slate-100 rounded-xl cursor-pointer flex items-center gap-1"
+              title="In phiếu tập viết cho các chữ đang chọn"
+            >
+              <Printer className="w-3.5 h-3.5 text-teal-700" />
+              <span>In ({selectedEntries.length})</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setSubMode('quiz')}
               className="px-3 py-1.5 text-xs font-bold text-teal-950 bg-teal-100 hover:bg-white rounded-xl cursor-pointer flex items-center gap-1"
             >
@@ -854,6 +891,17 @@ export const KanjiByLevelPage: React.FC = () => {
         entries={deckModalEntries}
         suggestedDeckName={suggestedDeckName}
         onClose={() => setIsDeckModalOpen(false)}
+      />
+
+      <KanjiPrintModal
+        kanjiList={printableLevelItems}
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        sourceLabel={
+          selectedEntries.length > 0
+            ? `${currentLevelMeta.label} · ${selectedEntries.length} chữ đã chọn`
+            : `${currentLevelMeta.label} (${visibleItems.length} chữ đang hiện)`
+        }
       />
     </section>
   );

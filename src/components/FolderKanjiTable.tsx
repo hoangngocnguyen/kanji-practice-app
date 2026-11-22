@@ -24,9 +24,11 @@ import {
   Loader2,
   Layers,
   LayoutList,
+  Printer,
 } from 'lucide-react';
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
+import { KanjiItem } from '../types/kanji';
 import { CompoundWordCard, FolderKanjiItem, ReviewFilterMode } from '../types/deck';
 import { speakJapanese } from '../utils/speech';
 import { formatIntervalLabel } from '../utils/srsAlgorithm';
@@ -39,6 +41,7 @@ import { BatchImportLessonModal } from './BatchImportLessonModal';
 import { BatchImportCompoundModal } from './BatchImportCompoundModal';
 import { KanjiItemDetailModal } from './KanjiItemDetailModal';
 import { MoveKanjiItemsModal } from './MoveKanjiItemsModal';
+import { KanjiPrintModal } from './KanjiPrintModal';
 
 interface FolderKanjiTableProps {
   onStartReview: (mode: ReviewFilterMode, onlyDue: boolean) => void;
@@ -96,6 +99,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   const [compoundImportItemId, setCompoundImportItemId] = useState<string | null>(null);
   const [openKanjiMenuId, setOpenKanjiMenuId] = useState<string | null>(null);
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const [editingKanjiId, setEditingKanjiId] = useState<string | null>(null);
   const [editHv, setEditHv] = useState('');
@@ -123,6 +127,40 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     () => folderItems.map((it) => it.kanji),
     [folderItems]
   );
+
+  const printableDeckItems = useMemo<KanjiItem[]>(() => {
+    const selectedSet = new Set(selectedItemIds);
+    const sourceItems =
+      selectedSet.size > 0
+        ? folderItems.filter((it) => selectedSet.has(it.id))
+        : folderItems;
+
+    const seen = new Set<string>();
+    const result: KanjiItem[] = [];
+    for (const it of sourceItems) {
+      if (seen.has(it.kanji)) continue;
+      seen.add(it.kanji);
+      const codePoint = it.kanji.codePointAt(0) ?? it.kanji.charCodeAt(0);
+      const hex = codePoint.toString(16).toLowerCase().padStart(5, '0');
+      result.push({
+        id: result.length + 1,
+        kanji: it.kanji,
+        hex,
+        svgUrl: `https://cdn.jsdelivr.net/gh/kanjivg/kanjivg/kanji/${hex}.svg`,
+        unicodeDecimal: codePoint,
+        detail: {
+          kanji: it.kanji,
+          hanViet: it.hanViet || '',
+          on: cleanReadingsList(it.onReadings || []),
+          kun: cleanReadingsList(it.kunReadings || []),
+          meanings: cleanMeaningsList(it.meanings || []),
+          strokeCount: it.strokeCount,
+          examples: [],
+        },
+      });
+    }
+    return result;
+  }, [folderItems, selectedItemIds]);
 
   const flatCardRows: FlatCardRow[] = useMemo(() => {
     const rows: FlatCardRow[] = [];
@@ -560,6 +598,21 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             <PenTool className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                             <span>Luyện viết nét</span>
                           </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsHeaderMenuOpen(false);
+                              setIsPrintModalOpen(true);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer font-medium"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                            <span>
+                              In tập viết
+                              {selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}
+                            </span>
+                          </button>
                         </>
                       )}
 
@@ -623,6 +676,23 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                 >
                   <PenTool className="w-3.5 h-3.5 text-teal-700" />
                   <span>Luyện viết nét</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPrintModalOpen(true)}
+                  className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  title={
+                    selectedItemIds.length > 0
+                      ? `In phiếu tập viết cho ${selectedItemIds.length} chữ đang chọn`
+                      : `In phiếu tập viết cho bộ thẻ "${selectedFolder.name}"`
+                  }
+                >
+                  <Printer className="w-3.5 h-3.5 text-teal-700" />
+                  <span>
+                    In tập viết
+                    {selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}
+                  </span>
                 </button>
               </>
             )}
@@ -1987,6 +2057,17 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       <BatchImportCompoundModal
         item={compoundImportItem}
         onClose={() => setCompoundImportItemId(null)}
+      />
+
+      <KanjiPrintModal
+        kanjiList={printableDeckItems}
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        sourceLabel={
+          selectedItemIds.length > 0
+            ? `${selectedFolder.name} · ${printableDeckItems.length} chữ đã chọn`
+            : `Bộ thẻ: ${selectedFolder.name} (${printableDeckItems.length} chữ)`
+        }
       />
     </div>
   );

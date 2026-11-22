@@ -7,12 +7,14 @@ import {
   LayoutGrid,
   Clock,
   BookOpen,
-  ArrowRight
+  ArrowRight,
+  Printer,
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 import { KanjiTable } from './KanjiTable';
 import { KanjiGrid } from './KanjiGrid';
 import { KanjiQuickBar } from './KanjiQuickBar';
+import { KanjiPrintModal } from './KanjiPrintModal';
 import { useNavigate } from 'react-router-dom';
 
 export const RecentlyViewedKanji: React.FC = () => {
@@ -32,6 +34,7 @@ export const RecentlyViewedKanji: React.FC = () => {
   const navigate = useNavigate();
   const [filterText, setFilterText] = useState<string>('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
   const filteredHistory = useMemo(() => {
     if (!filterText.trim()) return recentlyViewed;
@@ -100,6 +103,17 @@ export const RecentlyViewedKanji: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
+              <button
+                type="button"
+                disabled={filteredHistory.length === 0}
+                onClick={() => setIsPrintModalOpen(true)}
+                className="h-9 inline-flex items-center gap-1.5 px-3 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+                title={`In phiếu tập viết cho ${filteredHistory.length} chữ trong lịch sử`}
+              >
+                <Printer className="w-3.5 h-3.5 text-teal-700" />
+                <span>In tập viết</span>
+              </button>
+
               <div className="h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5">
                 <button
                   type="button"
@@ -189,6 +203,12 @@ export const RecentlyViewedKanji: React.FC = () => {
           />
         </div>
       )}
+      <KanjiPrintModal
+        kanjiList={filteredHistory}
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        sourceLabel={`Lịch sử tra cứu (${filteredHistory.length} chữ)`}
+      />
     </div>
   );
 };

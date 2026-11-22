@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Printer,
   Settings,
   Menu,
   LogIn,
@@ -222,20 +221,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
               </button>
             )}
 
-            <NavLink
-              to="/print"
-              className={({ isActive }) =>
-                `hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95 shrink-0 border whitespace-nowrap ${
-                  isActive
-                    ? 'bg-teal-700 text-white border-teal-800'
-                    : 'text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 border-slate-200/90'
-                }`
-              }
-              title="In bảng tập viết ra giấy hoặc PDF"
-            >
-              <Printer className="w-4 h-4 shrink-0" />
-              <span>In tập viết</span>
-            </NavLink>
 
             {user && (
               <div className="relative" ref={menuContainerRef}>
