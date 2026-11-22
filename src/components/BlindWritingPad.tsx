@@ -50,6 +50,14 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const userPointsRef = useRef<Point[]>([]);
   const autoRevealTimerRef = useRef<number | null>(null);
+  const failClearTimerRef = useRef<number | null>(null);
+
+  const clearFailTimer = () => {
+    if (failClearTimerRef.current) {
+      window.clearTimeout(failClearTimerRef.current);
+      failClearTimerRef.current = null;
+    }
+  };
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -66,6 +74,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
 
   // Load KanjiVG stroke paths for activeChar
   useEffect(() => {
+    clearFailTimer();
     if (autoRevealTimerRef.current) {
       window.clearTimeout(autoRevealTimerRef.current);
       autoRevealTimerRef.current = null;
@@ -103,6 +112,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
 
     return () => {
       cancelled = true;
+      clearFailTimer();
       if (autoRevealTimerRef.current) {
         window.clearTimeout(autoRevealTimerRef.current);
       }
@@ -111,6 +121,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
 
   const handleResetPad = (e?: React.MouseEvent) => {
     e?.stopPropagation();
+    clearFailTimer();
     if (autoRevealTimerRef.current) {
       window.clearTimeout(autoRevealTimerRef.current);
       autoRevealTimerRef.current = null;
@@ -124,29 +135,34 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
     clearCanvas();
   };
 
-  const getPointFromEvent = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ): Point | null => {
+  const getPointFromEvent = (e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0]?.clientY : e.clientY;
-    if (typeof clientX !== 'number' || typeof clientY !== 'number') return null;
+    if (rect.width <= 0 || rect.height <= 0) return null;
 
     return {
-      x: ((clientX - rect.left) * canvas.width) / rect.width,
-      y: ((clientY - rect.top) * canvas.height) / rect.height,
+      x: ((e.clientX - rect.left) * canvas.width) / rect.width,
+      y: ((e.clientY - rect.top) * canvas.height) / rect.height,
     };
   };
 
-  const startDrawing = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.stopPropagation();
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     if (isDone || !strokeData || strokeData.strokes.length === 0) return;
+
+    clearFailTimer();
+    clearCanvas();
+
     const pt = getPointFromEvent(e);
     if (!pt) return;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if pointer capture is unsupported
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -158,9 +174,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
     userPointsRef.current = [pt];
   };
 
-  const draw = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.stopPropagation();
     if (!isDrawing) return;
     const pt = getPointFromEvent(e);
@@ -180,12 +194,20 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
     userPointsRef.current.push(pt);
   };
 
-  const stopDrawing = (
-    e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  const stopDrawing = (e?: React.PointerEvent<HTMLCanvasElement>) => {
     e?.stopPropagation();
     if (!isDrawing) return;
     setIsDrawing(false);
+
+    if (e) {
+      try {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        // Ignore release errors
+      }
+    }
 
     if (!strokeData || isDone || currentStrokeIdx >= strokeData.strokes.length) {
       return;
@@ -198,7 +220,9 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
     }
 
     const targetStroke = strokeData.strokes[currentStrokeIdx];
-    const result = evaluateUserStroke(userPointsRef.current, targetStroke.d, 260, 260);
+    const result = evaluateUserStroke(userPointsRef.current, targetStroke.d, 260, 260, {
+      strictness: 'normal',
+    });
     setLastEval(result);
 
     if (result.isPass) {
@@ -220,8 +244,10 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
         setCurrentStrokeIdx((idx) => idx + 1);
       }
     } else {
-      window.setTimeout(() => {
+      clearFailTimer();
+      failClearTimerRef.current = window.setTimeout(() => {
         clearCanvas();
+        failClearTimerRef.current = null;
       }, 280);
     }
   };
@@ -312,7 +338,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               )}
               <span>
-                {lastEval.isPass ? `Chuẩn nét (${lastEval.score}%)` : 'Chưa khớp — vẽ lại nét'}
+                {lastEval.isPass ? `Chuẩn nét (${lastEval.score}%)` : lastEval.feedback}
               </span>
             </span>
           )}
@@ -488,13 +514,10 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
             ref={canvasRef}
             width={260}
             height={260}
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            onTouchStart={startDrawing}
-            onTouchMove={draw}
-            onTouchEnd={stopDrawing}
+            onPointerDown={startDrawing}
+            onPointerMove={draw}
+            onPointerUp={stopDrawing}
+            onPointerCancel={stopDrawing}
             className="absolute inset-0 w-full h-full cursor-crosshair touch-none z-10"
           />
 

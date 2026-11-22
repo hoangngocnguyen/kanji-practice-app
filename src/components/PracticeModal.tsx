@@ -17,7 +17,13 @@ import {
   ChevronRight,
   RotateCcw,
   Target,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Ghost,
+  Lightbulb,
+  Undo2,
+  SkipForward,
+  Grid3X3,
+  EyeOff
 } from 'lucide-react';
 import { KanjiItem, KanjiDetail } from '../types/kanji';
 import { StrokeAnimation, MAZII_STROKE_COLORS } from './StrokeAnimation';
@@ -40,7 +46,13 @@ import { getKanjiDecomposition } from '../data/radicalsData';
 import { fetchAndDecomposeKanji } from '../utils/kanjiSubElementParser';
 import { KanjiDecomposition } from '../types/radical';
 import { KanjiSvgView } from './KanjiSvgView';
-import { evaluateUserStroke, sampleSvgPathPoints, Point, StrokeEvaluationResult } from '../utils/strokeMatcher';
+import {
+  evaluateUserStroke,
+  sampleSvgPathPoints,
+  Point,
+  StrokeEvaluationResult,
+  StrokeStrictness,
+} from '../utils/strokeMatcher';
 import {
   getStaticSentencesForKanji,
   loadKanjiSentencesStatic,
@@ -108,7 +120,13 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   const [penColor, setPenColor] = useState('#0f766e');
 
   // Stroke Order & Direction Verification State
-  const [practiceSubMode, setPracticeSubMode] = useState<'guided' | 'free'>('guided');
+  const [practiceSubMode, setPracticeSubMode] = useState<'guided' | 'blind' | 'free'>('guided');
+  const [practiceStrictness, setPracticeStrictness] = useState<StrokeStrictness>('normal');
+  const [showGhostGuide, setShowGhostGuide] = useState<boolean>(true);
+  const [showHintStroke, setShowHintStroke] = useState<boolean>(false);
+  const [showStartMarker, setShowStartMarker] = useState<boolean>(true);
+  const [localShowGrid, setLocalShowGrid] = useState<boolean>(showGrid);
+  const [isWrongFlash, setIsWrongFlash] = useState<boolean>(false);
   const [practiceStrokes, setPracticeStrokes] = useState<Array<{ id: string; d: string; index: number }>>([]);
   const [currentStrokeIdx, setCurrentStrokeIdx] = useState<number>(0);
   const [completedStrokeIndices, setCompletedStrokeIndices] = useState<number[]>([]);
@@ -117,27 +135,72 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   const [isPracticeFinished, setIsPracticeFinished] = useState<boolean>(false);
   const [strokeStartPoints, setStrokeStartPoints] = useState<Point[]>([]);
 
-  // User drawn points of current stroke
+  // User drawn points of current stroke & cancelable fail-clear timer
   const userPointsRef = useRef<Point[]>([]);
+  const failClearTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setLocalShowGrid(showGrid);
+  }, [showGrid]);
+
+  const effectiveShowGrid = onToggleGrid ? showGrid : localShowGrid;
+  const handleTogglePracticeGrid = () => {
+    const nextVal = !effectiveShowGrid;
+    setLocalShowGrid(nextVal);
+    onToggleGrid?.(nextVal);
+  };
+
+  const clearFailTimer = useCallback(() => {
+    if (failClearTimerRef.current) {
+      window.clearTimeout(failClearTimerRef.current);
+      failClearTimerRef.current = null;
+    }
+  }, []);
 
   // Clear canvas helper
-  const clearCanvas = () => {
+  const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
+  }, []);
 
-  const resetPracticeTest = () => {
+  const resetPracticeTest = useCallback(() => {
+    clearFailTimer();
     setCurrentStrokeIdx(0);
     setCompletedStrokeIndices([]);
     setStrokeScores([]);
     setLastEvaluation(null);
     setIsPracticeFinished(false);
+    setShowHintStroke(false);
+    setIsWrongFlash(false);
     userPointsRef.current = [];
     clearCanvas();
-  };
+  }, [clearCanvas, clearFailTimer]);
+
+  const switchPracticeMode = useCallback(
+    (nextMode: 'guided' | 'blind' | 'free') => {
+      clearFailTimer();
+      setIsWrongFlash(false);
+      setPracticeSubMode(nextMode);
+      if (nextMode === 'guided') {
+        resetPracticeTest();
+        setShowGhostGuide(true);
+        setShowStartMarker(true);
+      } else if (nextMode === 'blind') {
+        resetPracticeTest();
+        setShowGhostGuide(false);
+        setShowStartMarker(false);
+      } else {
+        setLastEvaluation(null);
+        setShowHintStroke(false);
+        userPointsRef.current = [];
+        clearCanvas();
+      }
+    },
+    [clearCanvas, clearFailTimer, resetPracticeTest]
+  );
 
   const lastKanjiRef = useRef<string | null>(null);
 
@@ -154,7 +217,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
       setActiveTab('animation');
       setNestedKanjiItem(null);
       resetPracticeTest();
-      clearCanvas();
+      setShowGhostGuide(practiceSubMode !== 'blind');
+      setShowStartMarker(practiceSubMode === 'guided');
     }
     // Seed immediately with any catalog detail already attached to item
     setDetail(item.detail || null);
@@ -223,6 +287,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     if (!item) return;
 
     let isCancelled = false;
+    setPracticeStrokes([]);
+    setStrokeStartPoints([]);
 
     async function loadStrokesForPractice() {
       try {
@@ -365,112 +431,175 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     }
   };
 
+  useEffect(() => {
+    return () => {
+      clearFailTimer();
+    };
+  }, [clearFailTimer]);
+
   if (!item) return null;
 
-  // Drawing handlers for Practice tab with responsive canvas scaling
-  const startDrawing = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  // Drawing handlers for Practice tab with unified Pointer Events and 1:1 coordinate mapping
+  const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    setIsDrawing(true);
-    userPointsRef.current = [{ x, y }];
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return {
+      x: ((e.clientX - rect.left) * canvas.width) / rect.width,
+      y: ((e.clientY - rect.top) * canvas.height) / rect.height,
+    };
   };
 
-  const draw = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
-    if (!isDrawing) return;
+  const startDrawing = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (practiceSubMode !== 'free' && (isPracticeFinished || practiceStrokes.length === 0)) return;
+
+    const pt = getCanvasPoint(e);
+    if (!pt) return;
+
+    // Cancel pending auto-clear from a previous failed stroke so quick retries are never wiped
+    if (practiceSubMode !== 'free') {
+      clearFailTimer();
+      clearCanvas();
+      setIsWrongFlash(false);
+    }
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if pointer capture is unavailable
+    }
+
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas?.getContext('2d');
     if (!ctx) return;
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
 
-    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(pt.x, pt.y);
+    setIsDrawing(true);
+    userPointsRef.current = [pt];
+  };
+
+  const draw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const pt = getCanvasPoint(e);
+    if (!pt) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+
+    ctx.lineWidth = e.pointerType === 'pen' ? 6.5 : 7;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const strokeColor =
-      practiceSubMode === 'guided'
-        ? (MAZII_STROKE_COLORS[currentStrokeIdx % MAZII_STROKE_COLORS.length] || penColor)
+      practiceSubMode !== 'free'
+        ? MAZII_STROKE_COLORS[currentStrokeIdx % MAZII_STROKE_COLORS.length] || penColor
         : penColor;
     ctx.strokeStyle = strokeColor;
-    ctx.lineTo(x, y);
+    ctx.lineTo(pt.x, pt.y);
     ctx.stroke();
-    userPointsRef.current.push({ x, y });
+    userPointsRef.current.push(pt);
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e?: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     setIsDrawing(false);
 
+    if (e) {
+      try {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        // Ignore release errors
+      }
+    }
+
     if (
-      practiceSubMode === 'guided' &&
+      practiceSubMode !== 'free' &&
       practiceStrokes.length > 0 &&
       !isPracticeFinished &&
       currentStrokeIdx < practiceStrokes.length
     ) {
       if (userPointsRef.current.length < 3) {
+        clearCanvas();
+        userPointsRef.current = [];
         return;
       }
 
       const currentStroke = practiceStrokes[currentStrokeIdx];
       if (!currentStroke) return;
 
-      const evalResult = evaluateUserStroke(userPointsRef.current, currentStroke.d, 280, 280);
+      const canvas = canvasRef.current;
+      const evalWidth = canvas?.width || 280;
+      const evalHeight = canvas?.height || 280;
+
+      const evalResult = evaluateUserStroke(
+        userPointsRef.current,
+        currentStroke.d,
+        evalWidth,
+        evalHeight,
+        { strictness: practiceStrictness }
+      );
       setLastEvaluation(evalResult);
 
       if (evalResult.isPass) {
+        // Synchronous 0ms transition: convert passed stroke to vector ink & advance immediately
         const nextScores = [...strokeScores, evalResult.score];
         setStrokeScores(nextScores);
         setCompletedStrokeIndices((prev) => [...prev, currentStrokeIdx]);
+        setShowHintStroke(false);
+        setIsWrongFlash(false);
+        userPointsRef.current = [];
+        clearCanvas();
 
         if (currentStrokeIdx + 1 >= practiceStrokes.length) {
           setIsPracticeFinished(true);
         } else {
-          setTimeout(() => {
-            setCurrentStrokeIdx((prev) => prev + 1);
-            setLastEvaluation(null);
-            clearCanvas();
-          }, 650);
+          setCurrentStrokeIdx((prev) => prev + 1);
         }
+      } else {
+        setIsWrongFlash(true);
+        clearFailTimer();
+        failClearTimerRef.current = window.setTimeout(() => {
+          clearCanvas();
+          setIsWrongFlash(false);
+          failClearTimerRef.current = null;
+        }, 280);
       }
     }
   };
 
+  const undoLastStroke = () => {
+    if (practiceSubMode === 'free' || completedStrokeIndices.length === 0) return;
+    clearFailTimer();
+    clearCanvas();
+    setIsWrongFlash(false);
+    setCompletedStrokeIndices((prev) => prev.slice(0, -1));
+    setStrokeScores((prev) => prev.slice(0, -1));
+    setCurrentStrokeIdx((prev) => Math.max(0, prev - 1));
+    setIsPracticeFinished(false);
+    setLastEvaluation(null);
+    setShowHintStroke(false);
+    userPointsRef.current = [];
+  };
+
   const skipCurrentStroke = () => {
-    if (currentStrokeIdx < practiceStrokes.length) {
-      setStrokeScores((prev) => [...prev, 60]);
-      setCompletedStrokeIndices((prev) => [...prev, currentStrokeIdx]);
-      if (currentStrokeIdx + 1 >= practiceStrokes.length) {
-        setIsPracticeFinished(true);
-      } else {
-        setCurrentStrokeIdx((prev) => prev + 1);
-        setLastEvaluation(null);
-        clearCanvas();
-      }
+    if (isPracticeFinished || currentStrokeIdx >= practiceStrokes.length) return;
+    clearFailTimer();
+    clearCanvas();
+    setIsWrongFlash(false);
+    setStrokeScores((prev) => [...prev, 60]);
+    setCompletedStrokeIndices((prev) => [...prev, currentStrokeIdx]);
+    setShowHintStroke(false);
+    setLastEvaluation(null);
+    userPointsRef.current = [];
+    if (currentStrokeIdx + 1 >= practiceStrokes.length) {
+      setIsPracticeFinished(true);
+    } else {
+      setCurrentStrokeIdx((prev) => prev + 1);
     }
   };
 
@@ -1004,294 +1133,511 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
           )}
 
           {/* TAB 4: TRACING & WRITING PRACTICE (Kept mounted via CSS so handwriting canvas stays intact across tab switches) */}
-          <div className={activeTab === 'practice' ? 'space-y-3.5' : 'hidden'}>
-              {/* Practice Sub-Mode Switcher */}
-              <div className="flex items-center justify-between gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
+          <div className={activeTab === 'practice' ? 'space-y-4' : 'hidden'}>
+              {/* 3-Mode Segmented Control */}
+              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs">
                 <button
                   type="button"
-                  onClick={() => {
-                    setPracticeSubMode('guided');
-                    resetPracticeTest();
-                  }}
-                  className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  onClick={() => switchPracticeMode('guided')}
+                  className={`py-2 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                     practiceSubMode === 'guided'
                       ? 'bg-teal-700 text-white shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Chế độ kiểm tra thứ tự nét, hướng vẽ và chấm điểm độ chính xác từng nét"
+                  title="Hiển thị bóng mờ theo nét chuẩn và chấm điểm từng nét"
                 >
-                  <Target className="w-3.5 h-3.5" />
-                  <span>Kiểm tra nét & Thứ tự (Chấm điểm)</span>
+                  <Target className="w-3.5 h-3.5 shrink-0" />
+                  <span>Có mẫu mờ</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setPracticeSubMode('free');
-                    clearCanvas();
-                  }}
-                  className={`flex-1 py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  onClick={() => switchPracticeMode('blind')}
+                  className={`py-2 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                    practiceSubMode === 'blind'
+                      ? 'bg-teal-700 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Ẩn mẫu để viết từ trí nhớ, hỗ trợ bật bóng mờ hoặc gợi ý từng nét khi cần"
+                >
+                  <EyeOff className="w-3.5 h-3.5 shrink-0" />
+                  <span>Viết mù</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchPracticeMode('free')}
+                  className={`py-2 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                     practiceSubMode === 'free'
                       ? 'bg-teal-700 text-white shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
-                  title="Chế độ tự do vẽ đè lên hình mẫu"
+                  title="Tự do phóng tác bằng nhiều màu mực trên khung ô ly"
                 >
-                  <PenTool className="w-3.5 h-3.5" />
-                  <span>Tự do viết</span>
+                  <PenTool className="w-3.5 h-3.5 shrink-0" />
+                  <span>Viết tự do</span>
                 </button>
               </div>
 
-              {/* Guided Mode Action Header */}
-              {practiceSubMode === 'guided' && (
-                <div className="flex items-center justify-between gap-2 text-xs bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 font-medium">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800">
-                      Nét thứ <strong className="text-teal-700 font-black">{Math.min(currentStrokeIdx + 1, practiceStrokes.length || 1)}</strong> / {practiceStrokes.length || 1}
-                    </span>
-                    {strokeScores.length > 0 && (
-                      <span className="text-[10px] bg-teal-100 text-teal-900 px-2 py-0.5 rounded-full font-bold border border-teal-300">
-                        TB: {Math.round(strokeScores.reduce((a, b) => a + b, 0) / strokeScores.length)}%
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={clearCanvas}
-                      className="px-2 py-1 text-slate-600 hover:text-rose-700 hover:bg-white rounded-lg transition-colors cursor-pointer text-[11px] font-semibold"
-                      title="Vẽ lại nét hiện tại"
-                    >
-                      Vẽ lại
-                    </button>
-                    <button
-                      type="button"
-                      onClick={skipCurrentStroke}
-                      disabled={currentStrokeIdx >= practiceStrokes.length - 1}
-                      className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition-colors cursor-pointer text-[11px] font-semibold disabled:opacity-40"
-                      title="Bỏ qua nét này và chuyển sang nét tiếp theo"
-                    >
-                      Bỏ qua
-                    </button>
-                    <button
-                      type="button"
-                      onClick={resetPracticeTest}
-                      className="p-1 text-slate-400 hover:text-teal-800 hover:bg-white rounded-lg transition-colors cursor-pointer"
-                      title="Bắt đầu lại từ nét 1"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Canvas Box Area */}
-              <div className="relative w-full aspect-square max-w-[280px] mx-auto bg-white rounded-2xl border-2 border-slate-200 p-2 shadow-inner flex items-center justify-center overflow-hidden">
-                {/* Lưới ô nét đứt nếu bật Kèm lưới */}
-                {showGrid && <KanjiGridOverlay />}
-
-                {/* SVG Layers in Guided Mode */}
-                {practiceSubMode === 'guided' ? (
-                  <svg
-                    viewBox="0 0 109 109"
-                    className="absolute inset-0 w-full h-full p-2 pointer-events-none select-none"
-                  >
-                    {/* 1. Mờ mờ toàn bộ chữ để tham khảo vị trí */}
-                    <g style={{ fill: 'none', stroke: '#f1f5f9', strokeWidth: 3.2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
-                      {practiceStrokes.map((s, idx) => (
-                        <path key={`bg-${idx}`} d={s.d} />
-                      ))}
-                    </g>
-
-                    {/* 2. Các nét đã hoàn thành chuẩn xác */}
-                    <g style={{ fill: 'none', strokeWidth: 3.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
-                      {completedStrokeIndices.map((idx) => {
-                        const s = practiceStrokes[idx];
-                        if (!s) return null;
-                        const color = MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length];
-                        return <path key={`done-${idx}`} d={s.d} style={{ stroke: color }} />;
-                      })}
-                    </g>
-
-                    {/* 3. Nét mẫu hiện tại cần vẽ (đường nét đứt nổi bật) */}
-                    {practiceStrokes[currentStrokeIdx] && !isPracticeFinished && (
-                      <path
-                        d={practiceStrokes[currentStrokeIdx].d}
-                        style={{
-                          fill: 'none',
-                          stroke: MAZII_STROKE_COLORS[currentStrokeIdx % MAZII_STROKE_COLORS.length] || '#0d9488',
-                          strokeWidth: 3.6,
-                          strokeLinecap: 'round',
-                          strokeLinejoin: 'round',
-                          strokeDasharray: '3 3',
-                          opacity: 0.65,
-                        }}
-                      />
-                    )}
-
-                    {/* 4. Chấm điểm bắt đầu phát sáng và chỉ dẫn */}
-                    {strokeStartPoints[currentStrokeIdx] && !isPracticeFinished && (
-                      <g>
-                        <circle
-                          cx={strokeStartPoints[currentStrokeIdx].x}
-                          cy={strokeStartPoints[currentStrokeIdx].y}
-                          r="5.5"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="1.2"
-                          className="animate-ping"
-                        />
-                        <circle
-                          cx={strokeStartPoints[currentStrokeIdx].x}
-                          cy={strokeStartPoints[currentStrokeIdx].y}
-                          r="3.2"
-                          fill="#10b981"
-                          stroke="#ffffff"
-                          strokeWidth="0.8"
-                        />
-                        <text
-                          x={strokeStartPoints[currentStrokeIdx].x + 4.5}
-                          y={strokeStartPoints[currentStrokeIdx].y - 3}
-                          fontSize="5.5"
-                          fontWeight="bold"
-                          fill="#047857"
-                        >
-                          #{currentStrokeIdx + 1}
-                        </text>
-                      </g>
-                    )}
-                  </svg>
-                ) : (
-                  /* Freehand template */
-                  <KanjiSvgView
-                    svgUrl={item.svgUrl}
-                    kanji={item.kanji}
-                    monochrome={true}
-                    className="w-full h-full object-contain pointer-events-none select-none opacity-30 p-2"
-                  />
-                )}
-
-                {/* Tracing / Practice Canvas */}
-                <canvas
-                  ref={canvasRef}
-                  width={280}
-                  height={280}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                  className="absolute inset-0 cursor-crosshair touch-none"
-                  title="Dùng chuột hoặc ngón tay để vẽ theo hướng dẫn"
-                />
-
-                {/* Floating feedback toast */}
-                {practiceSubMode === 'guided' && lastEvaluation && !isPracticeFinished && (
+              {/* Two-Zone Sandbox Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 items-start">
+                {/* Left Zone: 1:1 Coordinate Writing Canvas Stage */}
+                <div className="md:col-span-6 flex flex-col items-center">
                   <div
-                    className={`absolute top-2 left-2 right-2 px-3 py-1.5 rounded-xl shadow-md text-[11px] font-bold flex items-center justify-between gap-1.5 z-10 animate-in fade-in slide-in-from-top-1 ${
-                      lastEvaluation.isPass
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-rose-600 text-white'
+                    className={`relative w-full aspect-square max-w-[264px] sm:max-w-[280px] bg-white rounded-2xl border-2 shadow-inner overflow-hidden select-none transition-colors duration-150 ${
+                      isWrongFlash
+                        ? 'border-rose-400 bg-rose-50/10'
+                        : isPracticeFinished && practiceSubMode !== 'free'
+                        ? 'border-emerald-300'
+                        : 'border-slate-200'
                     }`}
                   >
-                    <span className="truncate">{lastEvaluation.feedback}</span>
-                    <span className="bg-white/20 px-1.5 py-0.2 rounded font-mono text-[10px] shrink-0">
-                      {lastEvaluation.score}%
-                    </span>
-                  </div>
-                )}
+                    {effectiveShowGrid && <KanjiGridOverlay />}
 
-                {/* Completion summary overlay when all strokes pass */}
-                {practiceSubMode === 'guided' && isPracticeFinished && (
-                  <div className="absolute inset-0 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center z-20 animate-in zoom-in-95 duration-200">
-                    <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-2 shadow-inner">
-                      <Award className="w-6 h-6" />
-                    </div>
-                    <h4 className="text-base font-black text-slate-800">Hoàn thành chữ Kanji!</h4>
-                    <div className="text-2xl font-black text-teal-700 font-mono my-1">
-                      {Math.round(
-                        strokeScores.reduce((a, b) => a + b, 0) / (strokeScores.length || 1)
-                      )}
-                      %
-                    </div>
-                    <p className="text-xs text-slate-600 mb-3">
-                      {Math.round(
-                        strokeScores.reduce((a, b) => a + b, 0) / (strokeScores.length || 1)
-                      ) >= 80
-                        ? 'Xuất sắc! Bạn đã vẽ đúng thứ tự và hướng các nét.'
-                        : 'Bạn đã hoàn thành đủ các nét theo đúng quy tắc.'}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={resetPracticeTest}
-                        className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer active:scale-95"
+                    {/* Vector Reference & Completed Strokes Layer (Exact 1:1 0..109 SVG coordinate box) */}
+                    {practiceStrokes.length > 0 ? (
+                      <svg
+                        viewBox="0 0 109 109"
+                        className="absolute inset-0 w-full h-full pointer-events-none select-none"
+                        aria-hidden="true"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Luyện lại chữ này</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPracticeSubMode('free');
-                          resetPracticeTest();
-                        }}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all border border-slate-200 cursor-pointer"
-                      >
-                        Viết tự do
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                        {/* 1. Optional Ghost Shadow Guide */}
+                        {showGhostGuide && (
+                          <g
+                            style={{
+                              fill: 'none',
+                              stroke: '#94a3b8',
+                              strokeOpacity: practiceSubMode === 'free' ? 0.28 : 0.24,
+                              strokeWidth: 4.2,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
+                            }}
+                          >
+                            {practiceStrokes.map((s, idx) => (
+                              <path key={`ghost-${s.id}-${idx}`} d={s.d} />
+                            ))}
+                          </g>
+                        )}
 
-              {/* Freehand Controls (Only in Freehand Mode) */}
-              {practiceSubMode === 'free' ? (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs border-y border-slate-100 py-3 px-1">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="text-slate-500 font-medium">Màu mực:</span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {[
-                        { color: '#0f766e', label: 'Xanh ngọc bích' },
-                        { color: '#2563eb', label: 'Xanh dương' },
-                        { color: '#dc2626', label: 'Đỏ chu sa' },
-                        { color: '#16a34a', label: 'Xanh lá' },
-                        { color: '#9333ea', label: 'Tím hoa súng' },
-                        { color: '#d97706', label: 'Cam hoàng hôn' },
-                        { color: '#0f172a', label: 'Đen mực tàu' },
-                      ].map(({ color, label }) => (
-                        <button
-                          key={color}
-                          onClick={() => setPenColor(color)}
-                          style={{ backgroundColor: color }}
-                          className={`w-6 h-6 rounded-full border-2 transition-transform cursor-pointer ${
-                            penColor === color
-                              ? 'scale-115 border-white ring-2 ring-teal-600 shadow-xs'
-                              : 'border-transparent'
-                          }`}
-                          title={label}
+                        {/* 2. Passed / Completed Strokes in Crisp Ink */}
+                        {practiceSubMode !== 'free' && (
+                          <g
+                            style={{
+                              fill: 'none',
+                              strokeWidth: 4.4,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
+                            }}
+                          >
+                            {completedStrokeIndices.map((idx) => {
+                              const s = practiceStrokes[idx];
+                              if (!s) return null;
+                              const color = MAZII_STROKE_COLORS[idx % MAZII_STROKE_COLORS.length] || '#0f766e';
+                              return <path key={`done-${s.id}-${idx}`} d={s.d} style={{ stroke: color }} />;
+                            })}
+                          </g>
+                        )}
+
+                        {/* 3. Single-Stroke Hint (On-demand in either Guided or Blind mode) */}
+                        {practiceSubMode !== 'free' &&
+                          showHintStroke &&
+                          practiceStrokes[currentStrokeIdx] &&
+                          !isPracticeFinished && (
+                            <path
+                              d={practiceStrokes[currentStrokeIdx].d}
+                              style={{
+                                fill: 'none',
+                                stroke: '#d97706',
+                                strokeOpacity: 0.65,
+                                strokeWidth: 3.8,
+                                strokeLinecap: 'round',
+                                strokeLinejoin: 'round',
+                                strokeDasharray: '3.2 2.8',
+                              }}
+                            />
+                          )}
+
+                        {/* 4. Static Start Marker (Zero pulsing animation) */}
+                        {practiceSubMode !== 'free' &&
+                          !isPracticeFinished &&
+                          strokeStartPoints[currentStrokeIdx] &&
+                          (showHintStroke || (practiceSubMode === 'guided' && showStartMarker)) && (
+                            <g>
+                              <circle
+                                cx={strokeStartPoints[currentStrokeIdx].x}
+                                cy={strokeStartPoints[currentStrokeIdx].y}
+                                r="3.2"
+                                fill={showHintStroke ? '#d97706' : '#059669'}
+                                stroke="#ffffff"
+                                strokeWidth="0.9"
+                              />
+                              <text
+                                x={Math.min(98, strokeStartPoints[currentStrokeIdx].x + 4.4)}
+                                y={Math.max(8, strokeStartPoints[currentStrokeIdx].y - 3.2)}
+                                fontSize="5.4"
+                                fontWeight="700"
+                                fill={showHintStroke ? '#b45309' : '#047857'}
+                              >
+                                #{currentStrokeIdx + 1}
+                              </text>
+                            </g>
+                          )}
+                      </svg>
+                    ) : (
+                      showGhostGuide && (
+                        <KanjiSvgView
+                          svgUrl={item.svgUrl}
+                          kanji={item.kanji}
+                          monochrome={true}
+                          className="w-full h-full object-contain pointer-events-none select-none opacity-25"
                         />
-                      ))}
-                    </div>
-                  </div>
+                      )
+                    )}
 
-                  <button
-                    onClick={clearCanvas}
-                    className="inline-flex items-center gap-1.5 text-slate-500 hover:text-rose-600 font-semibold cursor-pointer transition-colors py-1 px-2 rounded-lg hover:bg-rose-50"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Xóa nét vẽ tay</span>
-                  </button>
+                    {/* Interactive Pointer Canvas Layer (Exact 1:1 0..280 backing store) */}
+                    <canvas
+                      ref={canvasRef}
+                      width={280}
+                      height={280}
+                      onPointerDown={startDrawing}
+                      onPointerMove={draw}
+                      onPointerUp={stopDrawing}
+                      onPointerCancel={stopDrawing}
+                      className="absolute inset-0 w-full h-full cursor-crosshair touch-none z-10"
+                      title="Dùng chuột, ngón tay hoặc bút cảm ứng để viết"
+                    />
+
+                    {/* Completion Summary Overlay */}
+                    {practiceSubMode !== 'free' && isPracticeFinished && (
+                      <div className="absolute inset-0 bg-white/95 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center z-20 animate-in zoom-in-95 duration-150">
+                        <div className="w-11 h-11 bg-teal-50 text-teal-700 border border-teal-200 rounded-xl flex items-center justify-center mb-2">
+                          <Award className="w-5 h-5" />
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900">
+                          Hoàn thành chữ {item.kanji}
+                        </h4>
+                        <div className="text-2xl font-black text-teal-700 font-mono tabular-nums my-1">
+                          {Math.round(
+                            strokeScores.reduce((a, b) => a + b, 0) / (strokeScores.length || 1)
+                          )}
+                          %
+                        </div>
+                        <p className="text-xs text-slate-600 mb-3">
+                          {Math.round(
+                            strokeScores.reduce((a, b) => a + b, 0) / (strokeScores.length || 1)
+                          ) >= 80
+                            ? 'Chuẩn xác thứ tự và hướng nét.'
+                            : 'Đã hoàn tất đủ số nét của chữ.'}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={resetPracticeTest}
+                            className="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Luyện lại</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              switchPracticeMode(practiceSubMode === 'guided' ? 'blind' : 'guided')
+                            }
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors border border-slate-200 cursor-pointer"
+                          >
+                            {practiceSubMode === 'guided' ? 'Thử viết mù' : 'Về có mẫu mờ'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                /* Instruction hint in Guided Mode */
-                <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 leading-relaxed text-center font-medium">
-                  🎯 Đặt bút/ngón tay vào <strong className="text-emerald-700 font-bold">chấm xanh #{currentStrokeIdx + 1}</strong> và vẽ dọc theo nét đứt. Hệ thống sẽ nhận diện hướng vẽ, thứ tự nét và chấm điểm độ chính xác.
+
+                {/* Right Zone: Control & Telemetry Deck */}
+                <div className="md:col-span-6 space-y-3">
+                  {practiceSubMode !== 'free' ? (
+                    <>
+                      {/* Progress & Average Score Telemetry (Clean unboxed typography, tabular-nums) */}
+                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 text-xs tabular-nums">
+                        <div className="font-bold text-slate-800">
+                          {isPracticeFinished ? (
+                            <span className="text-emerald-700">
+                              Hoàn thành {practiceStrokes.length}/{practiceStrokes.length} nét
+                            </span>
+                          ) : (
+                            <span>
+                              Nét{' '}
+                              <strong className="text-teal-700 font-black">
+                                {Math.min(currentStrokeIdx + 1, practiceStrokes.length || 1)}
+                              </strong>{' '}
+                              / {practiceStrokes.length || '?'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-slate-500 font-medium">
+                          {strokeScores.length > 0 ? (
+                            <>
+                              Điểm TB:{' '}
+                              <strong className="text-slate-900 font-mono">
+                                {Math.round(
+                                  strokeScores.reduce((a, b) => a + b, 0) / strokeScores.length
+                                )}
+                                %
+                              </strong>
+                            </>
+                          ) : (
+                            <span>
+                              {practiceSubMode === 'blind' ? 'Chế độ trí nhớ' : 'Theo thứ tự nét'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Real-time Stroke Feedback Strip (Outside Canvas so strokes are never covered) */}
+                      <div
+                        className={`min-h-[52px] rounded-xl border px-3 py-2 flex items-center justify-between gap-2 text-xs transition-colors ${
+                          lastEvaluation && !isPracticeFinished
+                            ? lastEvaluation.isPass
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                              : 'bg-rose-50 border-rose-200 text-rose-900'
+                            : 'bg-slate-50 border-slate-200/80 text-slate-600'
+                        }`}
+                      >
+                        {lastEvaluation && !isPracticeFinished ? (
+                          <>
+                            <div className="flex items-center gap-2 min-w-0">
+                              {lastEvaluation.isPass ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                              )}
+                              <span className="font-semibold leading-snug">
+                                {lastEvaluation.feedback}
+                              </span>
+                            </div>
+                            <span className="font-mono font-bold tabular-nums shrink-0 text-[11px]">
+                              {lastEvaluation.score}%
+                            </span>
+                          </>
+                        ) : (
+                          <div className="leading-snug">
+                            {practiceSubMode === 'blind'
+                              ? 'Hình mẫu đang ẩn. Nhớ vị trí nét trong ô ly và đặt bút viết, hoặc bật Bóng mờ / Gợi ý 1 nét.'
+                              : 'Đặt bút từ chấm đầu nét và kéo dọc theo bóng mờ. Nét sai sẽ tự xóa nhanh để bạn viết lại ngay.'}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Grading Strictness Selector */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+                          <span>Độ khó chấm điểm</span>
+                          <span>
+                            {practiceStrictness === 'easy'
+                              ? 'Ưu tiên đúng thứ tự'
+                              : practiceStrictness === 'strict'
+                              ? 'Chuẩn thư pháp'
+                              : 'Cân bằng'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 text-xs">
+                          {(
+                            [
+                              { id: 'easy', label: 'Dễ' },
+                              { id: 'normal', label: 'Chuẩn' },
+                              { id: 'strict', label: 'Khắt khe' },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => setPracticeStrictness(opt.id)}
+                              className={`py-1.5 px-2 rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                                practiceStrictness === opt.id
+                                  ? 'bg-white text-teal-800 shadow-2xs ring-1 ring-slate-200 font-bold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Visual Assistance Toggles */}
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowGhostGuide((v) => !v)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                            showGhostGuide
+                              ? 'bg-teal-50 border-teal-300 text-teal-800'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                          title="Bật hoặc tắt lớp bóng mờ toàn bộ chữ Kanji"
+                        >
+                          <Ghost className="w-3.5 h-3.5 shrink-0" />
+                          <span>Bóng mờ</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isPracticeFinished || practiceStrokes.length === 0}
+                          onClick={() => setShowHintStroke((v) => !v)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-45 transition-colors whitespace-nowrap ${
+                            showHintStroke
+                              ? 'bg-amber-50 border-amber-300 text-amber-800'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                          title="Hiện nét hiện tại và điểm bắt đầu cho riêng 1 nét này"
+                        >
+                          <Lightbulb className="w-3.5 h-3.5 shrink-0" />
+                          <span>Gợi ý 1 nét</span>
+                        </button>
+
+                        {practiceSubMode === 'guided' && (
+                          <button
+                            type="button"
+                            disabled={isPracticeFinished}
+                            onClick={() => setShowStartMarker((v) => !v)}
+                            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-45 transition-colors whitespace-nowrap ${
+                              showStartMarker
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                            }`}
+                            title="Ẩn hoặc hiện chấm vị trí bắt đầu từng nét"
+                          >
+                            <Target className="w-3.5 h-3.5 shrink-0" />
+                            <span>Đầu nét</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={handleTogglePracticeGrid}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                            effectiveShowGrid
+                              ? 'bg-slate-100 border-slate-300 text-slate-900'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                          title="Bật hoặc tắt lưới ô ly chữ Mễ"
+                        >
+                          <Grid3X3 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ô ly</span>
+                        </button>
+                      </div>
+
+                      {/* Stroke Flow Controls: Undo / Skip / Reset */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200/70">
+                        <button
+                          type="button"
+                          onClick={undoLastStroke}
+                          disabled={completedStrokeIndices.length === 0}
+                          className="flex-1 py-2 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors whitespace-nowrap"
+                          title="Quay lại 1 nét vừa hoàn thành"
+                        >
+                          <Undo2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Hoàn tác</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={skipCurrentStroke}
+                          disabled={isPracticeFinished || practiceStrokes.length === 0}
+                          className="flex-1 py-2 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors whitespace-nowrap"
+                          title="Bỏ qua nét hiện tại và chuyển sang nét tiếp theo"
+                        >
+                          <SkipForward className="w-3.5 h-3.5 shrink-0" />
+                          <span>Bỏ qua</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={resetPracticeTest}
+                          className="flex-1 py-2 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+                          title="Xóa hết và viết lại từ nét 1"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                          <span>Viết lại</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    /* Freehand Mode Controls */
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <span className="text-xs font-semibold text-slate-700 block">
+                          Màu mực luyện viết
+                        </span>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          {[
+                            { color: '#0f766e', label: 'Xanh ngọc bích' },
+                            { color: '#2563eb', label: 'Xanh dương' },
+                            { color: '#dc2626', label: 'Đỏ chu sa' },
+                            { color: '#16a34a', label: 'Xanh lá' },
+                            { color: '#9333ea', label: 'Tím' },
+                            { color: '#d97706', label: 'Cam' },
+                            { color: '#0f172a', label: 'Đen mực tàu' },
+                          ].map(({ color, label }) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setPenColor(color)}
+                              style={{ backgroundColor: color }}
+                              className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${
+                                penColor === color
+                                  ? 'scale-110 border-white ring-2 ring-teal-600 shadow-xs'
+                                  : 'border-transparent hover:scale-105'
+                              }`}
+                              title={label}
+                              aria-label={label}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowGhostGuide((v) => !v)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                            showGhostGuide
+                              ? 'bg-teal-50 border-teal-300 text-teal-800'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <Ghost className="w-3.5 h-3.5 shrink-0" />
+                          <span>Bóng mờ</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleTogglePracticeGrid}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                            effectiveShowGrid
+                              ? 'bg-slate-100 border-slate-300 text-slate-900'
+                              : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <Grid3X3 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Ô ly</span>
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200/70">
+                        <button
+                          type="button"
+                          onClick={clearCanvas}
+                          className="w-full py-2.5 px-3 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                          <span>Xóa nét vẽ tay</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
           </div>
         </div>
 
