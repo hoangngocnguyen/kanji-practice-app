@@ -67,6 +67,11 @@ import {
   threeWayMergeDecks,
 } from '../utils/threeWayMerge';
 import { recordStudyReview } from '../services/studyStatsService';
+import {
+  getActiveMistakes,
+  recordKanjiMistake,
+  recordKanjiSuccess,
+} from '../services/mistakeBankService';
 
 const STORAGE_FOLDERS_KEY = 'kanji_decks_folders_v1';
 const STORAGE_ITEMS_KEY = 'kanji_decks_items_v1';
@@ -707,6 +712,75 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ): FlashcardReviewItem[] => {
       const now = Date.now();
       const folderMap = new Map(folders.map((f) => [f.id, f.name]));
+
+      if (folderId === '__MISTAKES__') {
+        const activeMistakes = getActiveMistakes();
+        const cards: FlashcardReviewItem[] = [];
+        for (const m of activeMistakes) {
+          const existingItem = items.find((it) => it.kanji === m.kanji);
+          if (existingItem) {
+            const folderName = folderMap.get(existingItem.folderId) || 'Chữ hay sai';
+            if (mode === 'all' || mode === 'kanji') {
+              cards.push({
+                cardId: `k-${existingItem.id}`,
+                cardType: 'kanji',
+                folderId: existingItem.folderId,
+                folderName,
+                kanjiItemId: existingItem.id,
+                kanji: existingItem.kanji,
+                hanViet: existingItem.hanViet,
+                onReadings: existingItem.onReadings,
+                kunReadings: existingItem.kunReadings,
+                meanings: existingItem.meanings,
+                strokeCount: existingItem.strokeCount,
+                examples: existingItem.examples,
+                srsState: existingItem.srsState,
+              });
+            }
+            if (mode === 'compound') {
+              for (const cw of existingItem.compoundWords) {
+                cards.push({
+                  cardId: `c-${cw.id}`,
+                  cardType: 'compound',
+                  folderId: existingItem.folderId,
+                  folderName,
+                  kanjiItemId: existingItem.id,
+                  kanji: existingItem.kanji,
+                  hanViet: existingItem.hanViet,
+                  onReadings: existingItem.onReadings,
+                  kunReadings: existingItem.kunReadings,
+                  meanings: existingItem.meanings,
+                  compoundWordId: cw.id,
+                  word: cw.word,
+                  reading: cw.reading,
+                  wordHanViet: cw.hanViet,
+                  wordMeaning: cw.meaning,
+                  examples: cw.examples,
+                  srsState: cw.srsState,
+                });
+              }
+            }
+          } else if (mode === 'all' || mode === 'kanji') {
+            const info = getKanjiInfo(m.kanji);
+            cards.push({
+              cardId: `mistake-${m.kanji}`,
+              cardType: 'kanji',
+              folderId: '__MISTAKES__',
+              folderName: 'Chữ hay sai',
+              kanjiItemId: `mistake-${m.kanji}`,
+              kanji: m.kanji,
+              hanViet: info?.hanViet || '',
+              onReadings: info?.on || [],
+              kunReadings: info?.kun || [],
+              meanings: info?.meanings || [],
+              strokeCount: info?.strokeCount,
+              srsState: createInitialSrsState(now),
+            });
+          }
+        }
+        return cards;
+      }
+
       const targetItems = getItemsForFolderRecursive(folderId);
       const cards: FlashcardReviewItem[] = [];
 
@@ -763,7 +837,7 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ưu tiên các thẻ quá hạn lâu nhất lên trước
       return cards.sort((a, b) => a.srsState.dueAt - b.srsState.dueAt);
     },
-    [folders, getItemsForFolderRecursive]
+    [folders, items, getItemsForFolderRecursive]
   );
 
   const getDueCountForFolderRecursive = useCallback(
@@ -1668,33 +1742,40 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // SRS Grading
   const gradeFlashcard = useCallback(
     (card: FlashcardReviewItem, rating: SrsRating) => {
-      const nextState = calculateNextSrsState(card.srsState, rating, srsConfig);
-      const now = Date.now();
-      if (card.cardType === 'kanji') {
-        setItems((prev) =>
-          prev.map((it) =>
-            it.id === card.kanjiItemId ? { ...it, srsState: nextState, updatedAt: now } : it
-          )
-        );
-      } else if (card.compoundWordId) {
-        setItems((prev) =>
-          prev.map((it) =>
-            it.id === card.kanjiItemId
-              ? {
-                  ...it,
-                  updatedAt: now,
-                  compoundWords: it.compoundWords.map((cw) =>
-                    cw.id === card.compoundWordId
-                      ? { ...cw, srsState: nextState, updatedAt: now }
-                      : cw
-                  ),
-                }
-              : it
-          )
-        );
+      if (card.folderId !== '__MISTAKES__') {
+        const nextState = calculateNextSrsState(card.srsState, rating, srsConfig);
+        const now = Date.now();
+        if (card.cardType === 'kanji') {
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === card.kanjiItemId ? { ...it, srsState: nextState, updatedAt: now } : it
+            )
+          );
+        } else if (card.compoundWordId) {
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === card.kanjiItemId
+                ? {
+                    ...it,
+                    updatedAt: now,
+                    compoundWords: it.compoundWords.map((cw) =>
+                      cw.id === card.compoundWordId
+                        ? { ...cw, srsState: nextState, updatedAt: now }
+                        : cw
+                    ),
+                  }
+                : it
+            )
+          );
+        }
+        markLocalMutation();
       }
-      markLocalMutation();
       recordStudyReview(rating);
+      if (rating === 'hard') {
+        recordKanjiMistake(card.kanji, 'srs');
+      } else {
+        recordKanjiSuccess(card.kanji);
+      }
     },
     [srsConfig, markLocalMutation]
   );

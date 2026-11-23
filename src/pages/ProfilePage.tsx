@@ -32,6 +32,13 @@ import {
   FollowUserItem,
 } from '../services/communityService';
 import { FollowListModal, FollowModalTab } from '../components/auth/FollowListModal';
+import {
+  loadLocalStudyStats,
+  LocalStudyStats,
+  STUDY_STATS_UPDATED_EVENT,
+  syncStudyStatsFromCloud,
+} from '../services/studyStatsService';
+import { StudyHeatmap365 } from '../components/StudyHeatmap365';
 
 export const ProfilePage: React.FC = () => {
   const {
@@ -80,6 +87,13 @@ export const ProfilePage: React.FC = () => {
   const [isLoadingStats, setIsLoadingStats] = useState<boolean>(() =>
     Boolean(user && supabaseEnabled)
   );
+  const [studyStats, setStudyStats] = useState<LocalStudyStats>(() => loadLocalStudyStats());
+
+  useEffect(() => {
+    const syncHandler = () => setStudyStats(loadLocalStudyStats());
+    window.addEventListener(STUDY_STATS_UPDATED_EVENT, syncHandler);
+    return () => window.removeEventListener(STUDY_STATS_UPDATED_EVENT, syncHandler);
+  }, []);
 
   useEffect(() => {
     setNameInput(displayName);
@@ -92,10 +106,12 @@ export const ProfilePage: React.FC = () => {
     }
     setIsLoadingStats(true);
     try {
-      const [followsRes, sharesRes] = await Promise.all([
+      const [followsRes, sharesRes, mergedStudy] = await Promise.all([
         apiGetMyFollows().catch(() => null),
         apiGetMyShares().catch(() => null),
+        syncStudyStatsFromCloud().catch(() => null),
       ]);
+      if (mergedStudy) setStudyStats(mergedStudy);
       if (followsRes) {
         setFollowers(followsRes.followers || []);
         setFollowing(followsRes.following || []);
@@ -547,6 +563,9 @@ export const ProfilePage: React.FC = () => {
           )}
         </section>
       </div>
+
+      {/* Annual 365-Day Study Activity Heatmap */}
+      <StudyHeatmap365 stats={studyStats} />
 
       {/* Follow List & Find Study Buddies Modal */}
       <FollowListModal

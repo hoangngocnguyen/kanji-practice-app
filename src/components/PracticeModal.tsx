@@ -59,6 +59,10 @@ import {
   formatTatoebaFuriganaPlain,
   KanjiExampleSentence,
 } from '../services/kanjiLevelService';
+import {
+  recordKanjiMistake,
+  recordKanjiSuccess,
+} from '../services/mistakeBankService';
 
 const STACK_Z_CLASSES = ['z-[70]', 'z-[80]', 'z-[90]', 'z-[100]'];
 
@@ -138,6 +142,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
   // User drawn points of current stroke & cancelable fail-clear timer
   const userPointsRef = useRef<Point[]>([]);
   const failClearTimerRef = useRef<number | null>(null);
+  const consecutiveWritingFailsRef = useRef<number>(0);
+  const hadWritingFailOnCharRef = useRef<boolean>(false);
 
   useEffect(() => {
     setLocalShowGrid(showGrid);
@@ -175,6 +181,8 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
     setIsPracticeFinished(false);
     setShowHintStroke(false);
     setIsWrongFlash(false);
+    consecutiveWritingFailsRef.current = 0;
+    hadWritingFailOnCharRef.current = false;
     userPointsRef.current = [];
     clearCanvas();
   }, [clearCanvas, clearFailTimer]);
@@ -547,6 +555,7 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
       if (evalResult.isPass) {
         // Synchronous 0ms transition: convert passed stroke to vector ink & advance immediately
+        consecutiveWritingFailsRef.current = 0;
         const nextScores = [...strokeScores, evalResult.score];
         setStrokeScores(nextScores);
         setCompletedStrokeIndices((prev) => [...prev, currentStrokeIdx]);
@@ -557,10 +566,18 @@ export const PracticeModal: React.FC<PracticeModalProps> = ({
 
         if (currentStrokeIdx + 1 >= practiceStrokes.length) {
           setIsPracticeFinished(true);
+          if (!hadWritingFailOnCharRef.current) {
+            recordKanjiSuccess(item.kanji);
+          }
         } else {
           setCurrentStrokeIdx((prev) => prev + 1);
         }
       } else {
+        consecutiveWritingFailsRef.current += 1;
+        hadWritingFailOnCharRef.current = true;
+        if (consecutiveWritingFailsRef.current === 2) {
+          recordKanjiMistake(item.kanji, 'writing');
+        }
         setIsWrongFlash(true);
         clearFailTimer();
         failClearTimerRef.current = window.setTimeout(() => {

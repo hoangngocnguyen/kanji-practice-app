@@ -77,16 +77,21 @@ export function useGlobalLoading(): LoadingContextType {
  */
 export function usePageLoadingIndicator(key: string, isLoading: boolean): void {
   const ctx = useContext(LoadingContext);
+  const startLoading = ctx?.startLoading;
+  const stopLoading = ctx?.stopLoading;
 
   useEffect(() => {
-    if (!ctx) return;
+    if (!startLoading || !stopLoading) return;
     if (isLoading) {
-      ctx.startLoading(key);
+      startLoading(key);
     } else {
-      ctx.stopLoading(key);
+      stopLoading(key);
     }
+  }, [startLoading, stopLoading, key, isLoading]);
+
+  useEffect(() => {
     return () => {
-      ctx.stopLoading(key);
+      stopLoading?.(key);
     };
-  }, [ctx, key, isLoading]);
+  }, [stopLoading, key]);
 }

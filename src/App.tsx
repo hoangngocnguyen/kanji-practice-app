@@ -44,6 +44,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { GoogleDocsTableExporter } from './components/GoogleDocsTableExporter';
 import { LicenseModal } from './components/LicenseModal';
 import { Footer } from './components/Footer';
+import { OfflineIndicator } from './components/OfflineIndicator';
 
 function AppLayout() {
   const {
@@ -125,6 +126,7 @@ function AppLayout() {
 
       {/* Main Viewport */}
       <div className="flex-1 flex flex-col min-w-0 w-full min-h-screen">
+        <OfflineIndicator />
         <Header onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
 
         <main className="flex-1 flex flex-col w-full px-4 sm:px-6 lg:px-8 pt-5 sm:pt-6 pb-0">

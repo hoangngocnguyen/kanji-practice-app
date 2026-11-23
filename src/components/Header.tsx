@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Search,
   X,
+  PenLine,
 } from 'lucide-react';
 import { useLocation, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useKanji } from '../context/KanjiContext';
@@ -19,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDecks } from '../context/DeckContext';
 import { FollowListModal } from './auth/FollowListModal';
 import { HeaderStreakControl } from './HeaderStreakControl';
+import { HandwritingSearchModal } from './HandwritingSearchModal';
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void;
@@ -52,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const [isFindBuddiesOpen, setIsFindBuddiesOpen] = useState(false);
+  const [isHandwritingOpen, setIsHandwritingOpen] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Close dropdown & mobile search on route change, sync search query on /search
@@ -163,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                 onChange={(e) => setHeaderSearchQuery(e.target.value)}
                 placeholder="Tìm Kanji theo nghĩa, Hán-Việt (vd: nam, con trai)..."
                 aria-label="Tìm Kanji theo nghĩa hoặc Hán-Việt"
-                className="w-full h-9 pl-9 pr-16 text-xs bg-slate-100/80 hover:bg-slate-100 focus:bg-white text-slate-800 rounded-xl border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition-all"
+                className="w-full h-9 pl-9 pr-24 text-xs bg-slate-100/80 hover:bg-slate-100 focus:bg-white text-slate-800 rounded-xl border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 transition-all"
               />
               <div className="absolute right-1 flex items-center gap-0.5">
                 {headerSearchQuery && (
@@ -178,6 +181,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                   </button>
                 )}
                 <button
+                  type="button"
+                  onClick={() => setIsHandwritingOpen(true)}
+                  className="p-1.5 text-slate-500 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                  title="Vẽ tay tìm chữ Kanji"
+                  aria-label="Vẽ tay tìm chữ Kanji"
+                >
+                  <PenLine className="w-3.5 h-3.5" />
+                </button>
+                <button
                   type="submit"
                   className="p-1.5 text-teal-700 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
                   title="Đi tới trang tìm kiếm Kanji"
@@ -191,6 +203,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
           {/* Right: Mobile Search Toggle / Auth / Print / Avatar Dropdown / Settings */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mobile Handwriting Search Button */}
+            <button
+              type="button"
+              onClick={() => setIsHandwritingOpen(true)}
+              className="md:hidden inline-flex p-2 min-h-[36px] min-w-[36px] items-center justify-center rounded-xl border text-slate-600 bg-slate-100 hover:bg-slate-200 border-slate-200/90 transition-all cursor-pointer active:scale-95 shrink-0"
+              title="Vẽ tay tìm Kanji"
+              aria-label="Vẽ tay tìm Kanji"
+            >
+              <PenLine className="w-4 h-4 shrink-0" />
+            </button>
+
             {/* Mobile Magnifying Glass Search Button */}
             <button
               type="button"
@@ -468,6 +491,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           initialTab="find"
         />
       )}
+
+      {/* Handwriting Search Modal */}
+      <HandwritingSearchModal
+        isOpen={isHandwritingOpen}
+        onClose={() => setIsHandwritingOpen(false)}
+        onSelectKanji={(kanji) => {
+          setHeaderSearchQuery(kanji);
+          setIsMobileSearchOpen(false);
+          navigate(`/search?q=${encodeURIComponent(kanji)}`);
+        }}
+      />
     </>
   );
 };

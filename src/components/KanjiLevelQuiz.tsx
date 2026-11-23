@@ -24,6 +24,10 @@ import {
   loadKanjiSentencesStatic,
 } from '../services/kanjiLevelService';
 import { speakJapanese } from '../utils/speech';
+import {
+  recordKanjiMistake,
+  recordKanjiSuccess,
+} from '../services/mistakeBankService';
 
 export type QuizModeType =
   | 'kanji-to-meaning'
@@ -354,6 +358,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
       setAnsweredCorrect(isRight);
 
       if (isRight) {
+        recordKanjiSuccess(currentQuestion.target.c);
         setScore((s) => s + 1);
         setStreak((st) => {
           const next = st + 1;
@@ -361,6 +366,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           return next;
         });
       } else {
+        recordKanjiMistake(currentQuestion.target.c, 'quiz');
         setStreak(0);
         setWrongEntries((prev) =>
           prev.some((x) => x.c === currentQuestion.target.c)
@@ -384,6 +390,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
         cleaned.includes(currentQuestion.target.c);
       setAnsweredCorrect(isRight);
       if (isRight) {
+        recordKanjiSuccess(currentQuestion.target.c);
         setSelectedOptionId(currentQuestion.correctOptionId);
         setScore((s) => s + 1);
         setStreak((st) => {
@@ -392,6 +399,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           return next;
         });
       } else {
+        recordKanjiMistake(currentQuestion.target.c, 'quiz');
         setSelectedOptionId('typed-wrong');
         setStreak(0);
         setWrongEntries((prev) =>

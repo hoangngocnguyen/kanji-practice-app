@@ -127,6 +127,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   const sessionTitle =
     folderId === '__ALL__'
       ? 'Ôn gộp hôm nay (Mọi thư mục)'
+      : folderId === '__MISTAKES__'
+      ? 'Ôn tập chữ hay sai'
       : folder?.name || 'Bài học';
 
   const reloadSession = useCallback(
@@ -648,12 +650,16 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-slate-900">
                   {initialTotal === 0
-                    ? 'Không có thẻ nào đến hạn ôn tập'
+                    ? folderId === '__MISTAKES__'
+                      ? 'Không còn chữ hay sai nào cần ôn'
+                      : 'Không có thẻ nào đến hạn ôn tập'
                     : 'Hoàn thành phiên ôn tập!'}
                 </h3>
                 <p className="text-xs text-slate-500">
                   {initialTotal === 0
-                    ? 'Tất cả thẻ trong thư mục này đều chưa đến lịch ôn lại.'
+                    ? folderId === '__MISTAKES__'
+                      ? 'Các chữ hay nhầm đã được bạn ôn vững.'
+                      : 'Tất cả thẻ trong thư mục này đều chưa đến lịch ôn lại.'
                     : 'Bạn đã hoàn tất toàn bộ thẻ cần ôn trong phiên này.'}
                 </p>
               </div>

@@ -20,6 +20,7 @@ import {
   PlayCircle,
   Repeat1,
   ArrowRight,
+  PenLine,
 } from 'lucide-react';
 import { KanjiDetail } from '../types/kanji';
 import { useKanji } from '../context/KanjiContext';
@@ -28,6 +29,7 @@ import { KanjiSearchResultsSkeleton } from '../components/PageSkeletons';
 import { KanjiSvgView } from '../components/KanjiSvgView';
 import { KanjiGridOverlay } from '../components/KanjiGridOverlay';
 import { AddKanjiToDeckModal } from '../components/AddKanjiToDeckModal';
+import { HandwritingSearchModal } from '../components/HandwritingSearchModal';
 import {
   StaticSentencePair,
   loadKanjiSentencesStatic,
@@ -211,6 +213,7 @@ export const KanjiSearchPage: React.FC = () => {
   const [deckModalEntries, setDeckModalEntries] = useState<KanjiDetail[]>([]);
   const [isDeckModalOpen, setIsDeckModalOpen] = useState<boolean>(false);
   const [suggestedDeckName, setSuggestedDeckName] = useState<string>('Từ vựng Kanji tra cứu');
+  const [isHandwritingOpen, setIsHandwritingOpen] = useState<boolean>(false);
 
   // Action feedback banner / toast
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
@@ -482,6 +485,16 @@ export const KanjiSearchPage: React.FC = () => {
             )}
           </div>
           <button
+            type="button"
+            onClick={() => setIsHandwritingOpen(true)}
+            className="h-10 px-3 bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-l-0 border-slate-200 transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1.5 text-xs font-semibold whitespace-nowrap"
+            title="Vẽ tay để tìm chữ Kanji"
+            aria-label="Vẽ tay tìm Kanji"
+          >
+            <PenLine className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+            <span className="hidden sm:inline">Vẽ tay</span>
+          </button>
+          <button
             type="submit"
             className="h-10 w-10 sm:w-11 bg-teal-700 hover:bg-teal-800 text-white rounded-r-xl rounded-l-none border border-teal-700 transition-colors cursor-pointer shrink-0 flex items-center justify-center shadow-xs"
             title="Tìm Kanji"
@@ -490,6 +503,12 @@ export const KanjiSearchPage: React.FC = () => {
             <Search className="w-4 h-4" />
           </button>
         </form>
+
+        <HandwritingSearchModal
+          isOpen={isHandwritingOpen}
+          onClose={() => setIsHandwritingOpen(false)}
+          onSelectKanji={(kanji) => commitQueryToUrl(kanji)}
+        />
 
         {/* Filter Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100">

@@ -761,13 +761,13 @@ export default async function handler(
       const rawDate = typeof req.body?.lastStudyDate === 'string' ? req.body.lastStudyDate.trim() : '';
       const lastStudyDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
 
-      // Sanitize recent 65 date keys in activityByDate
+      // Sanitize recent 371 date keys in activityByDate (53 weeks for annual Heatmap)
       const cleanActivity: Record<string, { reviewed: number; hard: number; good: number; easy: number }> = {};
       if (req.body?.activityByDate && typeof req.body.activityByDate === 'object') {
         const validKeys = Object.keys(req.body.activityByDate)
           .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
           .sort()
-          .slice(-65);
+          .slice(-371);
 
         for (const key of validKeys) {
           const entry = req.body.activityByDate[key];
@@ -809,6 +809,132 @@ export default async function handler(
       }
 
       return res.status(200).json({ tableReady: true, saved });
+    }
+
+    if (req.method === 'GET' && action === 'my_kanji_mistakes') {
+      const { data: rows, error: mErr } = await supabaseAdmin
+        .from('user_kanji_mistakes')
+        .select(
+          'kanji, mistake_count, consecutive_correct, srs_hard_count, quiz_wrong_count, writing_fail_count, is_mastered, last_mistake_source, last_mistake_at, mastered_at, updated_at'
+        )
+        .eq('user_id', user.id)
+        .order('is_mastered', { ascending: true })
+        .order('mistake_count', { ascending: false })
+        .limit(300);
+
+      if (mErr) {
+        const errCode = String((mErr as any)?.code || '');
+        const errMsg = String(mErr.message || '').toLowerCase();
+        if (
+          errCode === '42P01' ||
+          errCode === 'PGRST205' ||
+          errMsg.includes('user_kanji_mistakes')
+        ) {
+          return res.status(200).json({ tableReady: false, mistakes: [] });
+        }
+        throw mErr;
+      }
+
+      return res.status(200).json({ tableReady: true, mistakes: rows || [] });
+    }
+
+    if (req.method === 'POST' && action === 'upsert_kanji_mistakes') {
+      const rawList = Array.isArray(req.body?.mistakes) ? req.body.mistakes : [];
+      const sanitizeCount = (val: unknown, fallback = 0) => {
+        const n = Math.floor(Number(val));
+        return Number.isFinite(n) ? Math.max(0, Math.min(100000, n)) : fallback;
+      };
+      const allowedSources = new Set(['srs', 'quiz', 'writing', 'confusable']);
+
+      const rowsToUpsert: Array<Record<string, any>> = [];
+      for (const raw of rawList.slice(0, 300)) {
+        const kanji = typeof raw?.kanji === 'string' ? raw.kanji.trim() : '';
+        if (!kanji || kanji.length > 4) continue;
+        const src = allowedSources.has(String(raw?.lastMistakeSource || ''))
+          ? String(raw.lastMistakeSource)
+          : 'srs';
+        const lastMistakeAtMs = Number(raw?.lastMistakeAt);
+        const masteredAtMs = raw?.masteredAt != null ? Number(raw.masteredAt) : null;
+
+        rowsToUpsert.push({
+          user_id: user.id,
+          kanji,
+          mistake_count: sanitizeCount(raw?.mistakeCount, 1),
+          consecutive_correct: sanitizeCount(raw?.consecutiveCorrect, 0),
+          srs_hard_count: sanitizeCount(raw?.srsHardCount, 0),
+          quiz_wrong_count: sanitizeCount(raw?.quizWrongCount, 0),
+          writing_fail_count: sanitizeCount(raw?.writingFailCount, 0),
+          is_mastered: Boolean(raw?.isMastered),
+          last_mistake_source: src,
+          last_mistake_at: Number.isFinite(lastMistakeAtMs)
+            ? new Date(lastMistakeAtMs).toISOString()
+            : new Date().toISOString(),
+          mastered_at:
+            masteredAtMs && Number.isFinite(masteredAtMs)
+              ? new Date(masteredAtMs).toISOString()
+              : null,
+        });
+      }
+
+      if (rowsToUpsert.length === 0) {
+        return res.status(200).json({ tableReady: true, savedCount: 0 });
+      }
+
+      const { error: upMistakeErr } = await supabaseAdmin
+        .from('user_kanji_mistakes')
+        .upsert(rowsToUpsert, { onConflict: 'user_id,kanji' });
+
+      if (upMistakeErr) {
+        const errCode = String((upMistakeErr as any)?.code || '');
+        const errMsg = String(upMistakeErr.message || '').toLowerCase();
+        if (
+          errCode === '42P01' ||
+          errCode === 'PGRST205' ||
+          errMsg.includes('user_kanji_mistakes')
+        ) {
+          return res.status(200).json({ tableReady: false, savedCount: 0 });
+        }
+        throw upMistakeErr;
+      }
+
+      return res.status(200).json({ tableReady: true, savedCount: rowsToUpsert.length });
+    }
+
+    if (req.method === 'POST' && action === 'delete_kanji_mistake') {
+      const kanji = typeof req.body?.kanji === 'string' ? req.body.kanji.trim() : '';
+      if (!kanji) {
+        return res.status(400).json({ error: 'Thiếu ký tự Kanji cần xóa.' });
+      }
+      const { error: delErr } = await supabaseAdmin
+        .from('user_kanji_mistakes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('kanji', kanji);
+
+      if (delErr) {
+        const errCode = String((delErr as any)?.code || '');
+        if (errCode === '42P01' || errCode === 'PGRST205') {
+          return res.status(200).json({ tableReady: false });
+        }
+        throw delErr;
+      }
+      return res.status(200).json({ tableReady: true, deleted: kanji });
+    }
+
+    if (req.method === 'POST' && action === 'clear_kanji_mistakes') {
+      const { error: clrErr } = await supabaseAdmin
+        .from('user_kanji_mistakes')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (clrErr) {
+        const errCode = String((clrErr as any)?.code || '');
+        if (errCode === '42P01' || errCode === 'PGRST205') {
+          return res.status(200).json({ tableReady: false });
+        }
+        throw clrErr;
+      }
+      return res.status(200).json({ tableReady: true });
     }
 
     return res.status(400).json({ error: `Action "${action}" không hợp lệ.` });

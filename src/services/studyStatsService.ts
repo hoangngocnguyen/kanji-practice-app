@@ -97,10 +97,10 @@ export function loadLocalStudyStats(): LocalStudyStats {
 
 export function saveLocalStudyStats(stats: LocalStudyStats): void {
   try {
-    // Keep up to 180 most recent date entries locally
+    // Keep up to 371 most recent date entries locally (53 full weeks for Heatmap)
     const sortedKeys = Object.keys(stats.activityByDate).sort();
     const pruned: Record<string, DailyActivityRecord> = {};
-    for (const k of sortedKeys.slice(-180)) {
+    for (const k of sortedKeys.slice(-371)) {
       pruned[k] = stats.activityByDate[k];
     }
     const payload: LocalStudyStats = {

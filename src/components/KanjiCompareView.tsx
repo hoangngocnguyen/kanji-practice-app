@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -7,7 +7,7 @@ import {
   RotateCcw,
   Plus,
   X,
-  Sparkles,
+  Zap,
   Layers3,
   BookOpen,
   Trash2,
@@ -34,6 +34,7 @@ import { getJlptBadgeClass } from '../utils/colorUtils';
 import { extractUniqueKanji } from '../utils/kanji';
 import { useJapaneseIme } from '../utils/useJapaneseIme';
 import { ImeCandidatePopover } from './ImeCandidatePopover';
+import { ConfusableTrainerPanel } from './ConfusableTrainerPanel';
 
 // Các bộ Kanji kinh điển dễ gây nhầm lẫn đề xuất sẵn
 export const CONFUSION_PRESETS = [
@@ -97,6 +98,8 @@ export const KanjiCompareView: React.FC = () => {
     return ['待', '持', '特']; // Mặc định bộ kinh điển
   });
 
+  const [activeTab, setActiveTab] = useState<'compare' | 'trainer'>('compare');
+
   // State hoạt ảnh vẽ nét đồng loạt
   const [animSyncKey, setAnimSyncKey] = useState<number>(0);
   const [animMode, setAnimMode] = useState<'off' | 'once' | 'infinite'>('once');
@@ -114,19 +117,27 @@ export const KanjiCompareView: React.FC = () => {
   const [decompositions, setDecompositions] = useState<Record<string, KanjiDecomposition>>({});
   const [selectedTreeModalChar, setSelectedTreeModalChar] = useState<string | null>(null);
 
+  const enrichedDetailsRef = useRef(enrichedDetails);
+  enrichedDetailsRef.current = enrichedDetails;
+  const attemptedDetailCharsRef = useRef<Set<string>>(new Set());
+  const decomposedCharsRef = useRef<Set<string>>(new Set());
+
   // Cập nhật URL khi danh sách thay đổi
   useEffect(() => {
     if (compareChars.length > 0) {
-      setSearchParams({ kanji: compareChars.join('') }, { replace: true });
+      const nextVal = compareChars.join('');
+      if (searchParams.get('kanji') !== nextVal) {
+        setSearchParams({ kanji: nextVal }, { replace: true });
+      }
     }
-  }, [compareChars, setSearchParams]);
+  }, [compareChars, searchParams, setSearchParams]);
 
   // Tự động nạp chi tiết từ điển (Nghĩa, On, Kun) và Bóc tách bộ thủ cho tất cả chữ trong bảng so sánh
   useEffect(() => {
     let isMounted = true;
 
     compareChars.forEach((char) => {
-      const currentDetail = enrichedDetails[char];
+      const currentDetail = enrichedDetailsRef.current[char];
       const needsDetailFetch =
         !currentDetail ||
         !currentDetail.meanings ||
@@ -135,7 +146,8 @@ export const KanjiCompareView: React.FC = () => {
         currentDetail.meanings[0].includes('Bấm "Xem nét') ||
         currentDetail.meanings[0].includes('Đang cập nhật');
 
-      if (needsDetailFetch) {
+      if (needsDetailFetch && !attemptedDetailCharsRef.current.has(char)) {
+        attemptedDetailCharsRef.current.add(char);
         getFullKanjiDetail(char)
           .then((detail) => {
             if (isMounted && detail) {
@@ -150,32 +162,31 @@ export const KanjiCompareView: React.FC = () => {
           });
       }
 
-      // Nạp cấu trúc phân rã / bóc tách bộ thủ
-      const hv = enrichedDetails[char]?.hanViet || getKanjiInfo(char)?.hanViet;
-      const localDec = getKanjiDecomposition(char, hv);
-      if (localDec) {
-        setDecompositions((prev) => ({
-          ...prev,
-          [char]: prev[char] || localDec,
-        }));
-      }
+      if (!decomposedCharsRef.current.has(char)) {
+        decomposedCharsRef.current.add(char);
+        const hv = enrichedDetailsRef.current[char]?.hanViet || getKanjiInfo(char)?.hanViet;
+        const localDec = getKanjiDecomposition(char, hv);
+        if (localDec) {
+          setDecompositions((prev) => (prev[char] ? prev : { ...prev, [char]: localDec }));
+        }
 
-      fetchAndDecomposeKanji(char, hv)
-        .then((fullDec) => {
-          if (isMounted && fullDec) {
-            setDecompositions((prev) => ({
-              ...prev,
-              [char]: fullDec,
-            }));
-          }
-        })
-        .catch(() => {});
+        fetchAndDecomposeKanji(char, hv)
+          .then((fullDec) => {
+            if (isMounted && fullDec) {
+              setDecompositions((prev) => ({
+                ...prev,
+                [char]: fullDec,
+              }));
+            }
+          })
+          .catch(() => {});
+      }
     });
 
     return () => {
       isMounted = false;
     };
-  }, [compareChars, enrichedDetails, setEnrichedDetails]);
+  }, [compareChars, setEnrichedDetails]);
 
   // Thêm chữ mới
   const handleAddKanji = (charToAdd: string) => {
@@ -318,43 +329,76 @@ export const KanjiCompareView: React.FC = () => {
             </div>
           </div>
 
-          {/* Action Toolbar */}
+          {/* Tab Switcher + Action Toolbar */}
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={handlePlayAllAnimation}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
-              title="Phát hoạt ảnh thứ tự nét viết của tất cả các chữ cùng lúc"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-white" />
-              <span>Chạy lại nét vẽ</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIncludeGrid((g) => !g)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                includeGrid
-                  ? 'bg-teal-50 text-teal-900 border-teal-300 shadow-xs'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              <span>{includeGrid ? 'Lưới ô: BẬT' : 'Lưới ô: TẮT'}</span>
-            </button>
-
-            {compareChars.length > 0 && (
+            <div className="flex items-center gap-0.5 p-1 bg-slate-100 rounded-xl border border-slate-200/80">
               <button
                 type="button"
-                onClick={() => setCompareChars([])}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-slate-200"
-                title="Xóa tất cả các chữ đang so sánh"
+                onClick={() => setActiveTab('compare')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'compare'
+                    ? 'bg-white text-teal-800 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Columns3 className="w-3.5 h-3.5" />
+                <span>So sánh</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('trainer')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'trainer'
+                    ? 'bg-teal-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Luyện nhanh</span>
+              </button>
+            </div>
+
+            {activeTab === 'compare' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePlayAllAnimation}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Phát hoạt ảnh thứ tự nét viết của tất cả các chữ cùng lúc"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-white" />
+                  <span>Chạy lại nét vẽ</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIncludeGrid((g) => !g)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    includeGrid
+                      ? 'bg-teal-50 text-teal-900 border-teal-300 shadow-xs'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{includeGrid ? 'Lưới ô: BẬT' : 'Lưới ô: TẮT'}</span>
+                </button>
+
+                {compareChars.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCompareChars([])}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer border border-slate-200"
+                    title="Xóa tất cả các chữ đang so sánh"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
 
+        {activeTab === 'compare' && (
+          <>
         {/* Thêm chữ Hán mới vào bảng so sánh */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <div className="relative flex-1">
@@ -422,7 +466,7 @@ export const KanjiCompareView: React.FC = () => {
         {/* Các bộ Preset gợi ý sẵn */}
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Layers3 className="w-3.5 h-3.5 text-teal-700" />
             <span>Bộ Kanji dễ nhầm lẫn gợi ý:</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -449,7 +493,20 @@ export const KanjiCompareView: React.FC = () => {
             })}
           </div>
         </div>
+          </>
+        )}
       </div>
+
+      {activeTab === 'trainer' ? (
+        <ConfusableTrainerPanel
+          currentCompareChars={compareChars}
+          onSendToCompare={(chars) => {
+            setCompareChars(chars.slice(0, 6));
+            setActiveTab('compare');
+          }}
+        />
+      ) : (
+        <>
 
       {/* Main Comparison Matrix Area */}
       {compareChars.length === 0 ? (
@@ -772,6 +829,8 @@ export const KanjiCompareView: React.FC = () => {
             />
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

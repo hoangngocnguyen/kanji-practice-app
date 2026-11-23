@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
 import { useDecks } from '../context/DeckContext';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface AppSidebarProps {
   isCollapsed: boolean;
@@ -474,6 +475,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Bottom Utility Actions */}
       <div className="shrink-0 p-2 border-t border-slate-200/90 bg-slate-50/60 space-y-1">
+        <PWAInstallButton
+          collapsed={effectiveCollapsed}
+          onMouseEnter={showCollapsedTooltip}
+          onMouseLeave={hideCollapsedTooltip}
+          onActionComplete={() => {
+            if (isMobileOpen) onCloseMobile();
+          }}
+        />
 
         {/* User Guide Page Link */}
         <NavLink

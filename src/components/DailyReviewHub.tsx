@@ -14,6 +14,7 @@ import {
   loadKanjiJoyoCatalog,
 } from '../services/kanjiLevelService';
 import { ReviewFilterMode } from '../types/deck';
+import { MistakeBankCard } from './MistakeBankCard';
 
 interface DailyReviewHubProps {
   onStartUnifiedReview: (folderId: string, mode: ReviewFilterMode, onlyDue: boolean) => void;
@@ -148,7 +149,7 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
   }, [items]);
 
   return (
-    <div>
+    <div className="space-y-3">
       {/* Main Full-Width Daily Review Command Card */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 flex flex-col justify-between gap-4">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
@@ -245,6 +246,11 @@ export const DailyReviewHub: React.FC<DailyReviewHubProps> = ({
           </div>
         )}
       </div>
+
+      {/* Mistake Bank (Chữ hay sai) */}
+      <MistakeBankCard
+        onStartMistakeReview={() => onStartUnifiedReview('__MISTAKES__', 'all', false)}
+      />
 
       {/* JLPT N5 -> N1 & Joyo Mastery Modal */}
       {isJlptModalOpen && (

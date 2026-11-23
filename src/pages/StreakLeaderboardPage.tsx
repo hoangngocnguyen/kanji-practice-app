@@ -26,6 +26,7 @@ import {
 } from '../services/studyStatsService';
 import { useAuth } from '../context/AuthContext';
 import { usePageLoadingIndicator } from '../context/LoadingContext';
+import { StudyHeatmap365 } from '../components/StudyHeatmap365';
 
 export const StreakLeaderboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -197,6 +198,9 @@ export const StreakLeaderboardPage: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Annual 365-Day Study Heatmap */}
+      <StudyHeatmap365 stats={stats} title="Bản đồ nhiệt 365 ngày của bạn" />
 
       {/* Leaderboard Body */}
       {isLoading && !data ? (
