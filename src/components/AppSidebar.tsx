@@ -20,6 +20,7 @@ import {
   Search,
   ChevronDown,
   Trophy,
+  Swords,
   LucideIcon,
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
@@ -207,6 +208,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           icon: GraduationCap,
           badge: '2.136',
           desc: 'JLPT N5–N1, 2.136 Jōyō, Quiz & Ví dụ',
+        },
+        {
+          to: '/arena',
+          matchPrefix: ['/arena'],
+          label: 'Đấu trường Kanji',
+          icon: Swords,
+          badge: null,
+          desc: 'Thi đấu 1v1 & phòng nhóm real-time',
         },
         {
           to: '/leaderboard',

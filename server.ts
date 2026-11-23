@@ -9,6 +9,7 @@ import syncMergeHandler from './api/sync/merge.js';
 import syncPushHandler from './api/sync/push.js';
 import syncPullHandler from './api/sync/pull.js';
 import communityHandler from './api/community.js';
+import arenaHandler from './api/arena.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,7 +32,7 @@ async function startServer() {
     });
   };
 
-  // Server-side translation & Supabase Auth/Sync/Community routes
+  // Server-side translation & Supabase Auth/Sync/Community/Arena routes
   mountHandler('/api/translate', translateHandler);
   mountHandler('/api/profile', profileHandler);
   mountHandler('/api/sync/check', syncCheckHandler);
@@ -39,6 +40,7 @@ async function startServer() {
   mountHandler('/api/sync/push', syncPushHandler);
   mountHandler('/api/sync/pull', syncPullHandler);
   mountHandler('/api/community', communityHandler);
+  mountHandler('/api/arena', arenaHandler);
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
