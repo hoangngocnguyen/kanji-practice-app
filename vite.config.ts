@@ -28,8 +28,10 @@ export default defineConfig(() => {
             'Học Kanji JLPT N5–N1, 2.136 Jōyō Kanji, tra cứu vẽ tay, Flashcard SRS và luyện viết nét SVG ngoại tuyến.',
           start_url: '/',
           scope: '/',
+          lang: 'vi',
           display: 'standalone',
           orientation: 'any',
+          prefer_related_applications: false,
           background_color: '#ffffff',
           theme_color: '#0f766e',
           icons: [
@@ -56,6 +58,7 @@ export default defineConfig(() => {
         workbox: {
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,json}'],
+          globIgnores: ['**/assets/aistudio/**'],
           navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
