@@ -30,11 +30,11 @@ import { StudyHeatmap365 } from '../components/StudyHeatmap365';
 
 export const StreakLeaderboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, openAuthModal } = useAuth();
+  const { user, isAuthLoading, openAuthModal } = useAuth();
 
   const [stats, setStats] = useState<LocalStudyStats>(() => loadLocalStudyStats());
   const [data, setData] = useState<StreakLeaderboardResponse | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,13 +44,19 @@ export const StreakLeaderboardPage: React.FC = () => {
   }, []);
 
   const loadLeaderboard = useCallback(async () => {
+    if (isAuthLoading) return;
+    if (!user) {
+      setData(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
-      if (user) {
-        const merged = await syncStudyStatsFromCloud();
-        setStats(merged);
-      }
+      const merged = await syncStudyStatsFromCloud();
+      setStats(merged);
       const res = await apiGetStreakLeaderboard(50);
       setData(res);
     } catch (err: any) {
@@ -58,7 +64,7 @@ export const StreakLeaderboardPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, isAuthLoading]);
 
   useEffect(() => {
     void loadLeaderboard();
@@ -127,15 +133,17 @@ export const StreakLeaderboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => void loadLeaderboard()}
-            disabled={isLoading}
-            className="px-3 py-2 min-h-[38px] text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors whitespace-nowrap"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-teal-700' : ''}`} />
-            <span>Làm mới</span>
-          </button>
+          {user && (
+            <button
+              type="button"
+              onClick={() => void loadLeaderboard()}
+              disabled={isLoading}
+              className="px-3 py-2 min-h-[38px] text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors whitespace-nowrap"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-teal-700' : ''}`} />
+              <span>Làm mới</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -186,24 +194,13 @@ export const StreakLeaderboardPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {!user && (
-          <button
-            type="button"
-            onClick={() => openAuthModal('login')}
-            className="px-4 py-2 min-h-[38px] text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors shrink-0 whitespace-nowrap"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Đăng nhập để ghi danh</span>
-          </button>
-        )}
       </div>
 
       {/* Annual 365-Day Study Heatmap */}
       <StudyHeatmap365 stats={stats} title="Bản đồ nhiệt 365 ngày của bạn" />
 
       {/* Leaderboard Body */}
-      {isLoading && !data ? (
+      {isAuthLoading || (isLoading && !data) ? (
         <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-3">
           {Array.from({ length: 6 }).map((_, idx) => (
             <div
@@ -211,6 +208,28 @@ export const StreakLeaderboardPage: React.FC = () => {
               className="h-16 rounded-xl bg-slate-100 animate-pulse border border-slate-200/60"
             />
           ))}
+        </div>
+      ) : !user || (error && /token|xác thực|unauthorized|đăng nhập/i.test(error)) ? (
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-8 sm:p-10 text-center space-y-3">
+          <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center mx-auto">
+            <Trophy className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Đăng nhập để xem bảng xếp hạng
+            </h2>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Đồng bộ chuỗi Streak và thi đua thứ hạng cùng cộng đồng học Kanji.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openAuthModal('login')}
+            className="px-5 py-2.5 min-h-[40px] text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+          >
+            <LogIn className="w-4 h-4" />
+            <span>Đăng nhập</span>
+          </button>
         </div>
       ) : error ? (
         <div className="bg-white rounded-2xl border border-rose-200 p-8 text-center space-y-3">
