@@ -211,7 +211,7 @@ export const KanjiStrokesView: React.FC = () => {
                 onChange={searchIme.handleChange}
                 onKeyDown={searchIme.handleKeyDown}
                 placeholder="Lọc chữ Hán (gõ romaji + Space chọn Kanji), Hán-Việt, On, Kun..."
-                className="w-full pl-9 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
+                className="w-full pl-9 pr-18 h-10 text-[12px]! bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
               />
               <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button
@@ -267,7 +267,7 @@ export const KanjiStrokesView: React.FC = () => {
                     }
                   }}
                   placeholder="+ Thêm chữ Kanji (gõ romaji + Space)..."
-                  className="w-full px-3.5 pr-18 h-10 text-xs sm:text-sm bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
+                  className="w-full px-3.5 pr-18 h-10 text-[12px]! bg-slate-50 hover:bg-slate-100/70 focus:bg-white rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all font-medium shadow-inner"
                 />
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   <button
@@ -320,20 +320,16 @@ export const KanjiStrokesView: React.FC = () => {
           </div>
 
           {/* Status & Controls row - Fully Responsive */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-            <div className="text-xs text-slate-500 font-medium">
-              {searchFilter ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100 empty:hidden">
+            <div className="text-xs text-slate-500 font-medium empty:hidden">
+              {searchFilter && (
                 <span>
                   Kết quả lọc: <strong className="text-teal-800 font-bold">{filteredKanjiList.length}</strong> / {extractedKanjiList.length} chữ
-                </span>
-              ) : (
-                <span>
-                  Tổng cộng: <strong className="text-slate-800 font-bold">{extractedKanjiList.length}</strong> chữ Kanji
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto justify-start sm:justify-end pb-0.5 sm:pb-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto justify-start sm:justify-end pb-0.5 sm:pb-0 ml-auto">
               {/* Nút bật/tắt chế độ chọn so sánh */}
               <button
                 type="button"
@@ -365,7 +361,7 @@ export const KanjiStrokesView: React.FC = () => {
                 title="Bật/Tắt đường lưới ô nét đứt mảnh"
               >
                 <Grid className={`w-3.5 h-3.5 ${includeGrid ? 'text-teal-700' : 'text-slate-400'}`} />
-                <span>Kèm lưới</span>
+                <span>Lưới</span>
                 <span
                   className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] font-bold tracking-tight ${
                     includeGrid ? 'bg-teal-700 text-white shadow-2xs' : 'bg-slate-200 text-slate-500'
@@ -382,8 +378,7 @@ export const KanjiStrokesView: React.FC = () => {
                 title="Xuất bảng 1 cột chứa ảnh nét vẽ để dán sang Google Docs"
               >
                 <TableIcon className="w-3.5 h-3.5 text-emerald-700" />
-                <span className="hidden sm:inline">Dán Google Docs</span>
-                <span className="sm:hidden">Docs</span>
+                <span>Tạo bảng</span>
               </button>
 
               <button
@@ -394,8 +389,7 @@ export const KanjiStrokesView: React.FC = () => {
                 title={`In phiếu tập viết cho ${filteredKanjiList.length} chữ đang hiển thị`}
               >
                 <Printer className="w-3.5 h-3.5 text-teal-700" />
-                <span className="hidden sm:inline">In tập viết</span>
-                <span className="sm:hidden">In</span>
+                <span>In</span>
               </button>
 
               <div className="h-8 sm:h-9 inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 items-center gap-0.5 shrink-0 ml-auto sm:ml-0">
