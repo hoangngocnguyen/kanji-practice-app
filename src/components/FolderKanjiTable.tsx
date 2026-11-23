@@ -472,14 +472,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     <div className="space-y-4">
       {/* Header & Primary Review Actions */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-start justify-between gap-2.5 min-w-0 flex-1">
-            <div className="space-y-1 min-w-0 flex-1">
+        <div className="space-y-3">
+          {/* Row 1: Breadcrumb + Metadata on left, Primary Review CTA on right */}
+          <div className="flex items-start justify-between gap-3 sm:gap-4">
+            <div className="space-y-1.5 min-w-0 flex-1">
               {/* Breadcrumb */}
               <div className="flex items-center flex-wrap gap-1 text-xs text-slate-500">
                 {breadcrumbs.map((b, idx) => (
                   <React.Fragment key={b.id}>
-                    {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-300" />}
+                    {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
                     <button
                       type="button"
                       onClick={() =>
@@ -487,7 +488,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           ? onSelectFolder(b.id)
                           : setSelectedFolderId(b.id)
                       }
-                      className={`hover:text-teal-700 transition-colors cursor-pointer truncate max-w-[180px] ${
+                      className={`hover:text-teal-700 transition-colors cursor-pointer truncate max-w-[200px] sm:max-w-[320px] ${
                         idx === breadcrumbs.length - 1 ? 'font-bold text-slate-900' : ''
                       }`}
                     >
@@ -526,6 +527,25 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   </>
                 )}
               </div>
+            </div>
+
+            {/* Desktop Primary CTA anchored top-right cleanly */}
+            <div className="hidden sm:flex items-center shrink-0">
+              <button
+                type="button"
+                disabled={totalCards === 0}
+                onClick={() => onStartReview('all', dueCards.length > 0)}
+                className="px-4 py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shadow-2xs"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>
+                  {dueCards.length > 0
+                    ? `Ôn tập ngay (${dueCards.length})`
+                    : totalCards > 0
+                    ? `Ôn lại tất cả (${totalCards})`
+                    : 'Ôn tập ngay'}
+                </span>
+              </button>
             </div>
 
             {/* Mobile Top-Right Compact Controls: Play icon + 3-dot Menu */}
@@ -667,20 +687,20 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             </div>
           </div>
 
-          {/* Desktop Action Buttons (>= sm) */}
-          <div className="hidden sm:flex items-center flex-wrap gap-2 shrink-0">
+          {/* Row 2: Secondary Utility Actions (>= sm) wrapping naturally across full width */}
+          <div className="hidden sm:flex items-center flex-wrap gap-2">
             {folderItems.length > 0 && (
               <>
                 <button
                   type="button"
                   onClick={handleCopyKanjiList}
-                  className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Sao chép toàn bộ chữ Kanji trong bộ thẻ"
                 >
                   {copiedBanner ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5 text-slate-500" />
+                    <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   )}
                   <span>{copiedBanner || 'Chép Kanji'}</span>
                 </button>
@@ -688,24 +708,24 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenStrokeWritingPage}
-                  className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Nạp các chữ Kanji này vào trang Nét viết Kanji để học viết"
                 >
-                  <PenTool className="w-3.5 h-3.5 text-teal-700" />
+                  <PenTool className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                   <span>Luyện viết nét</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsPrintModalOpen(true)}
-                  className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title={
                     selectedItemIds.length > 0
                       ? `In phiếu tập viết cho ${selectedItemIds.length} chữ đang chọn`
                       : `In phiếu tập viết cho bộ thẻ "${selectedFolder.name}"`
                   }
                 >
-                  <Printer className="w-3.5 h-3.5 text-teal-700" />
+                  <Printer className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                   <span>
                     In tập viết
                     {selectedItemIds.length > 0 ? ` (${selectedItemIds.length})` : ''}
@@ -716,10 +736,10 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsDrillsOpen(true)}
-                    className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                    className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-teal-800 bg-teal-50/70 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                     title="Luyện ghép bộ thủ & nối từ ghép trong thư mục này"
                   >
-                    <Layers3 className="w-3.5 h-3.5 text-teal-700" />
+                    <Layers3 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
                     <span>Ghép bộ thủ</span>
                   </button>
                 )}
@@ -729,43 +749,27 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             <button
               type="button"
               onClick={() => onExportFolder(selectedFolder.id)}
-              className="px-3 py-2 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Xuất JSON</span>
             </button>
 
             <button
               type="button"
               onClick={() => onOpenShareModal(selectedFolder.id)}
-              className={`px-3 py-2 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 selectedFolder.isPublic
                   ? 'bg-teal-50 text-teal-800 border-teal-300'
                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
               }`}
             >
               {selectedFolder.isPublic ? (
-                <Globe className="w-3.5 h-3.5 text-teal-700" />
+                <Globe className="w-3.5 h-3.5 text-teal-700 shrink-0" />
               ) : (
-                <Share2 className="w-3.5 h-3.5 text-slate-500" />
+                <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               )}
               <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={totalCards === 0}
-              onClick={() => onStartReview('all', dueCards.length > 0)}
-              className="px-4 py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shrink-0"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>
-                {dueCards.length > 0
-                  ? `Ôn tập ngay (${dueCards.length})`
-                  : totalCards > 0
-                  ? `Ôn lại tất cả (${totalCards})`
-                  : 'Ôn tập ngay'}
-              </span>
             </button>
           </div>
         </div>
@@ -892,7 +896,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 shrink-0">
+                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={handleCopyKanjiList}
