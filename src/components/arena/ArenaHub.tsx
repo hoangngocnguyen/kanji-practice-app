@@ -177,9 +177,6 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
               Đấu trường Kanji
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Thi đấu 1v1 trực tiếp hoặc mở phòng nhóm kiểu Wayground · Bạn bè nhập tên chơi ngay qua mã 6 ký tự
-          </p>
         </div>
 
         <button
