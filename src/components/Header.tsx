@@ -33,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const {
     user,
     displayName,
+    avatarUrl,
     avatarInitials,
     openAuthModal,
     logout,
@@ -55,7 +56,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   const [isFindBuddiesOpen, setIsFindBuddiesOpen] = useState(false);
   const [isHandwritingOpen, setIsHandwritingOpen] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [avatarUrl]);
 
   // Close dropdown & mobile search on route change, sync search query on /search
   useEffect(() => {
@@ -264,7 +270,17 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
                   aria-expanded={isAvatarMenuOpen}
                   aria-haspopup="menu"
                 >
-                  <span>{avatarInitials}</span>
+                  {avatarUrl && !avatarLoadError ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      referrerPolicy="no-referrer"
+                      onError={() => setAvatarLoadError(true)}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <span>{avatarInitials}</span>
+                  )}
                   {hasUnsyncedChanges && (
                     <span
                       className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white"

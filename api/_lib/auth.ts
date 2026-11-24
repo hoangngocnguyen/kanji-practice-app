@@ -105,6 +105,13 @@ export interface ProfileRow {
   updated_at: string;
 }
 
+function sanitizeHttpAvatarUrl(raw: unknown): string | null {
+  const val = typeof raw === 'string' ? raw.trim() : '';
+  if (!val) return null;
+  if (/^https?:\/\//i.test(val)) return val.slice(0, 500);
+  return null;
+}
+
 export async function ensureUserProfile(
   supabaseAdmin: SupabaseClient,
   user: User
@@ -119,12 +126,31 @@ export async function ensureUserProfile(
     throw selectError;
   }
 
+  const metaAvatar = sanitizeHttpAvatarUrl(
+    user.user_metadata?.avatar_url || user.user_metadata?.picture
+  );
+
   if (existing) {
-    return existing as ProfileRow;
+    const existingRow = existing as ProfileRow;
+    if (!existingRow.avatar_url && metaAvatar) {
+      const { data: patched } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          avatar_url: metaAvatar,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+        .select('*')
+        .maybeSingle();
+      if (patched) return patched as ProfileRow;
+    }
+    return existingRow;
   }
 
   const fallbackDisplayName =
     (user.user_metadata?.display_name as string | undefined)?.trim() ||
+    (user.user_metadata?.full_name as string | undefined)?.trim() ||
+    (user.user_metadata?.name as string | undefined)?.trim() ||
     (user.email ? user.email.split('@')[0] : 'Người học Kanji');
 
   const { data: inserted, error: insertError } = await supabaseAdmin
@@ -133,8 +159,8 @@ export async function ensureUserProfile(
       {
         id: user.id,
         email: user.email || '',
-        display_name: fallbackDisplayName,
-        avatar_url: (user.user_metadata?.avatar_url as string | undefined) || null,
+        display_name: fallbackDisplayName.slice(0, 60),
+        avatar_url: metaAvatar,
         sync_version: 0,
         data_hash: '',
       },

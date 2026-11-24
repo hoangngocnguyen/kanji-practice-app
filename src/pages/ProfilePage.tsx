@@ -46,6 +46,7 @@ export const ProfilePage: React.FC = () => {
     profile,
     isAuthLoading,
     displayName,
+    avatarUrl,
     avatarInitials,
     updateDisplayName,
     logout,
@@ -72,6 +73,11 @@ export const ProfilePage: React.FC = () => {
   const [nameSavedMsg, setNameSavedMsg] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [copiedProfileLink, setCopiedProfileLink] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [avatarUrl]);
 
   // Follow & Share summary state
   const [followers, setFollowers] = useState<FollowUserItem[]>([]);
@@ -238,8 +244,18 @@ export const ProfilePage: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-8 space-y-5">
         {/* Top Row: Full-width Avatar + Personal Identity + Inline Edit Name */}
         <div className="flex items-start gap-4 min-w-0">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-teal-700 text-white font-bold text-lg sm:text-xl flex items-center justify-center shrink-0 ring-4 ring-teal-50">
-            {avatarInitials}
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-teal-700 text-white font-bold text-lg sm:text-xl flex items-center justify-center shrink-0 ring-4 ring-teal-50 overflow-hidden">
+            {avatarUrl && !avatarLoadError ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarLoadError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              avatarInitials
+            )}
           </div>
 
           <div className="space-y-1.5 min-w-0 flex-1">

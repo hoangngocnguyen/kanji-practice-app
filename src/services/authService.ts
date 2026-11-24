@@ -1,4 +1,6 @@
 import {
+  completeSupabaseOAuthSession,
+  getGoogleOAuthUrl,
   getSupabaseAccessToken,
   signInWithSupabase,
   signOutSupabase,
@@ -41,6 +43,18 @@ export function mapSupabaseAuthError(err: any): string {
   if (raw.includes('rate limit') || raw.includes('too many requests')) {
     return 'Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.';
   }
+  if (
+    raw.includes('provider is not enabled') ||
+    raw.includes('unsupported provider')
+  ) {
+    return 'Google Provider chưa được bật trong Supabase Dashboard (Authentication → Providers → Google).';
+  }
+  if (raw.includes('redirect_uri') || raw.includes('invalid_request')) {
+    return 'Redirect URL chưa khớp với cấu hình trên Google Cloud Console hoặc Supabase.';
+  }
+  if (raw.includes('access_denied')) {
+    return 'Bạn đã hủy đăng nhập Google.';
+  }
   return err?.message || 'Đã xảy ra lỗi xác thực. Vui lòng thử lại.';
 }
 
@@ -66,6 +80,27 @@ export async function registerAccount(
 
 export async function logoutAccount() {
   await signOutSupabase();
+}
+
+export async function getGoogleAuthPopupUrl(): Promise<string> {
+  try {
+    const redirectTo = `${window.location.origin}/api/auth/callback`;
+    return await getGoogleOAuthUrl(redirectTo);
+  } catch (err) {
+    throw new Error(mapSupabaseAuthError(err));
+  }
+}
+
+export async function completeGoogleOAuthCallback(payload: {
+  code?: string;
+  accessToken?: string;
+  refreshToken?: string;
+}) {
+  try {
+    return await completeSupabaseOAuthSession(payload);
+  } catch (err) {
+    throw new Error(mapSupabaseAuthError(err));
+  }
 }
 
 export async function fetchUserProfile(): Promise<UserProfile> {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   X,
   LogIn,
@@ -13,7 +13,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { loginAccount, registerAccount } from '../../services/authService';
+import {
+  completeGoogleOAuthCallback,
+  getGoogleAuthPopupUrl,
+  loginAccount,
+  registerAccount,
+} from '../../services/authService';
 
 export const AuthModal: React.FC = () => {
   const {
@@ -30,16 +35,31 @@ export const AuthModal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const popupRef = useRef<Window | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+
+  const cleanupPopupWatchers = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    popupRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (isAuthModalOpen) {
       setMode(authModalTab);
       setError(null);
       setSuccessMsg(null);
+      setGoogleLoading(false);
+    } else {
+      cleanupPopupWatchers();
     }
-  }, [isAuthModalOpen, authModalTab]);
+  }, [isAuthModalOpen, authModalTab, cleanupPopupWatchers]);
 
   useEffect(() => {
     if (!isAuthModalOpen) return;
@@ -50,7 +70,122 @@ export const AuthModal: React.FC = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isAuthModalOpen, closeAuthModal]);
 
+  useEffect(() => {
+    if (!isAuthModalOpen) return;
+
+    const handleMessage = async (event: MessageEvent) => {
+      if (
+        event.origin !== window.location.origin &&
+        !event.origin.endsWith('.run.app') &&
+        !event.origin.includes('localhost')
+      ) {
+        return;
+      }
+
+      const data = event.data;
+      if (!data || data.type !== 'SUPABASE_GOOGLE_OAUTH_CALLBACK') return;
+
+      cleanupPopupWatchers();
+      if (popupRef.current && !popupRef.current.closed) {
+        try {
+          popupRef.current.close();
+        } catch {}
+      }
+
+      if (data.error) {
+        setGoogleLoading(false);
+        setError(
+          data.errorDescription ||
+            'Đăng nhập Google không thành công. Vui lòng thử lại.'
+        );
+        return;
+      }
+
+      try {
+        setGoogleLoading(true);
+        await completeGoogleOAuthCallback({
+          code: data.code,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
+        await refreshProfile();
+        closeAuthModal();
+      } catch (err: any) {
+        setError(err?.message || 'Không thể hoàn tất đăng nhập Google.');
+      } finally {
+        setGoogleLoading(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      cleanupPopupWatchers();
+    };
+  }, [isAuthModalOpen, cleanupPopupWatchers, refreshProfile, closeAuthModal]);
+
   if (!isAuthModalOpen) return null;
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setSuccessMsg(null);
+
+    if (!supabaseEnabled) {
+      setError(
+        'Ứng dụng chưa cấu hình VITE_SUPABASE_URL và VITE_SUPABASE_PUBLISHABLE_KEY.'
+      );
+      return;
+    }
+
+    // Open popup synchronously inside user click gesture to prevent browser popup blockers
+    const popup = window.open(
+      'about:blank',
+      'luyenkanji_google_oauth',
+      'width=520,height=640,menubar=no,toolbar=no,location=yes,status=no'
+    );
+
+    if (!popup) {
+      setError(
+        'Trình duyệt đã chặn cửa sổ bật lên (Popup). Vui lòng cho phép Popup cho trang này rồi thử lại.'
+      );
+      return;
+    }
+
+    try {
+      popup.document.title = 'Đang kết nối Google...';
+      popup.document.body.innerHTML =
+        '<p style="font-family:system-ui,sans-serif;text-align:center;margin-top:40vh;color:#334155;font-size:14px;">Đang chuyển tới trang đăng nhập Google...</p>';
+    } catch {}
+
+    popupRef.current = popup;
+    setGoogleLoading(true);
+
+    cleanupPopupWatchers();
+    popupRef.current = popup;
+    pollTimerRef.current = window.setInterval(() => {
+      if (popup.closed) {
+        cleanupPopupWatchers();
+        setGoogleLoading(false);
+      }
+    }, 400);
+
+    try {
+      const oauthUrl = await getGoogleAuthPopupUrl();
+      if (popup.closed) {
+        cleanupPopupWatchers();
+        setGoogleLoading(false);
+        return;
+      }
+      popup.location.href = oauthUrl;
+    } catch (err: any) {
+      cleanupPopupWatchers();
+      try {
+        popup.close();
+      } catch {}
+      setGoogleLoading(false);
+      setError(err?.message || 'Không thể mở đăng nhập Google.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +300,52 @@ export const AuthModal: React.FC = () => {
             </button>
           </div>
 
+          {/* Google OAuth Button */}
+          <button
+            type="button"
+            onClick={() => void handleGoogleSignIn()}
+            disabled={loading || googleLoading}
+            className="w-full min-h-[44px] py-2.5 px-4 bg-white hover:bg-slate-50 disabled:bg-slate-100 text-slate-800 border border-slate-200 hover:border-slate-300 text-xs sm:text-[13px] font-semibold rounded-xl transition-colors flex items-center justify-center gap-2.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shadow-2xs"
+          >
+            {googleLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin text-teal-700 shrink-0" />
+            ) : (
+              <svg
+                className="w-4 h-4 shrink-0"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  fill="#4285F4"
+                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+                />
+              </svg>
+            )}
+            <span>
+              {googleLoading ? 'Đang kết nối Google...' : 'Tiếp tục với Google'}
+            </span>
+          </button>
+
+          <div className="relative flex items-center py-0.5">
+            <div className="grow border-t border-slate-200" />
+            <span className="shrink mx-3 text-[11px] font-medium text-slate-400">
+              hoặc dùng email
+            </span>
+            <div className="grow border-t border-slate-200" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
             {mode === 'signup' && (
               <label className="block space-y-1.5">
@@ -245,7 +426,7 @@ export const AuthModal: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs sm:text-[13px] font-bold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}

@@ -36,8 +36,14 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
         displayName:
           profile.display_name ||
           (user.user_metadata?.display_name as string | undefined) ||
+          (user.user_metadata?.full_name as string | undefined) ||
+          (user.user_metadata?.name as string | undefined) ||
           (user.email ? user.email.split('@')[0] : 'Người học Kanji'),
-        avatarUrl: profile.avatar_url || null,
+        avatarUrl:
+          profile.avatar_url ||
+          (user.user_metadata?.avatar_url as string | undefined) ||
+          (user.user_metadata?.picture as string | undefined) ||
+          null,
         createdAt: user.created_at || profile.created_at,
         syncVersion: Number(profile.sync_version || 0),
         lastSyncAt: profile.last_sync_at,

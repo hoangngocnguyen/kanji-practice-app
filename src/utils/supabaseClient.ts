@@ -62,6 +62,50 @@ export async function signOutSupabase() {
   await supabase.auth.signOut();
 }
 
+export async function getGoogleOAuthUrl(redirectTo: string): Promise<string> {
+  if (!supabase) throw new Error('Supabase chưa được cấu hình.');
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo,
+      skipBrowserRedirect: true,
+      queryParams: {
+        prompt: 'select_account',
+      },
+    },
+  });
+  if (error) throw error;
+  if (!data?.url || !/^https?:\/\//i.test(data.url)) {
+    throw new Error('Không thể khởi tạo liên kết đăng nhập Google.');
+  }
+  return data.url;
+}
+
+export async function completeSupabaseOAuthSession(payload: {
+  code?: string;
+  accessToken?: string;
+  refreshToken?: string;
+}) {
+  if (!supabase) throw new Error('Supabase chưa được cấu hình.');
+
+  if (payload.code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(payload.code);
+    if (error) throw error;
+    return data.session;
+  }
+
+  if (payload.accessToken && payload.refreshToken) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: payload.accessToken,
+      refresh_token: payload.refreshToken,
+    });
+    if (error) throw error;
+    return data.session;
+  }
+
+  throw new Error('Không nhận được mã xác thực từ Google.');
+}
+
 /**
  * Xuất bản một thư mục (và toàn bộ cây con) thành bộ bài chia sẻ công khai trên Supabase
  */

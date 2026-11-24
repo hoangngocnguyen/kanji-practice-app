@@ -10,6 +10,7 @@ import syncPushHandler from './api/sync/push.js';
 import syncPullHandler from './api/sync/pull.js';
 import communityHandler from './api/community.js';
 import arenaHandler from './api/arena.js';
+import authCallbackHandler from './api/auth/callback.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +42,10 @@ async function startServer() {
   mountHandler('/api/sync/pull', syncPullHandler);
   mountHandler('/api/community', communityHandler);
   mountHandler('/api/arena', arenaHandler);
+  mountHandler('/api/auth/callback', authCallbackHandler);
+  mountHandler('/api/auth/callback/', authCallbackHandler);
+  mountHandler('/auth/callback', authCallbackHandler);
+  mountHandler('/auth/callback/', authCallbackHandler);
 
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));

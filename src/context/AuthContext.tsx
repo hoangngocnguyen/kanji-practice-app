@@ -25,6 +25,7 @@ interface AuthContextValue {
   profile: UserProfile | null;
   isAuthLoading: boolean;
   displayName: string;
+  avatarUrl: string | null;
   avatarInitials: string;
   refreshProfile: () => Promise<UserProfile | null>;
   updateDisplayName: (name: string) => Promise<UserProfile>;
@@ -116,13 +117,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [supabaseEnabled, refreshProfile]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('code') || params.has('oauth_error')) {
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+      const timer = window.setTimeout(() => {
+        window.history.replaceState({}, '', cleanUrl);
+      }, 800);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
+
   const displayName = useMemo(() => {
     const fromProfile = profile?.displayName?.trim();
     if (fromProfile) return fromProfile;
-    const fromMeta = (user?.user_metadata?.display_name as string | undefined)?.trim();
+    const fromMeta = (
+      (user?.user_metadata?.display_name as string | undefined) ||
+      (user?.user_metadata?.full_name as string | undefined) ||
+      (user?.user_metadata?.name as string | undefined)
+    )?.trim();
     if (fromMeta) return fromMeta;
     if (user?.email) return user.email.split('@')[0];
     return 'Thành viên';
+  }, [profile, user]);
+
+  const avatarUrl = useMemo(() => {
+    const candidate = (
+      profile?.avatarUrl ||
+      (user?.user_metadata?.avatar_url as string | undefined) ||
+      (user?.user_metadata?.picture as string | undefined) ||
+      ''
+    ).trim();
+    if (candidate && /^https?:\/\//i.test(candidate)) {
+      return candidate;
+    }
+    return null;
   }, [profile, user]);
 
   const avatarInitials = useMemo(() => computeInitials(displayName), [displayName]);
@@ -180,6 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         profile,
         isAuthLoading,
         displayName,
+        avatarUrl,
         avatarInitials,
         refreshProfile,
         updateDisplayName,
