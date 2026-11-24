@@ -258,7 +258,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="w-full h-full flex flex-col lg:grid lg:grid-cols-12 gap-4 items-center justify-center my-auto px-1"
+      className="w-full max-w-5xl mx-auto h-full flex flex-col lg:grid lg:grid-cols-12 gap-5 lg:gap-8 items-center justify-center my-auto px-2"
     >
       {/* Left Zone: Recall Prompt (Kanji Hidden) + Action Controls */}
       <div className="lg:col-span-6 w-full flex flex-col items-center lg:items-start text-center lg:text-left space-y-3">
@@ -405,7 +405,7 @@ export const BlindWritingPad: React.FC<BlindWritingPadProps> = ({
 
       {/* Right Zone: Blind Writing Grid Canvas */}
       <div className="lg:col-span-6 flex flex-col items-center justify-center shrink-0">
-        <div className="relative w-[230px] h-[230px] sm:w-[260px] sm:h-[260px] bg-white rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden select-none">
+        <div className="relative w-[230px] h-[230px] sm:w-[270px] sm:h-[270px] lg:w-[310px] lg:h-[310px] bg-white rounded-2xl border-2 border-slate-200 shadow-inner overflow-hidden select-none">
           {/* Blank Japanese Writing Grid (Mi-grid crosshairs) */}
           <svg
             viewBox="0 0 109 109"

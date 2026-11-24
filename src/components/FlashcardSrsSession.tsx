@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   RotateCw,
   Volume2,
@@ -115,6 +115,8 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
   const [requeuedIds, setRequeuedIds] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState({ hard: 0, good: 0, easy: 0 });
   const [staticSentencesReady, setStaticSentencesReady] = useState(false);
+  const cardBodyRef = useRef<HTMLDivElement | null>(null);
+  const answerDetailsRef = useRef<HTMLDivElement | null>(null);
 
   // Preload static sentences dictionary once for single-Kanji fallback when DB has no custom examples
   useEffect(() => {
@@ -326,9 +328,11 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
     };
   }, [currentCard, resolvedExamples, recallTargetText]);
 
-  // Reset choice & auto-speak in Listen mode when moving to a card
+  // Reset choice, scroll position & auto-speak in Listen mode when moving to a card
   useEffect(() => {
     setSelectedChoice(null);
+    if (cardBodyRef.current) cardBodyRef.current.scrollTop = 0;
+    if (answerDetailsRef.current) answerDetailsRef.current.scrollTop = 0;
     if (!isFlipped && currentCard && studyStyle === 'listen' && recallTargetText) {
       const timer = window.setTimeout(() => {
         speakJapanese(recallTargetText);
@@ -451,16 +455,12 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
 
   return (
     <div
-      onClick={onExit}
-      className="fixed inset-0 z-50 bg-slate-900/55 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+      className="fixed inset-0 z-50 w-screen h-[100dvh] bg-slate-50 flex flex-col overflow-hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Phiên ôn tập Flashcard"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-5xl h-[88vh] sm:h-[85vh] max-h-[760px] bg-slate-50 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl p-2.5 sm:p-3.5 lg:p-4 flex flex-col gap-2 overflow-hidden"
-      >
+      <div className="w-full h-full p-2.5 sm:p-4 lg:px-6 lg:py-4 flex flex-col gap-2.5 sm:gap-3 overflow-hidden">
         {/* 1. Compact Top Control Bar + Progress */}
         <div className="space-y-2 shrink-0 w-full">
           <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 sm:px-4 flex flex-wrap items-center justify-between gap-2">
@@ -475,7 +475,7 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                 <X className="w-4 h-4" />
               </button>
               <div className="min-w-0">
-                <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[160px] sm:max-w-[320px]">
+                <h2 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[180px] sm:max-w-[360px] lg:max-w-[520px]">
                   {sessionTitle}
                 </h2>
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500 tabular-nums">
@@ -695,9 +695,9 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col justify-between gap-2 sm:gap-2.5">
+          <div className="flex-1 min-h-0 flex flex-col justify-between gap-2.5 sm:gap-3">
             {/* Card Row + Desktop Left/Right Arrows */}
-            <div className="flex-1 min-h-0 w-full flex items-stretch justify-center gap-2 sm:gap-3">
+            <div className="flex-1 min-h-0 w-full flex items-stretch justify-center gap-2 sm:gap-3 lg:gap-4">
               {/* Desktop Left Arrow */}
               <button
                 type="button"
@@ -710,19 +710,19 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              {/* Expanded Flashcard Container: stretches full height & width inside modal on both Mobile & PC */}
+              {/* Expanded Flashcard Container: stretches full height & width inside full-screen workspace */}
               <div
                 onClick={() => {
                   if (studyStyle === 'flip' || isFlipped) {
                     setIsFlipped((f) => !f);
                   }
                 }}
-                className={`flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-4 lg:p-5 flex flex-col justify-between select-none transition-transform duration-150 overflow-hidden ${
+                className={`flex-1 min-w-0 h-full bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-5 lg:p-6 flex flex-col justify-between select-none transition-transform duration-150 overflow-hidden ${
                   studyStyle === 'flip' || isFlipped ? 'cursor-pointer' : 'cursor-default'
                 }`}
               >
                 {/* Card Metadata Header */}
-                <div className="flex items-center justify-between text-xs text-slate-500 shrink-0 pb-1 border-b border-slate-100">
+                <div className="flex items-center justify-between text-xs text-slate-500 shrink-0 pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="font-semibold text-teal-800 shrink-0">
                       {currentCard.cardType === 'kanji' ? 'Thẻ Kanji' : 'Thẻ Từ ghép'}
@@ -750,8 +750,15 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                   )}
                 </div>
 
-                {/* Card Center Content (independently scrollable only if tall content exceeds frame) */}
-                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col py-2 sm:py-3">
+                {/* Card Center Content: full-height locked on desktop back view so left Kanji stays vertically centered while right details scroll */}
+                <div
+                  ref={cardBodyRef}
+                  className={`flex-1 min-h-0 flex flex-col py-2 sm:py-3 ${
+                    isFlipped
+                      ? 'overflow-y-auto sm:overflow-hidden overscroll-contain'
+                      : 'overflow-y-auto overscroll-contain'
+                  }`}
+                >
                   {!isFlipped ? (
                     studyStyle === 'write' ? (
                       <BlindWritingPad
@@ -791,27 +798,27 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     ) : studyStyle === 'listen' ? (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="my-auto max-w-xl w-full mx-auto space-y-4 px-2 text-center"
+                        className="my-auto max-w-2xl w-full mx-auto space-y-5 px-2 text-center"
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-teal-700">
                             Nghe phát âm &amp; chọn chữ đúng
                           </div>
                           <button
                             type="button"
                             onClick={() => speakJapanese(recallTargetText)}
-                            className="mx-auto w-16 h-16 rounded-2xl bg-teal-50 hover:bg-teal-100 border-2 border-teal-200 text-teal-800 flex items-center justify-center transition-transform active:scale-95 cursor-pointer shadow-2xs"
+                            className="mx-auto w-20 h-20 rounded-2xl bg-teal-50 hover:bg-teal-100 border-2 border-teal-200 text-teal-800 flex items-center justify-center transition-transform active:scale-95 cursor-pointer shadow-2xs"
                             title="Nghe lại phát âm"
                             aria-label="Nghe lại phát âm"
                           >
-                            <Volume2 className="w-7 h-7" />
+                            <Volume2 className="w-8 h-8" />
                           </button>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs sm:text-sm text-slate-500">
                             Bấm vào loa để nghe lại rồi chọn đáp án đúng bên dưới
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
                           {activeRecallOptions.map((opt) => {
                             const isSelected = selectedChoice === opt;
                             const isCorrect = opt === recallTargetText;
@@ -864,33 +871,33 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                     ) : studyStyle === 'cloze' && clozePromptData ? (
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="my-auto max-w-xl w-full mx-auto space-y-4 px-2 text-center"
+                        className="my-auto max-w-2xl w-full mx-auto space-y-5 px-2 text-center"
                       >
-                        <div className="space-y-1.5">
+                        <div className="space-y-2">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-teal-700">
                             {clozePromptData.hasSentence
                               ? 'Điền chữ vào câu ngữ cảnh'
                               : 'Nhớ chữ theo nghĩa & âm đọc'}
                           </div>
 
-                          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1.5">
+                          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-1.5">
                             {clozePromptData.hasSentence && (
-                              <p className="font-kanji text-lg sm:text-xl font-bold text-slate-900 leading-relaxed">
+                              <p className="font-kanji text-xl sm:text-2xl font-bold text-slate-900 leading-relaxed">
                                 {clozePromptData.maskedJp}
                               </p>
                             )}
-                            <p className="text-sm font-bold text-teal-900">
+                            <p className="text-sm sm:text-base font-bold text-teal-900">
                               {clozePromptData.vi}
                             </p>
                             {clozePromptData.kana && (
-                              <p className="text-xs font-mono text-slate-500">
+                              <p className="text-xs sm:text-sm font-mono text-slate-500">
                                 {clozePromptData.kana}
                               </p>
                             )}
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
                           {activeRecallOptions.map((opt) => {
                             const isSelected = selectedChoice === opt;
                             const isCorrect =
@@ -946,11 +953,11 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                           )}
                       </div>
                     ) : (
-                      <div className="text-center space-y-3 my-auto px-2">
+                      <div className="text-center space-y-4 my-auto px-4">
                         <div
                           className={`font-kanji font-black text-slate-900 tracking-wide leading-tight ${
                             currentCard.cardType === 'kanji'
-                              ? 'text-7xl sm:text-8xl lg:text-9xl'
+                              ? 'text-8xl sm:text-9xl lg:text-[148px]'
                               : getFrontWordSizeClass(currentCard.word || currentCard.kanji)
                           }`}
                         >
@@ -958,218 +965,94 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                             ? currentCard.kanji
                             : currentCard.word}
                         </div>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs sm:text-sm text-slate-400">
                           Chạm vào thẻ hoặc nhấn Space để lật
                         </p>
                       </div>
                     )
                   ) : (
-                    <div className="my-auto animate-in fade-in duration-150 space-y-3">
+                    <div className="w-full sm:h-full sm:min-h-0 animate-in fade-in duration-150">
                       {currentCard.cardType === 'kanji' ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 sm:gap-6 items-center">
-                          {/* Left Column: Kanji + Han-Viet + Stroke Lookup */}
-                          <div className="sm:col-span-5 flex sm:flex-col items-center sm:justify-center gap-3.5 sm:gap-2.5 sm:border-r sm:border-slate-100 sm:pr-5">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleInspectKanjiChar(currentCard.kanji);
-                              }}
-                              className="font-kanji font-black text-6xl sm:text-7xl lg:text-[84px] text-teal-900 hover:text-teal-700 leading-none shrink-0 rounded-2xl px-2 py-1 hover:bg-teal-50/70 transition-colors cursor-pointer"
-                              title={`Nhấp để tra cứu chi tiết chữ ${currentCard.kanji}`}
-                            >
-                              {currentCard.kanji}
-                            </button>
-                            <div className="flex flex-col sm:items-center gap-1.5 min-w-0">
-                              <div className="text-sm sm:text-base font-bold text-slate-900 truncate">
-                                {currentCard.hanViet || 'Chưa có Hán-Việt'}
-                              </div>
+                        <div className="w-full sm:h-full sm:min-h-0 grid grid-cols-1 sm:grid-cols-[2fr_3fr] gap-4 sm:gap-0 items-stretch">
+                          {/* Left Column (40%): Fixed & Vertically Centered Kanji + Han-Viet + Stroke Lookup */}
+                          <div className="sm:h-full sm:min-h-0 sm:overflow-y-auto sm:border-r sm:border-slate-100 sm:pr-6 flex flex-col">
+                            <div className="my-auto flex sm:flex-col items-center justify-center gap-4 sm:gap-3 py-2 text-center w-full">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleInspectKanjiChar(currentCard.kanji);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-50 border border-teal-200 rounded-lg transition-colors cursor-pointer w-fit"
+                                className="font-kanji font-black text-7xl sm:text-8xl lg:text-[112px] text-teal-900 hover:text-teal-700 leading-none shrink-0 rounded-2xl px-3 py-1.5 hover:bg-teal-50/70 transition-colors cursor-pointer"
+                                title={`Nhấp để tra cứu chi tiết chữ ${currentCard.kanji}`}
                               >
-                                <PenTool className="w-3.5 h-3.5" />
-                                <span>Xem nét viết & Chi tiết</span>
+                                {currentCard.kanji}
                               </button>
+                              <div className="flex flex-col items-start sm:items-center gap-2 min-w-0">
+                                <div className="text-base sm:text-lg lg:text-xl font-bold text-slate-900 break-words">
+                                  {currentCard.hanViet || 'Chưa có Hán-Việt'}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleInspectKanjiChar(currentCard.kanji);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-teal-800 hover:bg-teal-50 border border-teal-200 rounded-xl transition-colors cursor-pointer w-fit whitespace-nowrap"
+                                >
+                                  <PenTool className="w-3.5 h-3.5" />
+                                  <span>Xem nét viết &amp; Chi tiết</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
 
-                          {/* Right Column: On/Kun + Meaning + Example Sentences (Scrollable) */}
-                          <div className="sm:col-span-7 overflow-y-auto max-h-[220px] sm:max-h-[300px] pr-1.5 space-y-2.5">
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                                <span className="text-[11px] font-semibold text-slate-500 block">
-                                  Âm On
-                                </span>
-                                <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm break-words">
-                                  {currentCard.onReadings.length > 0
-                                    ? currentCard.onReadings.slice(0, 3).join(', ')
-                                    : '—'}
-                                </span>
-                              </div>
-                              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                                <span className="text-[11px] font-semibold text-slate-500 block">
-                                  Âm Kun
-                                </span>
-                                <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm break-words">
-                                  {currentCard.kunReadings.length > 0
-                                    ? currentCard.kunReadings.slice(0, 3).join(', ')
-                                    : '—'}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="p-3 rounded-xl bg-teal-50/60 border border-teal-100">
-                              <span className="text-[11px] font-semibold text-teal-800 block mb-0.5">
-                                Ý nghĩa
-                              </span>
-                              <p className="text-sm sm:text-base font-bold text-slate-900">
-                                {currentCard.meanings.length > 0
-                                  ? currentCard.meanings.join(', ')
-                                  : 'Chưa cập nhật nghĩa'}
-                              </p>
-                            </div>
-
-                            {/* 2 Example Sentences (matching KanjiByLevelPage style) */}
-                            {resolvedExamples.length > 0 && (
-                              <div className="rounded-xl bg-slate-50 border border-slate-200/80 divide-y divide-slate-200/70">
-                                {resolvedExamples.map((ex) => (
-                                  <div
-                                    key={ex.id}
-                                    className="p-2.5 sm:p-3 flex items-start gap-2.5"
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        speakJapanese(ex.jp);
-                                      }}
-                                      className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-teal-700 bg-white hover:bg-teal-50 border border-slate-200 rounded-lg cursor-pointer shrink-0 shadow-2xs transition-colors"
-                                      title="Nghe câu ví dụ"
-                                      aria-label="Nghe câu ví dụ"
-                                    >
-                                      <Volume2 className="w-4 h-4" />
-                                    </button>
-                                    <div className="space-y-0.5 min-w-0 flex-1">
-                                      <p className="font-kanji text-sm font-medium text-slate-900 leading-snug break-words">
-                                        {renderHighlightedSentence(ex.jp, highlightTargets)}
-                                      </p>
-                                      {ex.kana && (
-                                        <p className="text-xs font-kanji text-teal-800 font-semibold leading-snug">
-                                          {ex.kana}
-                                        </p>
-                                      )}
-                                      <p className="text-xs text-slate-600 leading-snug">
-                                        {ex.vi}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 sm:gap-6 items-center">
-                          {/* Left Column: Compound Word (clickable Kanji chars) + Reading + Han-Viet + All Constituent Kanji Chips */}
-                          <div className="sm:col-span-5 text-center sm:border-r sm:border-slate-100 sm:pr-5 space-y-2">
-                            <div
-                              className={`font-kanji font-black text-teal-900 leading-tight inline-flex items-baseline justify-center flex-wrap ${getBackCompoundWordSizeClass(
-                                currentCard.word || ''
-                              )}`}
-                            >
-                              {Array.from(currentCard.word || '').map((ch, idx) =>
-                                isHanChar(ch) ? (
-                                  <button
-                                    key={`${ch}-${idx}`}
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleInspectKanjiChar(ch);
-                                    }}
-                                    className={`font-kanji font-black leading-tight ${getBackCompoundTextSizeClass(
-                                      currentCard.word || ''
-                                    )} hover:text-teal-700 hover:bg-teal-50 rounded-lg px-0.5 transition-colors cursor-pointer underline decoration-teal-300/70 decoration-2 underline-offset-4`}
-                                    title={`Nhấp để tra cứu chữ ${ch}`}
-                                  >
-                                    {ch}
-                                  </button>
-                                ) : (
-                                  <span key={`${ch}-${idx}`}>{ch}</span>
-                                )
-                              )}
-                            </div>
-
-                            {currentCard.reading && (
-                              <div className="font-mono text-sm sm:text-base font-bold text-slate-700">
-                                {currentCard.reading}
-                              </div>
-                            )}
-
-                            {currentCard.wordHanViet && (
-                              <div className="text-xs sm:text-sm font-bold text-teal-700">
-                                {currentCard.wordHanViet}
-                              </div>
-                            )}
-
-                            {/* Interactive lookup buttons for every Kanji in compound word */}
-                            {constituentKanji.length > 0 && (
-                              <div className="pt-1 flex flex-col items-center gap-1.5">
-                                <span className="text-[11px] text-slate-500">
-                                  Nhấp chữ Kanji để tra cứu:
-                                </span>
-                                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                  {constituentKanji.map((k) => (
-                                    <button
-                                      key={k.char}
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleInspectKanjiChar(k.char);
-                                      }}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-xs font-semibold text-slate-800 hover:text-teal-900 transition-colors cursor-pointer"
-                                      title={`Xem chi tiết & nét viết chữ ${k.char}`}
-                                    >
-                                      <span className="font-kanji font-black text-sm text-teal-800">
-                                        {k.char}
-                                      </span>
-                                      {k.hanViet && (
-                                        <span className="text-[11px] font-bold text-slate-600">
-                                          {k.hanViet}
-                                        </span>
-                                      )}
-                                    </button>
-                                  ))}
+                          {/* Right Column (60%): Independently Scrollable On/Kun + Meaning + Example Sentences */}
+                          <div
+                            ref={answerDetailsRef}
+                            className="sm:h-full sm:min-h-0 sm:overflow-y-auto overscroll-contain sm:pl-6 sm:pr-2 flex flex-col"
+                          >
+                            <div className="sm:my-auto py-1 sm:py-3 space-y-3 sm:space-y-3.5 w-full max-w-3xl mx-auto">
+                              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+                                <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                                  <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">
+                                    Âm On
+                                  </span>
+                                  <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm lg:text-base break-words">
+                                    {currentCard.onReadings.length > 0
+                                      ? currentCard.onReadings.slice(0, 3).join(', ')
+                                      : '—'}
+                                  </span>
+                                </div>
+                                <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                                  <span className="text-[11px] font-semibold text-slate-500 block mb-0.5">
+                                    Âm Kun
+                                  </span>
+                                  <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm lg:text-base break-words">
+                                    {currentCard.kunReadings.length > 0
+                                      ? currentCard.kunReadings.slice(0, 3).join(', ')
+                                      : '—'}
+                                  </span>
                                 </div>
                               </div>
-                            )}
-                          </div>
 
-                          {/* Right Column: Meaning + Practical Example Sentences (Scrollable) */}
-                          <div className="sm:col-span-7 overflow-y-auto max-h-[220px] sm:max-h-[300px] pr-1.5 space-y-2.5">
-                            <div className="p-3 sm:p-3.5 rounded-xl bg-teal-50/60 border border-teal-100 text-center sm:text-left">
-                              <span className="text-[11px] font-semibold text-teal-800 block mb-0.5">
-                                Nghĩa tiếng Việt
-                              </span>
-                              <p className="text-sm sm:text-base lg:text-lg font-bold text-slate-900">
-                                {currentCard.wordMeaning}
-                              </p>
-                            </div>
+                              <div className="p-3.5 sm:p-4 rounded-xl bg-teal-50/60 border border-teal-100">
+                                <span className="text-[11px] font-semibold text-teal-800 block mb-1">
+                                  Ý nghĩa
+                                </span>
+                                <p className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                                  {currentCard.meanings.length > 0
+                                    ? currentCard.meanings.join(', ')
+                                    : 'Chưa cập nhật nghĩa'}
+                                </p>
+                              </div>
 
-                            {resolvedExamples.length > 0 && (
-                              <div className="space-y-1.5 text-left">
-                                <div className="text-[11px] font-semibold text-slate-500">
-                                  Ví dụ áp dụng ({resolvedExamples.length})
-                                </div>
+                              {resolvedExamples.length > 0 && (
                                 <div className="rounded-xl bg-slate-50 border border-slate-200/80 divide-y divide-slate-200/70">
                                   {resolvedExamples.map((ex) => (
                                     <div
                                       key={ex.id}
-                                      className="p-2.5 sm:p-3 flex items-start gap-2.5"
+                                      className="p-3 sm:p-3.5 flex items-start gap-3"
                                     >
                                       <button
                                         type="button"
@@ -1183,27 +1066,163 @@ export const FlashcardSrsSession: React.FC<FlashcardSrsSessionProps> = ({
                                       >
                                         <Volume2 className="w-4 h-4" />
                                       </button>
-                                      <div className="space-y-0.5 min-w-0 flex-1">
-                                        <p className="font-kanji text-sm font-medium text-slate-900 leading-snug break-words">
-                                          {renderHighlightedSentence(
-                                            ex.jp,
-                                            highlightTargets
-                                          )}
+                                      <div className="space-y-1 min-w-0 flex-1">
+                                        <p className="font-kanji text-sm sm:text-base font-medium text-slate-900 leading-snug break-words">
+                                          {renderHighlightedSentence(ex.jp, highlightTargets)}
                                         </p>
                                         {ex.kana && (
-                                          <p className="text-xs font-kanji text-teal-800 font-semibold leading-snug">
+                                          <p className="text-xs sm:text-[13px] font-kanji text-teal-800 font-semibold leading-snug">
                                             {ex.kana}
                                           </p>
                                         )}
-                                        <p className="text-xs text-slate-600 leading-snug">
+                                        <p className="text-xs sm:text-sm text-slate-600 leading-snug">
                                           {ex.vi}
                                         </p>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full sm:h-full sm:min-h-0 grid grid-cols-1 sm:grid-cols-[2fr_3fr] gap-4 sm:gap-0 items-stretch">
+                          {/* Left Column (40%): Fixed & Vertically Centered Compound Word + Reading + Han-Viet + Constituent Kanji Chips */}
+                          <div className="sm:h-full sm:min-h-0 sm:overflow-y-auto sm:border-r sm:border-slate-100 sm:pr-6 flex flex-col">
+                            <div className="my-auto text-center space-y-2.5 py-2 w-full">
+                              <div
+                                className={`font-kanji font-black text-teal-900 leading-tight inline-flex items-baseline justify-center flex-wrap ${getBackCompoundWordSizeClass(
+                                  currentCard.word || ''
+                                )}`}
+                              >
+                                {Array.from(currentCard.word || '').map((ch, idx) =>
+                                  isHanChar(ch) ? (
+                                    <button
+                                      key={`${ch}-${idx}`}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleInspectKanjiChar(ch);
+                                      }}
+                                      className={`font-kanji font-black leading-tight ${getBackCompoundTextSizeClass(
+                                        currentCard.word || ''
+                                      )} hover:text-teal-700 hover:bg-teal-50 rounded-lg px-0.5 transition-colors cursor-pointer underline decoration-teal-300/70 decoration-2 underline-offset-4`}
+                                      title={`Nhấp để tra cứu chữ ${ch}`}
+                                    >
+                                      {ch}
+                                    </button>
+                                  ) : (
+                                    <span key={`${ch}-${idx}`}>{ch}</span>
+                                  )
+                                )}
                               </div>
-                            )}
+
+                              {currentCard.reading && (
+                                <div className="font-mono text-sm sm:text-base lg:text-lg font-bold text-slate-700">
+                                  {currentCard.reading}
+                                </div>
+                              )}
+
+                              {currentCard.wordHanViet && (
+                                <div className="text-sm sm:text-base font-bold text-teal-700">
+                                  {currentCard.wordHanViet}
+                                </div>
+                              )}
+
+                              {constituentKanji.length > 0 && (
+                                <div className="pt-1.5 flex flex-col items-center gap-1.5">
+                                  <span className="text-[11px] text-slate-500">
+                                    Nhấp chữ Kanji để tra cứu:
+                                  </span>
+                                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                    {constituentKanji.map((k) => (
+                                      <button
+                                        key={k.char}
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleInspectKanjiChar(k.char);
+                                        }}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-300 text-xs font-semibold text-slate-800 hover:text-teal-900 transition-colors cursor-pointer"
+                                        title={`Xem chi tiết & nét viết chữ ${k.char}`}
+                                      >
+                                        <span className="font-kanji font-black text-sm text-teal-800">
+                                          {k.char}
+                                        </span>
+                                        {k.hanViet && (
+                                          <span className="text-[11px] font-bold text-slate-600">
+                                            {k.hanViet}
+                                          </span>
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Right Column (60%): Independently Scrollable Meaning + Practical Example Sentences */}
+                          <div
+                            ref={answerDetailsRef}
+                            className="sm:h-full sm:min-h-0 sm:overflow-y-auto overscroll-contain sm:pl-6 sm:pr-2 flex flex-col"
+                          >
+                            <div className="sm:my-auto py-1 sm:py-3 space-y-3 sm:space-y-3.5 w-full max-w-3xl mx-auto">
+                              <div className="p-3.5 sm:p-4 rounded-xl bg-teal-50/60 border border-teal-100 text-center sm:text-left">
+                                <span className="text-[11px] font-semibold text-teal-800 block mb-1">
+                                  Nghĩa tiếng Việt
+                                </span>
+                                <p className="text-base sm:text-lg lg:text-xl font-bold text-slate-900 leading-snug">
+                                  {currentCard.wordMeaning}
+                                </p>
+                              </div>
+
+                              {resolvedExamples.length > 0 && (
+                                <div className="space-y-2 text-left">
+                                  <div className="text-[11px] font-semibold text-slate-500">
+                                    Ví dụ áp dụng ({resolvedExamples.length})
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 border border-slate-200/80 divide-y divide-slate-200/70">
+                                    {resolvedExamples.map((ex) => (
+                                      <div
+                                        key={ex.id}
+                                        className="p-3 sm:p-3.5 flex items-start gap-3"
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            speakJapanese(ex.jp);
+                                          }}
+                                          className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-teal-700 bg-white hover:bg-teal-50 border border-slate-200 rounded-lg cursor-pointer shrink-0 shadow-2xs transition-colors"
+                                          title="Nghe câu ví dụ"
+                                          aria-label="Nghe câu ví dụ"
+                                        >
+                                          <Volume2 className="w-4 h-4" />
+                                        </button>
+                                        <div className="space-y-1 min-w-0 flex-1">
+                                          <p className="font-kanji text-sm sm:text-base font-medium text-slate-900 leading-snug break-words">
+                                            {renderHighlightedSentence(
+                                              ex.jp,
+                                              highlightTargets
+                                            )}
+                                          </p>
+                                          {ex.kana && (
+                                            <p className="text-xs sm:text-[13px] font-kanji text-teal-800 font-semibold leading-snug">
+                                              {ex.kana}
+                                            </p>
+                                          )}
+                                          <p className="text-xs sm:text-sm text-slate-600 leading-snug">
+                                            {ex.vi}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
