@@ -211,33 +211,61 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
           mode = fallbackSelected || 'kanji-to-meaning';
         }
 
-        // Select 3 distractors that do not collide visually or by primary answer text
-        const targetPrimaryMeaning = (target.vi[0] || target.hv).toLowerCase();
+        // Select 3 distractors that do not collide visually, by primary answer, or by Hán-Việt
+        const targetPrimaryMeaning = (target.vi[0] || target.hv).trim().toLowerCase();
         const targetReadingStr = formatReadingsPair(target);
+        const targetHv = target.hv ? target.hv.trim().toLowerCase() : '';
 
         const distractors: KanjiCatalogEntry[] = [];
-        for (const cand of shuffleArray(distractorPool)) {
-          if (cand.c === target.c) continue;
-          if (mode === 'kanji-to-meaning') {
-            const candMeaning = (cand.vi[0] || cand.hv).toLowerCase();
-            if (candMeaning === targetPrimaryMeaning) continue;
-          }
-          if (mode === 'reading') {
-            if (cand.on.length === 0 && cand.kun.length === 0) continue;
-            if (formatReadingsPair(cand) === targetReadingStr) continue;
-          }
-          distractors.push(cand);
-          if (distractors.length >= 3) break;
-        }
+        const seenChars = new Set<string>([target.c]);
+        const seenMeanings = new Set<string>(targetPrimaryMeaning ? [targetPrimaryMeaning] : []);
+        const seenReadings = new Set<string>(targetReadingStr ? [targetReadingStr] : []);
+        const seenHvs = new Set<string>(targetHv ? [targetHv] : []);
 
-        // Fill remaining distractors if pool was ultra small
-        if (distractors.length < 3) {
-          for (const cand of shuffleArray(levelPool)) {
-            if (cand.c !== target.c && !distractors.some((d) => d.c === cand.c)) {
-              distractors.push(cand);
-              if (distractors.length >= 3) break;
+        const collectDistractors = (poolSrc: KanjiCatalogEntry[], strict: boolean) => {
+          for (const cand of shuffleArray(poolSrc)) {
+            if (distractors.length >= 3) break;
+            if (seenChars.has(cand.c)) continue;
+
+            const candMeaning = (cand.vi[0] || cand.hv).trim().toLowerCase();
+            const candReading = formatReadingsPair(cand);
+            const candHv = cand.hv ? cand.hv.trim().toLowerCase() : '';
+
+            if (mode === 'reading' && cand.on.length === 0 && cand.kun.length === 0) {
+              continue;
             }
+            if (mode === 'kanji-to-meaning' && candMeaning && seenMeanings.has(candMeaning)) {
+              continue;
+            }
+            if (mode === 'reading' && candReading && seenReadings.has(candReading)) {
+              continue;
+            }
+
+            if (strict) {
+              if (candMeaning && seenMeanings.has(candMeaning)) continue;
+              if (
+                (mode === 'meaning-to-kanji' || mode === 'sentence-cloze') &&
+                candHv &&
+                seenHvs.has(candHv)
+              ) {
+                continue;
+              }
+            }
+
+            seenChars.add(cand.c);
+            if (candMeaning) seenMeanings.add(candMeaning);
+            if (candReading) seenReadings.add(candReading);
+            if (candHv) seenHvs.add(candHv);
+            distractors.push(cand);
           }
+        };
+
+        collectDistractors(distractorPool, true);
+        if (distractors.length < 3) {
+          collectDistractors(levelPool, true);
+        }
+        if (distractors.length < 3) {
+          collectDistractors(distractorPool, false);
         }
 
         const allChoices = shuffleArray([target, ...distractors]);
@@ -253,7 +281,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             options: allChoices.map((ch) => ({
               id: `opt-${i}-${ch.c}`,
               label: ch.vi.slice(0, 2).join(', ') || ch.hv,
-              subLabel: undefined,
+              subLabel: ch.hv ? `Hán-Việt: ${ch.hv}` : undefined,
               kanjiChar: ch.c,
               isCorrect: ch.c === target.c,
             })),
@@ -270,7 +298,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             options: allChoices.map((ch) => ({
               id: `opt-${i}-${ch.c}`,
               label: ch.c,
-              subLabel: undefined,
+              subLabel: ch.hv || undefined,
               kanjiChar: ch.c,
               isCorrect: ch.c === target.c,
             })),
@@ -287,7 +315,7 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
             options: allChoices.map((ch) => ({
               id: `opt-${i}-${ch.c}`,
               label: formatReadingsPair(ch),
-              subLabel: undefined,
+              subLabel: ch.hv ? `Hán-Việt: ${ch.hv}` : undefined,
               kanjiChar: ch.c,
               isCorrect: ch.c === target.c,
             })),
@@ -900,27 +928,39 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
               <span className="font-kanji font-black text-6xl sm:text-7xl text-slate-900 leading-none select-none">
                 {currentQuestion.promptPrimary}
               </span>
-              <button
-                type="button"
-                onClick={() => speakJapanese(currentQuestion.target.c)}
-                className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-teal-700 hover:border-teal-300 cursor-pointer"
-                title="Nghe phát âm tiếng Nhật"
-              >
-                <Volume2 className="w-4 h-4" />
-              </button>
+              {(currentQuestion.mode === 'kanji-to-meaning' || isAnswered) && (
+                <button
+                  type="button"
+                  onClick={() => speakJapanese(currentQuestion.target.c)}
+                  className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-teal-700 hover:border-teal-300 cursor-pointer"
+                  title="Nghe phát âm tiếng Nhật"
+                >
+                  <Volume2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
             {isAnswered && (
               <p className="text-xs font-semibold text-slate-600">{currentQuestion.promptSub}</p>
             )}
           </div>
         ) : currentQuestion.mode === 'meaning-to-kanji' ? (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug">
               {currentQuestion.promptPrimary}
             </div>
             <p className="text-xs font-semibold text-slate-600">
               {currentQuestion.promptSub}
             </p>
+            {isAnswered && (
+              <button
+                type="button"
+                onClick={() => speakJapanese(currentQuestion.target.c)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-teal-700 hover:bg-teal-50 cursor-pointer"
+              >
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Nghe phát âm chữ {currentQuestion.target.c}</span>
+              </button>
+            )}
           </div>
         ) : (
           // sentence-cloze prompt
@@ -1028,7 +1068,12 @@ export const KanjiLevelQuiz: React.FC<KanjiLevelQuizProps> = ({
                     )}
                   </>
                 ) : (
-                  <span className="pl-5 font-semibold text-sm leading-snug">{opt.label}</span>
+                  <div className="pl-5 space-y-0.5 text-left">
+                    <div className="font-semibold text-sm leading-snug">{opt.label}</div>
+                    {isAnswered && opt.subLabel && (
+                      <div className="text-[11px] font-medium text-slate-500">{opt.subLabel}</div>
+                    )}
+                  </div>
                 )}
 
                 {isAnswered && opt.isCorrect && (

@@ -110,38 +110,91 @@ export async function generateArenaQuestions(
 
     const sentences = qMode === 'sentence-cloze' ? getStaticSentencesForKanji(target.c, 2) : [];
     const usableSentence = sentences.find((s) => s.jp.includes(target.c));
+    const hasReading = target.on.length > 0 || target.kun.length > 0;
+
     if (qMode === 'sentence-cloze' && !usableSentence) {
+      qMode = hasReading && idx % 3 === 1 ? 'reading' : idx % 2 === 0 ? 'kanji-to-meaning' : 'meaning-to-kanji';
+    } else if (qMode === 'reading' && !hasReading) {
       qMode = idx % 2 === 0 ? 'kanji-to-meaning' : 'meaning-to-kanji';
     }
 
-    const distractors: KanjiCatalogEntry[] = [];
-    const seenChars = new Set<string>([target.c]);
-    const seenLabels = new Set<string>();
+    const normalizedMeaningTokens = (entry: KanjiCatalogEntry): string[] =>
+      entry.vi
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean);
 
     const primaryLabelOf = (entry: KanjiCatalogEntry): string => {
       if (qMode === 'kanji-to-meaning') {
-        return entry.vi[0] || entry.hv || entry.c;
+        return entry.vi.slice(0, 2).join(', ') || entry.hv || entry.c;
       }
       if (qMode === 'reading') {
-        return formatReadingsPair(entry) || entry.hv;
+        return formatReadingsPair(entry);
       }
       return entry.c;
     };
 
-    seenLabels.add(primaryLabelOf(target).toLowerCase());
+    const distractors: KanjiCatalogEntry[] = [];
+    const seenChars = new Set<string>([target.c]);
+    const seenLabels = new Set<string>([primaryLabelOf(target).toLowerCase()]);
+    const seenPrimaryMeanings = new Set<string>(normalizedMeaningTokens(target).slice(0, 1));
+    const seenHvs = new Set<string>(target.hv ? [target.hv.trim().toLowerCase()] : []);
 
-    for (const cand of shuffleArray(distractorBase)) {
-      if (distractors.length >= 3) break;
-      if (seenChars.has(cand.c)) continue;
-      const lbl = primaryLabelOf(cand).toLowerCase();
-      if (!lbl || seenLabels.has(lbl)) continue;
-      seenChars.add(cand.c);
-      seenLabels.add(lbl);
-      distractors.push(cand);
+    const tryCollectDistractors = (pool: KanjiCatalogEntry[], strictMeaningAndHv: boolean) => {
+      for (const cand of shuffleArray(pool)) {
+        if (distractors.length >= 3) break;
+        if (seenChars.has(cand.c)) continue;
+
+        if (qMode === 'reading' && cand.on.length === 0 && cand.kun.length === 0) {
+          continue;
+        }
+
+        const lbl = primaryLabelOf(cand).toLowerCase();
+        if (!lbl || seenLabels.has(lbl)) continue;
+
+        const candFirstMeaning = normalizedMeaningTokens(cand)[0] || '';
+        const candHv = cand.hv ? cand.hv.trim().toLowerCase() : '';
+
+        if (strictMeaningAndHv) {
+          if (candFirstMeaning && seenPrimaryMeanings.has(candFirstMeaning)) continue;
+          if (
+            (qMode === 'meaning-to-kanji' || qMode === 'sentence-cloze') &&
+            candHv &&
+            seenHvs.has(candHv)
+          ) {
+            continue;
+          }
+        }
+
+        seenChars.add(cand.c);
+        seenLabels.add(lbl);
+        if (candFirstMeaning) seenPrimaryMeanings.add(candFirstMeaning);
+        if (candHv) seenHvs.add(candHv);
+        distractors.push(cand);
+      }
+    };
+
+    tryCollectDistractors(distractorBase, true);
+    if (distractors.length < 3) {
+      tryCollectDistractors(catalog, true);
+    }
+    if (distractors.length < 3) {
+      tryCollectDistractors(catalog, false);
     }
 
-    const buildOption = (entry: KanjiCatalogEntry, optIdx: number, isCorrect: boolean) => {
-      const optId = `${idx}-${entry.c}-${optIdx}-${isCorrect ? 'c' : 'w'}`;
+    const shuffledChoices = shuffleArray([
+      { entry: target, isCorrect: true },
+      ...distractors.map((d) => ({ entry: d, isCorrect: false })),
+    ]);
+
+    let correctOptId = '';
+    const options = shuffledChoices.map((choice, optIdx) => {
+      const { entry, isCorrect } = choice;
+      // Neutral opaque option ID (no Kanji char and no -c/-w answer hint)
+      const optId = `q${idx}-o${optIdx}`;
+      if (isCorrect) {
+        correctOptId = optId;
+      }
+
       if (qMode === 'kanji-to-meaning') {
         return {
           id: optId,
@@ -152,7 +205,7 @@ export async function generateArenaQuestions(
       if (qMode === 'reading') {
         return {
           id: optId,
-          label: formatReadingsPair(entry) || entry.hv,
+          label: formatReadingsPair(entry),
           subLabel: entry.hv ? `Hán-Việt: ${entry.hv}` : undefined,
         };
       }
@@ -161,11 +214,7 @@ export async function generateArenaQuestions(
         label: entry.c,
         subLabel: entry.hv || undefined,
       };
-    };
-
-    const correctOpt = buildOption(target, 0, true);
-    const wrongOpts = distractors.map((d, dIdx) => buildOption(d, dIdx + 1, false));
-    const options = shuffleArray([correctOpt, ...wrongOpts]);
+    });
 
     let promptPrimary = target.c;
     let promptSub: string | undefined;
@@ -200,7 +249,7 @@ export async function generateArenaQuestions(
       .join(' · ');
 
     return {
-      id: `aq-${Date.now()}-${idx}-${target.c}`,
+      id: `aq-${Date.now()}-${idx}`,
       kanji: target.c,
       mode: qMode,
       promptPrimary,
@@ -209,7 +258,7 @@ export async function generateArenaQuestions(
       sentenceKana,
       sentenceVi,
       options,
-      correctOptionId: correctOpt.id,
+      correctOptionId: correctOptId,
       explanation,
     };
   });

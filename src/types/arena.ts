@@ -31,7 +31,7 @@ export interface ArenaQuestionDraft {
 
 export interface ArenaPublicQuestion {
   id: string;
-  kanji: string;
+  kanji?: string;
   mode: ArenaQuestionMode | string;
   promptPrimary: string;
   promptSub?: string;
@@ -106,6 +106,9 @@ export interface ArenaSubmitResult {
   isCorrect: boolean;
   correctOptionId: string;
   explanation?: string;
+  kanji?: string;
+  sentenceJp?: string;
+  optionSubLabels?: Record<string, string>;
   pointsAwarded: number;
   newScore: number;
   streak: number;

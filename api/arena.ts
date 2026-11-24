@@ -124,21 +124,24 @@ function buildPublicRoomPayload(room: any, players: any[], viewerPlayerId?: stri
   const publicQuestions = questions.map((q, idx) => {
     const answeredThis = Boolean(viewerAnswers[String(idx)]);
     const revealAnswer = isFinished || answeredThis;
+    const publicOptions = q.options.map((opt) =>
+      revealAnswer ? opt : { id: opt.id, label: opt.label }
+    );
     return {
       id: q.id,
-      kanji: q.kanji,
       mode: q.mode,
       promptPrimary: q.promptPrimary,
       promptSub: q.promptSub,
-      sentenceJp: q.sentenceJp,
-      sentenceKana: q.sentenceKana,
       sentenceVi: q.sentenceVi,
-      options: q.options,
+      options: publicOptions,
       correctHash: computeOptionHash(room.id, q.id, q.correctOptionId),
-      explanation: q.explanation,
       ...(revealAnswer
         ? {
+            kanji: q.kanji,
+            sentenceJp: q.sentenceJp,
+            sentenceKana: q.sentenceKana,
             correctOptionId: q.correctOptionId,
+            explanation: q.explanation,
           }
         : {}),
     };
@@ -753,6 +756,11 @@ export default async function handler(
           ? { ...player.answers_by_index }
           : {};
 
+      const optionSubLabels: Record<string, string> = {};
+      for (const opt of targetQuestion.options) {
+        if (opt.subLabel) optionSubLabels[opt.id] = opt.subLabel;
+      }
+
       // Idempotent guard: already submitted this question
       const prevEntry = existingAnswers[String(questionIndex)];
       if (prevEntry) {
@@ -763,6 +771,9 @@ export default async function handler(
           isCorrect: Boolean(prevEntry.isCorrect),
           correctOptionId: targetQuestion.correctOptionId,
           explanation: targetQuestion.explanation || '',
+          kanji: targetQuestion.kanji,
+          ...(targetQuestion.sentenceJp ? { sentenceJp: targetQuestion.sentenceJp } : {}),
+          ...(Object.keys(optionSubLabels).length > 0 ? { optionSubLabels } : {}),
           pointsAwarded: Number(prevEntry.pointsAwarded || 0),
           newScore: Number(player.score || 0),
           streak: Number(player.streak || 0),
@@ -832,6 +843,9 @@ export default async function handler(
         isCorrect,
         correctOptionId: targetQuestion.correctOptionId,
         explanation: targetQuestion.explanation || '',
+        kanji: targetQuestion.kanji,
+        ...(targetQuestion.sentenceJp ? { sentenceJp: targetQuestion.sentenceJp } : {}),
+        ...(Object.keys(optionSubLabels).length > 0 ? { optionSubLabels } : {}),
         pointsAwarded,
         newScore,
         streak: nextStreak,

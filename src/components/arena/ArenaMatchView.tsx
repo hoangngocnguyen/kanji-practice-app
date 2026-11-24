@@ -414,37 +414,73 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
           ) : (
             <>
               {/* Question Prompt */}
-              <div className="text-center space-y-2.5">
-                <div className="flex items-center justify-center gap-2">
-                  <div
-                    className={`font-kanji font-black text-slate-900 leading-tight ${
-                      question.promptPrimary.length <= 2
-                        ? 'text-6xl sm:text-7xl'
-                        : question.promptPrimary.length <= 16
-                        ? 'text-2xl sm:text-3xl'
-                        : 'text-lg sm:text-2xl'
-                    }`}
-                  >
-                    {question.promptPrimary}
-                  </div>
-                  {question.mode !== 'meaning-to-kanji' && (
-                    <button
-                      type="button"
-                      onClick={() => speakJapanese(question.sentenceJp || question.kanji)}
-                      className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl cursor-pointer shrink-0"
-                      title="Nghe phát âm"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+              {(() => {
+                const revealedKanji = activeResult?.res.kanji || question.kanji || '';
+                const revealedSentenceJp =
+                  activeResult?.res.sentenceJp || question.sentenceJp || '';
+                const canPlayAudio =
+                  hasAnsweredCurrent || question.mode === 'kanji-to-meaning';
+                const audioTarget =
+                  question.mode === 'sentence-cloze'
+                    ? revealedSentenceJp || revealedKanji
+                    : revealedKanji ||
+                      (question.mode === 'kanji-to-meaning' ||
+                      question.mode === 'reading'
+                        ? question.promptPrimary
+                        : '');
 
-                {question.promptSub && (
-                  <p className="text-xs sm:text-sm text-slate-600 font-medium">
-                    {question.promptSub}
-                  </p>
-                )}
-              </div>
+                return (
+                  <div className="text-center space-y-2.5">
+                    <div className="flex items-center justify-center gap-2">
+                      <div
+                        className={`font-kanji font-black text-slate-900 leading-tight ${
+                          question.promptPrimary.length <= 2
+                            ? 'text-6xl sm:text-7xl'
+                            : question.promptPrimary.length <= 16
+                            ? 'text-2xl sm:text-3xl'
+                            : 'text-lg sm:text-2xl'
+                        }`}
+                      >
+                        {question.mode === 'sentence-cloze' &&
+                        hasAnsweredCurrent &&
+                        revealedSentenceJp &&
+                        revealedKanji
+                          ? revealedSentenceJp.split(revealedKanji).map((seg, sIdx, arr) => (
+                              <React.Fragment key={sIdx}>
+                                {seg}
+                                {sIdx < arr.length - 1 && (
+                                  <span className="px-1.5 py-0.5 mx-0.5 rounded-lg bg-teal-700 text-white font-black">
+                                    {revealedKanji}
+                                  </span>
+                                )}
+                              </React.Fragment>
+                            ))
+                          : question.promptPrimary}
+                      </div>
+                      {canPlayAudio && audioTarget && (
+                        <button
+                          type="button"
+                          onClick={() => speakJapanese(audioTarget)}
+                          className="p-2 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-xl cursor-pointer shrink-0"
+                          title={
+                            question.mode === 'sentence-cloze'
+                              ? 'Nghe cả câu ví dụ'
+                              : 'Nghe phát âm'
+                          }
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {question.promptSub && (
+                      <p className="text-xs sm:text-sm text-slate-600 font-medium">
+                        {question.promptSub}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* 4 Answer Options Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -498,11 +534,12 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
                           >
                             {opt.label}
                           </div>
-                          {opt.subLabel && (
-                            <div className="text-[11px] opacity-75 truncate">
-                              {opt.subLabel}
-                            </div>
-                          )}
+                          {hasAnsweredCurrent &&
+                            (opt.subLabel || activeResult?.res.optionSubLabels?.[opt.id]) && (
+                              <div className="text-[11px] opacity-75 truncate">
+                                {opt.subLabel || activeResult?.res.optionSubLabels?.[opt.id]}
+                              </div>
+                            )}
                         </div>
                       </div>
 
