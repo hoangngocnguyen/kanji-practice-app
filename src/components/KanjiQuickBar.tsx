@@ -21,7 +21,7 @@ export const KanjiQuickBar: React.FC<KanjiQuickBarProps> = ({
   if (!kanjiList || kanjiList.length === 0) return null;
 
   return (
-    <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 space-y-2 transition-all">
+    <div className="relative z-0 bg-slate-50/90 border border-slate-200/90 rounded-2xl p-2.5 sm:p-3 space-y-2 transition-all">
       <div className="flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1.5 font-bold text-slate-700 min-w-0">
           <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -77,7 +77,7 @@ export const KanjiQuickBar: React.FC<KanjiQuickBarProps> = ({
                     e.stopPropagation();
                     onRemoveKanji(item.kanji);
                   }}
-                  className="absolute -top-1.5 -right-1.5 z-20 w-4 h-4 rounded-full bg-white hover:bg-red-600 text-slate-400 hover:text-white border border-slate-200 hover:border-red-600 shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-75 hover:scale-110"
+                  className="absolute -top-1.5 -right-1.5 z-10 w-4 h-4 rounded-full bg-white hover:bg-red-600 text-slate-400 hover:text-white border border-slate-200 hover:border-red-600 shadow-xs flex items-center justify-center transition-all cursor-pointer active:scale-75 hover:scale-110"
                   title={`Loại chữ "${item.kanji}" khỏi danh sách`}
                 >
                   <X className="w-2.5 h-2.5 stroke-[2.5]" />

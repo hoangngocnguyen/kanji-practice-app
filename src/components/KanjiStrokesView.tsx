@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
   LayoutGrid,
@@ -17,6 +17,7 @@ import {
   Columns3,
   ArrowRight,
   Printer,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useKanji } from '../context/KanjiContext';
@@ -82,6 +83,11 @@ export const KanjiStrokesView: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [isToolbarOutOfView, setIsToolbarOutOfView] = useState<boolean>(false);
+  const [isFloatingPanelOpen, setIsFloatingPanelOpen] = useState<boolean>(false);
+
+  const toolbarSentinelRef = useRef<HTMLDivElement | null>(null);
+  const floatingPanelRef = useRef<HTMLDivElement | null>(null);
 
   const filteredKanjiList = useMemo(() => {
     if (!searchFilter.trim()) return mergedKanjiList;
@@ -125,19 +131,96 @@ export const KanjiStrokesView: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  return (
-    <section id="kanji-stroke-section" className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200">
-      {/* Sticky Toolbar beneath Header */}
-      <div className="sticky top-16 sm:top-[68px] z-20 bg-white/95 backdrop-blur-md rounded-xl border border-slate-200/90 shadow-xs hover:shadow-md p-3 sm:p-4 space-y-2.5 transition-all">
-        {/* Top row: Status info + Quick Scan + Scroll to top */}
+  // Detect when inline toolbar scrolls past the sticky header
+  useEffect(() => {
+    const sentinel = toolbarSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const outOfView = !entry.isIntersecting && entry.boundingClientRect.top < 80;
+        setIsToolbarOutOfView(outOfView);
+        if (!outOfView) {
+          setIsFloatingPanelOpen(false);
+        }
+      },
+      {
+        rootMargin: '-68px 0px 0px 0px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  // Close IME popovers when switching between inline and floating toolbar
+  useEffect(() => {
+    searchIme.closeIme();
+    quickIme.closeIme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFloatingPanelOpen]);
+
+  // Close expanded floating panel on outside click or Escape key
+  useEffect(() => {
+    if (!isFloatingPanelOpen) return;
+
+    const handlePointerDown = (e: MouseEvent) => {
+      if (
+        floatingPanelRef.current &&
+        !floatingPanelRef.current.contains(e.target as Node)
+      ) {
+        setIsFloatingPanelOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (
+        inspectedKanji ||
+        isPrintModalOpen ||
+        searchIme.imeState.isOpen ||
+        quickIme.imeState.isOpen
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setIsFloatingPanelOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    isFloatingPanelOpen,
+    inspectedKanji,
+    isPrintModalOpen,
+    searchIme.imeState.isOpen,
+    quickIme.imeState.isOpen,
+  ]);
+
+  const hasActiveFilterOrMode =
+    Boolean(searchFilter.trim()) || isCompareSelectionMode || Boolean(quickInput.trim());
+
+  const renderToolbarContent = (isFloating: boolean) => {
+    const isActiveInputs = isFloating ? isFloatingPanelOpen : !isFloatingPanelOpen;
+
+    return (
+      <>
+        {/* Top row: Status info + Quick Scan + Scroll to top (+ Collapse in floating mode) */}
         <div className="flex items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             <span className="font-bold text-slate-800 truncate">
               <span className="sm:hidden">Tra cứu nét vẽ ({filteredKanjiList.length})</span>
-              <span className="hidden sm:inline">Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})</span>
+              <span className="hidden sm:inline">
+                Tra cứu nét vẽ ({filteredKanjiList.length}/{extractedKanjiList.length})
+              </span>
             </span>
             {extractedKanjiList.length > 0 && (
-              <span className="text-[10px] bg-teal-50 text-teal-800 font-semibold px-2 py-0.5 rounded-full border border-teal-200 shrink-0">
+              <span className="text-[10px] bg-teal-50 text-teal-800 font-semibold px-2 py-0.5 rounded-full border border-teal-200 shrink-0 tabular-nums">
                 {extractedKanjiList.length} chữ
               </span>
             )}
@@ -146,8 +229,11 @@ export const KanjiStrokesView: React.FC = () => {
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              onClick={() => setIsScannerOpen(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[30px] sm:min-h-[32px]"
+              onClick={() => {
+                if (isFloating) setIsFloatingPanelOpen(false);
+                setIsScannerOpen(true);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-all cursor-pointer shadow-2xs min-h-[30px] sm:min-h-[32px] whitespace-nowrap"
               title="Quét chữ Kanji từ ảnh hoặc dán ảnh chụp màn hình"
             >
               <Camera className="w-3.5 h-3.5 text-teal-700" />
@@ -160,9 +246,23 @@ export const KanjiStrokesView: React.FC = () => {
               onClick={handleScrollToTop}
               className="p-1 sm:p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer min-h-[30px] min-w-[30px] flex items-center justify-center"
               title="Cuộn lên đầu trang"
+              aria-label="Cuộn lên đầu trang"
             >
               <ArrowUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
+
+            {isFloating && (
+              <button
+                type="button"
+                onClick={() => setIsFloatingPanelOpen(false)}
+                className="inline-flex items-center gap-1 px-2 py-1 text-slate-600 hover:text-teal-800 hover:bg-teal-50 border border-slate-200 rounded-xl transition-colors cursor-pointer min-h-[30px] sm:min-h-[32px] text-[11px] font-semibold whitespace-nowrap"
+                title="Thu gọn khung lọc (Esc)"
+                aria-label="Thu gọn khung lọc"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Thu gọn</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -190,7 +290,9 @@ export const KanjiStrokesView: React.FC = () => {
                     <span>{item.kanji}</span>
                   </ruby>
                   <span className="text-[8px] sm:text-[9px] font-bold text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-1 py-0.2 rounded leading-tight max-w-[85px] truncate">
-                    {item.meaning ? `${item.hanViet ? `${item.hanViet}: ` : ''}${item.meaning}` : item.hanViet}
+                    {item.meaning
+                      ? `${item.hanViet ? `${item.hanViet}: ` : ''}${item.meaning}`
+                      : item.hanViet}
                   </span>
                 </div>
               ))}
@@ -205,7 +307,8 @@ export const KanjiStrokesView: React.FC = () => {
             <div className="relative w-full">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                ref={searchIme.inputRef}
+                ref={isActiveInputs ? searchIme.inputRef : undefined}
+                tabIndex={isActiveInputs ? undefined : -1}
                 type="text"
                 value={searchFilter}
                 onChange={searchIme.handleChange}
@@ -222,7 +325,11 @@ export const KanjiStrokesView: React.FC = () => {
                       ? 'bg-teal-700 text-white shadow-2xs'
                       : 'bg-slate-200 text-slate-500 hover:text-slate-700'
                   }`}
-                  title={searchImeMode ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)' : 'IME đang Tắt (tìm kiếm thường)'}
+                  title={
+                    searchImeMode
+                      ? 'IME đang Bật (gõ romaji rồi bấm Space chọn Kanji)'
+                      : 'IME đang Tắt (tìm kiếm thường)'
+                  }
                 >
                   IME
                 </button>
@@ -238,7 +345,7 @@ export const KanjiStrokesView: React.FC = () => {
                 )}
               </div>
 
-              {searchIme.imeState.isOpen && (
+              {isActiveInputs && searchIme.imeState.isOpen && (
                 <ImeCandidatePopover
                   candidates={searchIme.imeState.candidates}
                   selectedIndex={searchIme.imeState.selectedIndex}
@@ -255,7 +362,8 @@ export const KanjiStrokesView: React.FC = () => {
             <div className="flex items-center gap-1.5 w-full">
               <div className="relative flex-1">
                 <input
-                  ref={quickIme.inputRef}
+                  ref={isActiveInputs ? quickIme.inputRef : undefined}
+                  tabIndex={isActiveInputs ? undefined : -1}
                   type="text"
                   value={quickInput}
                   onChange={quickIme.handleChange}
@@ -294,7 +402,7 @@ export const KanjiStrokesView: React.FC = () => {
                   )}
                 </div>
 
-                {quickIme.imeState.isOpen && (
+                {isActiveInputs && quickIme.imeState.isOpen && (
                   <ImeCandidatePopover
                     candidates={quickIme.imeState.candidates}
                     selectedIndex={quickIme.imeState.selectedIndex}
@@ -324,7 +432,9 @@ export const KanjiStrokesView: React.FC = () => {
             <div className="text-xs text-slate-500 font-medium empty:hidden">
               {searchFilter && (
                 <span>
-                  Kết quả lọc: <strong className="text-teal-800 font-bold">{filteredKanjiList.length}</strong> / {extractedKanjiList.length} chữ
+                  Kết quả lọc:{' '}
+                  <strong className="text-teal-800 font-bold">{filteredKanjiList.length}</strong> /{' '}
+                  {extractedKanjiList.length} chữ
                 </span>
               )}
             </div>
@@ -339,7 +449,11 @@ export const KanjiStrokesView: React.FC = () => {
                     ? 'bg-amber-500 hover:bg-amber-600 border-amber-600 text-white shadow-md'
                     : 'bg-white hover:bg-teal-50 text-teal-800 border-teal-300'
                 }`}
-                title={isCompareSelectionMode ? 'Tắt chế độ chọn so sánh' : 'Bật chế độ chọn các chữ Kanji để so sánh'}
+                title={
+                  isCompareSelectionMode
+                    ? 'Tắt chế độ chọn so sánh'
+                    : 'Bật chế độ chọn các chữ Kanji để so sánh'
+                }
               >
                 <Columns3 className="w-3.5 h-3.5" />
                 <span>{isCompareSelectionMode ? 'Đang chọn so sánh' : 'So sánh'}</span>
@@ -373,7 +487,10 @@ export const KanjiStrokesView: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => setIsGoogleDocsExporterOpen(true)}
+                onClick={() => {
+                  if (isFloating) setIsFloatingPanelOpen(false);
+                  setIsGoogleDocsExporterOpen(true);
+                }}
                 className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl transition-all cursor-pointer select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
                 title="Xuất bảng 1 cột chứa ảnh nét vẽ để dán sang Google Docs"
               >
@@ -384,7 +501,10 @@ export const KanjiStrokesView: React.FC = () => {
               <button
                 type="button"
                 disabled={filteredKanjiList.length === 0}
-                onClick={() => setIsPrintModalOpen(true)}
+                onClick={() => {
+                  if (isFloating) setIsFloatingPanelOpen(false);
+                  setIsPrintModalOpen(true);
+                }}
                 className="h-8 sm:h-9 inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 bg-slate-50 hover:bg-slate-100 disabled:opacity-45 text-slate-700 border border-slate-200/90 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed select-none active:scale-95 whitespace-nowrap shrink-0 shadow-2xs"
                 title={`In phiếu tập viết cho ${filteredKanjiList.length} chữ đang hiển thị`}
               >
@@ -421,7 +541,77 @@ export const KanjiStrokesView: React.FC = () => {
             </div>
           </div>
         </div>
+      </>
+    );
+  };
+
+  return (
+    <section
+      id="kanji-stroke-section"
+      className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-xs p-4 sm:p-6 lg:p-7 space-y-5 animate-in fade-in duration-200"
+    >
+      {/* Inline Toolbar + Sentinel (scrolls naturally out of view so list gets 100% viewport height) */}
+      <div>
+        <div
+          aria-hidden={isFloatingPanelOpen}
+          className={`relative z-20 bg-white rounded-xl border border-slate-200/90 shadow-xs p-3 sm:p-4 space-y-2.5 transition-opacity duration-150 ${
+            isFloatingPanelOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          {renderToolbarContent(false)}
+        </div>
+        <div ref={toolbarSentinelRef} className="h-px w-full pointer-events-none" aria-hidden="true" />
       </div>
+
+      {/* Top-right Circular Trigger & Expandable Floating Filter Panel when scrolled down */}
+      {isToolbarOutOfView && !isFloatingPanelOpen && (
+        <button
+          type="button"
+          onClick={() => setIsFloatingPanelOpen(true)}
+          aria-expanded={false}
+          aria-label="Mở khung lọc và công cụ tra cứu"
+          title={
+            searchFilter.trim()
+              ? `Mở khung lọc (Đang lọc ${filteredKanjiList.length}/${extractedKanjiList.length} chữ)`
+              : isCompareSelectionMode
+              ? 'Mở khung lọc (Đang bật chế độ chọn so sánh)'
+              : 'Mở khung lọc & công cụ tra cứu'
+          }
+          className={`fixed top-[76px] sm:top-[82px] right-4 sm:right-6 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full shadow-lg hover:shadow-xl border flex items-center justify-center transition-all cursor-pointer active:scale-95 hover:scale-105 animate-in fade-in zoom-in-95 duration-150 ${
+            hasActiveFilterOrMode
+              ? 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800'
+              : 'bg-white/95 hover:bg-teal-50 text-teal-800 border-slate-200/90 backdrop-blur-md'
+          }`}
+        >
+          <SlidersHorizontal className="w-5 h-5" />
+          {hasActiveFilterOrMode && (
+            <span
+              className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black flex items-center justify-center border shadow-xs tabular-nums ${
+                isCompareSelectionMode && !searchFilter.trim()
+                  ? 'bg-amber-500 text-white border-white'
+                  : 'bg-white text-teal-800 border-teal-700'
+              }`}
+            >
+              {searchFilter.trim()
+                ? filteredKanjiList.length
+                : selectedCompareKanji.length > 0
+                ? selectedCompareKanji.length
+                : '•'}
+            </span>
+          )}
+        </button>
+      )}
+
+      {isToolbarOutOfView && isFloatingPanelOpen && (
+        <div
+          ref={floatingPanelRef}
+          role="region"
+          aria-label="Khung lọc và công cụ tra cứu nổi"
+          className="fixed top-[76px] sm:top-[82px] right-4 sm:right-6 left-4 sm:left-auto sm:w-[min(calc(100vw-3rem),880px)] z-30 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-2xl p-3 sm:p-4 space-y-2.5 origin-top-right animate-in fade-in zoom-in-95 duration-150"
+        >
+          {renderToolbarContent(true)}
+        </div>
+      )}
 
       {/* Container chứa đoạn văn bản nguồn (Có hỗ trợ thu gọn/mở rộng & sửa văn bản trực tiếp) */}
       <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-3 sm:p-4 space-y-2.5 transition-all">
