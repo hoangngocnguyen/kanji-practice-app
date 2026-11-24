@@ -21,7 +21,7 @@ import {
   submitArenaAnswer,
   updateArenaRoomSettings,
 } from '../services/arenaService';
-import { useArenaRoom } from '../hooks/useArenaRoom';
+import { useArenaRoom, PlayerAnswerDeltaPayload } from '../hooks/useArenaRoom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import {
   ArenaAdvanceMode,
@@ -88,6 +88,8 @@ export const ArenaPage: React.FC = () => {
     syncError,
     refreshRoom,
     broadcastSync,
+    applyPlayerAnswerDelta,
+    applyAdvanceDelta,
   } = useArenaRoom({
     roomCode: viewMode === 'room' ? activeRoomCode : null,
     playerId,
@@ -345,13 +347,23 @@ export const ArenaPage: React.FC = () => {
     try {
       const started = await startArenaRoom(activeRoomCode, playerId);
       setRoom(started);
-      broadcastSync('room:started');
+      broadcastSync('room:started', {
+        questionStartedAt: started.questionStartedAt,
+        serverNow: started.serverNow,
+      });
     } catch (err: any) {
       setErrorMessage(err?.message || 'Không thể bắt đầu trận đấu.');
     } finally {
       setIsBusy(false);
     }
   };
+
+  const handleOptimisticAnswer = useCallback(
+    (delta: PlayerAnswerDeltaPayload) => {
+      applyPlayerAnswerDelta(delta);
+    },
+    [applyPlayerAnswerDelta]
+  );
 
   const handleSubmitAnswer = async (questionIndex: number, optionId: string) => {
     if (!activeRoomCode) throw new Error('Không tìm thấy mã phòng.');
@@ -361,21 +373,50 @@ export const ArenaPage: React.FC = () => {
       questionIndex,
       optionId,
     });
-    broadcastSync('player:answered', { questionIndex });
-    await refreshRoom();
+
+    const currentPlayer = room?.players.find((p) => p.playerId === playerId);
+    const correctCount =
+      res.correctCount ?? (currentPlayer?.correctCount || 0) + (res.isCorrect ? 1 : 0);
+    const answeredCount = res.answeredCount ?? (currentPlayer?.answeredCount || 0) + 1;
+
+    applyPlayerAnswerDelta({
+      playerId,
+      questionIndex,
+      isCorrect: res.isCorrect,
+      score: res.newScore,
+      streak: res.streak,
+      correctCount,
+      answeredCount,
+      optionId,
+      pointsAwarded: res.pointsAwarded,
+    });
+
+    broadcastSync('player:answered', {
+      playerId,
+      questionIndex,
+      isCorrect: res.isCorrect,
+      score: res.newScore,
+      streak: res.streak,
+      correctCount,
+      answeredCount,
+    });
+
     return res;
   };
 
   const handleAdvanceQuestion = async (expectedIndex: number) => {
     if (!activeRoomCode) return;
-    const updated = await advanceArenaQuestion({
+    const delta = await advanceArenaQuestion({
       roomCode: activeRoomCode,
       playerId,
       expectedIndex,
     });
-    if (updated) {
-      setRoom(updated);
-      broadcastSync('question:advanced');
+    if (delta) {
+      applyAdvanceDelta(delta);
+      broadcastSync('question:advanced', { delta });
+      if (delta.status === 'finished') {
+        void refreshRoom();
+      }
     }
   };
 
@@ -449,6 +490,7 @@ export const ArenaPage: React.FC = () => {
         <ArenaMatchView
           room={room}
           currentPlayerId={playerId}
+          onOptimisticAnswer={handleOptimisticAnswer}
           onSubmitAnswer={handleSubmitAnswer}
           onAdvanceQuestion={handleAdvanceQuestion}
           onLeaveRoom={handleLeaveRoom}

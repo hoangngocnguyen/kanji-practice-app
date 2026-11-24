@@ -39,6 +39,7 @@ export interface ArenaPublicQuestion {
   sentenceKana?: string;
   sentenceVi?: string;
   options: ArenaQuestionOption[];
+  correctHash?: string;
   correctOptionId?: string;
   explanation?: string;
 }
@@ -108,5 +109,15 @@ export interface ArenaSubmitResult {
   pointsAwarded: number;
   newScore: number;
   streak: number;
+  correctCount?: number;
+  answeredCount?: number;
   allPlayersAnswered: boolean;
+}
+
+export interface ArenaAdvanceDelta {
+  roomCode: string;
+  status: ArenaRoomStatus;
+  currentQuestionIndex: number;
+  questionStartedAt: string | null;
+  serverNow: string;
 }

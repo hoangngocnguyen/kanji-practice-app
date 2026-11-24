@@ -1,6 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createHash } from 'node:crypto';
 import { optionalAuth, requireAuth, setCorsHeaders } from './_lib/auth.js';
+import { getSupabaseAdmin, isServerSupabaseConfigured } from './_lib/supabaseAdmin.js';
+
+function getAdminOnly(res: any): SupabaseClient | null {
+  if (!isServerSupabaseConfigured()) {
+    res.status(503).json({
+      error: 'Máy chủ chưa cấu hình SUPABASE_URL hoặc SUPABASE_SECRET_KEY.',
+      code: 'SUPABASE_NOT_CONFIGURED',
+    });
+    return null;
+  }
+  return getSupabaseAdmin();
+}
+
+function computeOptionHash(roomId: string, questionId: string, optionId: string): string {
+  return createHash('sha256')
+    .update(`${roomId}:${questionId}:${optionId}`)
+    .digest('hex');
+}
 
 interface StoredArenaOption {
   id: string;
@@ -115,10 +134,11 @@ function buildPublicRoomPayload(room: any, players: any[], viewerPlayerId?: stri
       sentenceKana: q.sentenceKana,
       sentenceVi: q.sentenceVi,
       options: q.options,
+      correctHash: computeOptionHash(room.id, q.id, q.correctOptionId),
+      explanation: q.explanation,
       ...(revealAnswer
         ? {
             correctOptionId: q.correctOptionId,
-            explanation: q.explanation,
           }
         : {}),
     };
@@ -230,10 +250,10 @@ export default async function handler(
         return res.status(400).json({ error: 'Mã phòng phải gồm đúng 6 ký tự.' });
       }
 
-      const ctx = await optionalAuth(req, res);
-      if (!ctx) return;
+      const supabaseAdmin = getAdminOnly(res);
+      if (!supabaseAdmin) return;
 
-      const loaded = await loadRoomAndPlayers(ctx.supabaseAdmin, code);
+      const loaded = await loadRoomAndPlayers(supabaseAdmin, code);
       if (!loaded) {
         return res.status(404).json({ error: 'Không tìm thấy phòng thi đấu này.' });
       }
@@ -644,12 +664,12 @@ export default async function handler(
     // POST: Host Start Match
     // ------------------------------------------------------------------------
     if (req.method === 'POST' && action === 'start_room') {
-      const ctx = await optionalAuth(req, res);
-      if (!ctx) return;
+      const supabaseAdmin = getAdminOnly(res);
+      if (!supabaseAdmin) return;
 
       const roomCode = normalizeRoomCode(req.body?.roomCode);
       const playerId = String(req.body?.playerId || '').trim();
-      const loaded = await loadRoomAndPlayers(ctx.supabaseAdmin, roomCode);
+      const loaded = await loadRoomAndPlayers(supabaseAdmin, roomCode);
       if (!loaded) return res.status(404).json({ error: 'Không tìm thấy phòng.' });
 
       const { room, players } = loaded;
@@ -662,31 +682,31 @@ export default async function handler(
           .json({ error: 'Chế độ 1v1 cần đủ 2 người chơi trong sảnh chờ mới bắt đầu được.' });
       }
 
-      // Reset scores & start question 0 with a 3-second countdown offset (+3s into future)
-      await ctx.supabaseAdmin
-        .from('arena_room_players')
-        .update({
-          score: 0,
-          streak: 0,
-          max_streak: 0,
-          correct_count: 0,
-          answered_count: 0,
-          total_response_ms: 0,
-          answers_by_index: {},
-        })
-        .eq('room_id', room.id);
+      const startAt = new Date(Date.now() + 2000).toISOString();
+      await Promise.all([
+        supabaseAdmin
+          .from('arena_room_players')
+          .update({
+            score: 0,
+            streak: 0,
+            max_streak: 0,
+            correct_count: 0,
+            answered_count: 0,
+            total_response_ms: 0,
+            answers_by_index: {},
+          })
+          .eq('room_id', room.id),
+        supabaseAdmin
+          .from('arena_rooms')
+          .update({
+            status: 'playing',
+            current_question_index: 0,
+            question_started_at: startAt,
+          })
+          .eq('id', room.id),
+      ]);
 
-      const startAt = new Date(Date.now() + 2500).toISOString();
-      await ctx.supabaseAdmin
-        .from('arena_rooms')
-        .update({
-          status: 'playing',
-          current_question_index: 0,
-          question_started_at: startAt,
-        })
-        .eq('id', room.id);
-
-      const refreshed = await loadRoomAndPlayers(ctx.supabaseAdmin, roomCode);
+      const refreshed = await loadRoomAndPlayers(supabaseAdmin, roomCode);
       return res.status(200).json({
         room: refreshed
           ? buildPublicRoomPayload(refreshed.room, refreshed.players, playerId)
@@ -698,15 +718,15 @@ export default async function handler(
     // POST: Authoritative Answer Submission (Idempotent per question index)
     // ------------------------------------------------------------------------
     if (req.method === 'POST' && action === 'submit_answer') {
-      const ctx = await optionalAuth(req, res);
-      if (!ctx) return;
+      const supabaseAdmin = getAdminOnly(res);
+      if (!supabaseAdmin) return;
 
       const roomCode = normalizeRoomCode(req.body?.roomCode);
       const playerId = String(req.body?.playerId || '').trim();
       const questionIndex = Math.floor(Number(req.body?.questionIndex));
       const optionId = String(req.body?.optionId || '').trim();
 
-      const loaded = await loadRoomAndPlayers(ctx.supabaseAdmin, roomCode);
+      const loaded = await loadRoomAndPlayers(supabaseAdmin, roomCode);
       if (!loaded) return res.status(404).json({ error: 'Không tìm thấy phòng.' });
 
       const { room, players } = loaded;
@@ -746,6 +766,8 @@ export default async function handler(
           pointsAwarded: Number(prevEntry.pointsAwarded || 0),
           newScore: Number(player.score || 0),
           streak: Number(player.streak || 0),
+          correctCount: Number(player.correct_count || 0),
+          answeredCount: Number(player.answered_count || 0),
           allPlayersAnswered: answeredAll,
         });
       }
@@ -783,7 +805,7 @@ export default async function handler(
         elapsedMs: clampedElapsedMs,
       };
 
-      const { error: updateErr } = await ctx.supabaseAdmin
+      const { error: updateErr } = await supabaseAdmin
         .from('arena_room_players')
         .update({
           score: newScore,
@@ -813,36 +835,39 @@ export default async function handler(
         pointsAwarded,
         newScore,
         streak: nextStreak,
+        correctCount: nextCorrectCount,
+        answeredCount: nextAnsweredCount,
         allPlayersAnswered,
       });
     }
 
     // ------------------------------------------------------------------------
-    // POST: Atomic Question Advance / Match Finish
+    // POST: Atomic Question Advance / Match Finish (Fast Delta Response)
     // ------------------------------------------------------------------------
     if (req.method === 'POST' && action === 'advance_question') {
-      const ctx = await optionalAuth(req, res);
-      if (!ctx) return;
+      const supabaseAdmin = getAdminOnly(res);
+      if (!supabaseAdmin) return;
 
       const roomCode = normalizeRoomCode(req.body?.roomCode);
       const playerId = String(req.body?.playerId || '').trim();
       const expectedIndex = Math.floor(Number(req.body?.expectedIndex));
 
-      const loaded = await loadRoomAndPlayers(ctx.supabaseAdmin, roomCode);
+      const loaded = await loadRoomAndPlayers(supabaseAdmin, roomCode);
       if (!loaded) return res.status(404).json({ error: 'Không tìm thấy phòng.' });
 
       const { room, players } = loaded;
-      if (room.status !== 'playing') {
-        return res
-          .status(200)
-          .json({ room: buildPublicRoomPayload(room, players, playerId) });
-      }
+      const serverNow = new Date().toISOString();
 
-      if (room.current_question_index !== expectedIndex) {
-        // Another participant already advanced cleanly — return latest state
-        return res
-          .status(200)
-          .json({ room: buildPublicRoomPayload(room, players, playerId) });
+      if (room.status !== 'playing' || room.current_question_index !== expectedIndex) {
+        return res.status(200).json({
+          delta: {
+            roomCode,
+            status: room.status,
+            currentQuestionIndex: room.current_question_index,
+            questionStartedAt: room.question_started_at,
+            serverNow,
+          },
+        });
       }
 
       const isHost = room.host_player_id === playerId;
@@ -869,29 +894,43 @@ export default async function handler(
       const nextIndex = expectedIndex + 1;
 
       if (nextIndex >= questions.length) {
-        await ctx.supabaseAdmin
+        await supabaseAdmin
           .from('arena_rooms')
           .update({ status: 'finished' })
           .eq('id', room.id)
           .eq('current_question_index', expectedIndex)
           .eq('status', 'playing');
-      } else {
-        await ctx.supabaseAdmin
-          .from('arena_rooms')
-          .update({
-            current_question_index: nextIndex,
-            question_started_at: new Date().toISOString(),
-          })
-          .eq('id', room.id)
-          .eq('current_question_index', expectedIndex)
-          .eq('status', 'playing');
+
+        return res.status(200).json({
+          delta: {
+            roomCode,
+            status: 'finished',
+            currentQuestionIndex: expectedIndex,
+            questionStartedAt: room.question_started_at,
+            serverNow,
+          },
+        });
       }
 
-      const refreshed = await loadRoomAndPlayers(ctx.supabaseAdmin, roomCode);
+      const nextStartedAt = new Date().toISOString();
+      await supabaseAdmin
+        .from('arena_rooms')
+        .update({
+          current_question_index: nextIndex,
+          question_started_at: nextStartedAt,
+        })
+        .eq('id', room.id)
+        .eq('current_question_index', expectedIndex)
+        .eq('status', 'playing');
+
       return res.status(200).json({
-        room: refreshed
-          ? buildPublicRoomPayload(refreshed.room, refreshed.players, playerId)
-          : null,
+        delta: {
+          roomCode,
+          status: 'playing',
+          currentQuestionIndex: nextIndex,
+          questionStartedAt: nextStartedAt,
+          serverNow: nextStartedAt,
+        },
       });
     }
 

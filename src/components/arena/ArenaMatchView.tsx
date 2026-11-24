@@ -10,11 +10,14 @@ import {
   LogOut,
 } from 'lucide-react';
 import { speakJapanese } from '../../utils/speech';
+import { resolveCorrectOptionsFromHashes } from '../../services/arenaService';
+import { PlayerAnswerDeltaPayload } from '../../hooks/useArenaRoom';
 import { ArenaRoomState, ArenaSubmitResult } from '../../types/arena';
 
 interface ArenaMatchViewProps {
   room: ArenaRoomState;
   currentPlayerId: string;
+  onOptimisticAnswer?: (delta: PlayerAnswerDeltaPayload) => void;
   onSubmitAnswer: (questionIndex: number, optionId: string) => Promise<ArenaSubmitResult>;
   onAdvanceQuestion: (expectedIndex: number) => Promise<void>;
   onLeaveRoom: () => Promise<void>;
@@ -23,6 +26,7 @@ interface ArenaMatchViewProps {
 export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
   room,
   currentPlayerId,
+  onOptimisticAnswer,
   onSubmitAnswer,
   onAdvanceQuestion,
   onLeaveRoom,
@@ -40,6 +44,8 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
 
   const [nowMs, setNowMs] = useState<number>(() => Date.now() + clockOffsetMs);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isAdvancing, setIsAdvancing] = useState<boolean>(false);
+  const [correctOptionMap, setCorrectOptionMap] = useState<Record<string, string>>({});
   const [localResult, setLocalResult] = useState<{
     qIdx: number;
     selectedOptionId: string;
@@ -47,6 +53,19 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
   } | null>(null);
   const timeoutSubmittedForIdxRef = useRef<number | null>(null);
   const autoAdvanceTriggeredForIdxRef = useRef<number | null>(null);
+
+  // Pre-resolve SHA-256 correct-option verifiers in RAM for 0ms instant click feedback
+  useEffect(() => {
+    let cancelled = false;
+    void resolveCorrectOptionsFromHashes(room.id, room.questions).then((resolved) => {
+      if (!cancelled) {
+        setCorrectOptionMap(resolved);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [room.id, room.questions]);
 
   // Tick timer smoothly every 100ms
   useEffect(() => {
@@ -59,6 +78,7 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
   // Reset per-question local refs when moving to next question
   useEffect(() => {
     setIsSubmitting(false);
+    setIsAdvancing(false);
     if (localResult && localResult.qIdx !== qIndex) {
       setLocalResult(null);
     }
@@ -106,14 +126,96 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
 
   const handleSelectOption = async (optionId: string) => {
     if (!question || isPreStartCountdown || hasAnsweredCurrent || isSubmitting) return;
+
+    const targetQIdx = qIndex;
+    const resolvedCorrectId =
+      question.correctOptionId || correctOptionMap[question.id] || '';
+    const currentMe = room.players.find((p) => p.playerId === currentPlayerId);
+
+    if (resolvedCorrectId) {
+      const isCorrect = optionId !== '__TIMEOUT__' && optionId === resolvedCorrectId;
+      const prevStreak = currentMe?.streak || 0;
+      const nextStreak = isCorrect ? prevStreak + 1 : 0;
+
+      let pointsAwarded = 0;
+      if (isCorrect) {
+        const remainingRatio = Math.max(0, Math.min(1, remainingMs / durationMs));
+        const speedBonus = Math.round(50 * remainingRatio);
+        const comboBonus = 10 * Math.min(prevStreak, 5);
+        pointsAwarded = 100 + speedBonus + comboBonus;
+      }
+
+      const optimisticScore = (currentMe?.score || 0) + pointsAwarded;
+      const optimisticCorrectCount = (currentMe?.correctCount || 0) + (isCorrect ? 1 : 0);
+      const optimisticAnsweredCount = (currentMe?.answeredCount || 0) + 1;
+      const optimisticAllAnswered = room.players.every(
+        (p) => p.playerId === currentPlayerId || p.answeredCurrent
+      );
+
+      // Instant 0ms local UI feedback + scoreboard delta
+      setLocalResult({
+        qIdx: targetQIdx,
+        selectedOptionId: optionId,
+        res: {
+          isCorrect,
+          correctOptionId: resolvedCorrectId,
+          explanation: question.explanation || '',
+          pointsAwarded,
+          newScore: optimisticScore,
+          streak: nextStreak,
+          correctCount: optimisticCorrectCount,
+          answeredCount: optimisticAnsweredCount,
+          allPlayersAnswered: optimisticAllAnswered,
+        },
+      });
+
+      onOptimisticAnswer?.({
+        playerId: currentPlayerId,
+        questionIndex: targetQIdx,
+        isCorrect,
+        score: optimisticScore,
+        streak: nextStreak,
+        correctCount: optimisticCorrectCount,
+        answeredCount: optimisticAnsweredCount,
+        optionId,
+        pointsAwarded,
+      });
+
+      // Persist to server + broadcast delta asynchronously, then reconcile score cleanly
+      setIsSubmitting(true);
+      try {
+        const serverRes = await onSubmitAnswer(targetQIdx, optionId);
+        setLocalResult((prev) => {
+          if (!prev || prev.qIdx !== targetQIdx) return prev;
+          return {
+            ...prev,
+            res: {
+              ...serverRes,
+              explanation:
+                serverRes.explanation || question.explanation || prev.res.explanation,
+            },
+          };
+        });
+      } catch {
+        // Optimistic result remains rendered; periodic fallback poll syncs if needed
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Fallback path if hash hasn't finished resolving
     setIsSubmitting(true);
     try {
-      const res = await onSubmitAnswer(qIndex, optionId);
-      setLocalResult({ qIdx: qIndex, selectedOptionId: optionId, res });
+      const res = await onSubmitAnswer(targetQIdx, optionId);
+      setLocalResult({ qIdx: targetQIdx, selectedOptionId: optionId, res });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleSelectOptionRef = useRef(handleSelectOption);
+  handleSelectOptionRef.current = handleSelectOption;
 
   // Auto-submit timeout if player didn't answer when timer reaches 0
   useEffect(() => {
@@ -122,22 +224,13 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
     if (timeoutSubmittedForIdxRef.current === qIndex) return;
     timeoutSubmittedForIdxRef.current = qIndex;
 
-    void onSubmitAnswer(qIndex, '__TIMEOUT__').then((res) => {
-      setLocalResult({ qIdx: qIndex, selectedOptionId: '__TIMEOUT__', res });
-    }).catch(() => {});
-  }, [
-    isPreStartCountdown,
-    hasAnsweredCurrent,
-    isSubmitting,
-    remainingMs,
-    qIndex,
-    onSubmitAnswer,
-  ]);
+    void handleSelectOptionRef.current('__TIMEOUT__');
+  }, [isPreStartCountdown, hasAnsweredCurrent, isSubmitting, remainingMs, qIndex]);
 
-  // Auto-advance cleanly after brief reveal in 'auto' mode
+  // Auto-advance cleanly after snappy reveal in 'auto' mode once local submit finishes
   useEffect(() => {
     if (room.advanceMode !== 'auto') return;
-    if (!isRoundOver) return;
+    if (!isRoundOver || isSubmitting) return;
     if (autoAdvanceTriggeredForIdxRef.current === qIndex) return;
 
     const timer = window.setTimeout(() => {
@@ -145,10 +238,10 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
       void onAdvanceQuestion(qIndex).catch(() => {
         autoAdvanceTriggeredForIdxRef.current = null;
       });
-    }, 1800);
+    }, 850);
 
     return () => window.clearTimeout(timer);
-  }, [room.advanceMode, isRoundOver, qIndex, onAdvanceQuestion]);
+  }, [room.advanceMode, isRoundOver, isSubmitting, qIndex, onAdvanceQuestion]);
 
   // Keyboard shortcuts 1-4
   useEffect(() => {
@@ -447,8 +540,15 @@ export const ArenaMatchView: React.FC<ArenaMatchViewProps> = ({
                   {isHost && (room.advanceMode === 'host' || isRoundOver) ? (
                     <button
                       type="button"
-                      onClick={() => void onAdvanceQuestion(qIndex)}
-                      className="h-10 px-4 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
+                      disabled={isAdvancing}
+                      onClick={() => {
+                        if (isAdvancing) return;
+                        setIsAdvancing(true);
+                        void onAdvanceQuestion(qIndex).finally(() => {
+                          setIsAdvancing(false);
+                        });
+                      }}
+                      className="h-10 px-4 bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-white text-xs font-bold rounded-xl inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
                     >
                       <span>
                         {qIndex + 1 >= room.questions.length ? 'Xem tổng kết' : 'Câu tiếp theo'}

@@ -1,6 +1,8 @@
 import { getSupabaseAccessToken } from '../utils/supabaseClient';
 import {
+  ArenaAdvanceDelta,
   ArenaAdvanceMode,
+  ArenaPublicQuestion,
   ArenaQuestionDraft,
   ArenaQuiz,
   ArenaRoomMode,
@@ -168,9 +170,60 @@ export async function advanceArenaQuestion(params: {
   roomCode: string;
   playerId: string;
   expectedIndex: number;
-}): Promise<ArenaRoomState | null> {
-  const res = await arenaFetch<{ room: ArenaRoomState | null }>('POST', 'advance_question', params);
-  return res.room;
+}): Promise<ArenaAdvanceDelta | null> {
+  const res = await arenaFetch<{ delta?: ArenaAdvanceDelta | null }>(
+    'POST',
+    'advance_question',
+    params
+  );
+  return res.delta ?? null;
+}
+
+export async function resolveCorrectOptionsFromHashes(
+  roomId: string,
+  questions: ArenaPublicQuestion[]
+): Promise<Record<string, string>> {
+  const resolved: Record<string, string> = {};
+  if (
+    typeof crypto === 'undefined' ||
+    !crypto.subtle ||
+    typeof TextEncoder === 'undefined'
+  ) {
+    for (const q of questions) {
+      if (q.correctOptionId) resolved[q.id] = q.correctOptionId;
+    }
+    return resolved;
+  }
+
+  const encoder = new TextEncoder();
+
+  await Promise.all(
+    questions.map(async (q) => {
+      if (q.correctOptionId) {
+        resolved[q.id] = q.correctOptionId;
+        return;
+      }
+      if (!q.correctHash) return;
+
+      for (const opt of q.options) {
+        const buf = await crypto.subtle.digest(
+          'SHA-256',
+          encoder.encode(`${roomId}:${q.id}:${opt.id}`)
+        );
+        const bytes = new Uint8Array(buf);
+        let hex = '';
+        for (let i = 0; i < bytes.length; i++) {
+          hex += bytes[i].toString(16).padStart(2, '0');
+        }
+        if (hex === q.correctHash) {
+          resolved[q.id] = opt.id;
+          return;
+        }
+      }
+    })
+  );
+
+  return resolved;
 }
 
 export async function rematchArenaRoom(params: {
