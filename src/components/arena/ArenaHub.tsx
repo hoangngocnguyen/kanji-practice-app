@@ -11,6 +11,7 @@ import {
   BookOpen,
   ArrowRight,
   LogIn,
+  X,
 } from 'lucide-react';
 import { KanjiLevelTab, LEVEL_METADATA } from '../../services/kanjiLevelService';
 import { useDecks } from '../../context/DeckContext';
@@ -81,12 +82,36 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
   >('mixed');
   const [advanceMode, setAdvanceMode] = useState<ArenaAdvanceMode>('auto');
   const [groupQuizModalMode, setGroupQuizModalMode] = useState<Record<string, ArenaRoomMode>>({});
+  const [quizPendingDelete, setQuizPendingDelete] = useState<ArenaQuiz | null>(null);
+  const [isDeletingQuiz, setIsDeletingQuiz] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialRoomCode) {
       setJoinCode(initialRoomCode);
     }
   }, [initialRoomCode]);
+
+  useEffect(() => {
+    if (!quizPendingDelete) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isDeletingQuiz) {
+        setQuizPendingDelete(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [quizPendingDelete, isDeletingQuiz]);
+
+  const handleConfirmDeleteQuiz = async () => {
+    if (!quizPendingDelete || isDeletingQuiz) return;
+    setIsDeletingQuiz(true);
+    try {
+      await onDeleteQuiz(quizPendingDelete.id);
+      setQuizPendingDelete(null);
+    } finally {
+      setIsDeletingQuiz(false);
+    }
+  };
 
   useEffect(() => {
     if (defaultDisplayName && !displayName) {
@@ -544,7 +569,7 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => void onDeleteQuiz(quiz.id)}
+                          onClick={() => setQuizPendingDelete(quiz)}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
                           title="Xóa bộ đề"
                         >
@@ -630,6 +655,68 @@ export const ArenaHub: React.FC<ArenaHubProps> = ({
           </div>
         )}
       </section>
+
+      {quizPendingDelete && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-arena-quiz-title"
+          onClick={() => {
+            if (!isDeletingQuiz) setQuizPendingDelete(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-sm w-full p-5 border border-slate-200 shadow-xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3
+                id="delete-arena-quiz-title"
+                className="text-sm font-bold text-rose-700 flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span>Xác nhận xóa bộ đề</span>
+              </h3>
+              <button
+                type="button"
+                disabled={isDeletingQuiz}
+                onClick={() => setQuizPendingDelete(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-40 rounded-lg cursor-pointer"
+                aria-label="Đóng hộp thoại"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Bạn có chắc chắn muốn xóa bộ đề{' '}
+              <strong className="text-slate-900">"{quizPendingDelete.title}"</strong> (
+              <span className="tabular-nums">{quizPendingDelete.questions.length}</span> câu hỏi)?
+              Hành động này sẽ xóa vĩnh viễn bộ đề và không thể hoàn tác.
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isDeletingQuiz}
+                onClick={() => setQuizPendingDelete(null)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 rounded-xl cursor-pointer whitespace-nowrap"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingQuiz}
+                onClick={() => void handleConfirmDeleteQuiz()}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 rounded-xl cursor-pointer whitespace-nowrap"
+              >
+                {isDeletingQuiz ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
