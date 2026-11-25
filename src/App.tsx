@@ -11,6 +11,7 @@ import { AuthProvider } from './context/AuthContext';
 import { DeckProvider } from './context/DeckContext';
 import { LoadingProvider } from './context/LoadingContext';
 import { TopProgressBar } from './components/TopProgressBar';
+import { RouteMetaManager } from './components/RouteMetaManager';
 import { Header } from './components/Header';
 import { AppSidebar } from './components/AppSidebar';
 import { InputSection } from './components/InputSection';
@@ -116,6 +117,7 @@ function AppLayout() {
 
   return (
     <div className="min-h-screen flex w-full bg-slate-50/70 text-slate-800 antialiased selection:bg-teal-700 selection:text-white relative">
+      <RouteMetaManager />
       <TopProgressBar />
       {/* Sidebar with NavLinks */}
       <AppSidebar

@@ -1,13 +1,18 @@
 # robots.txt cho Luyện Kanji Pro (https://luyenkanji.vercel.app)
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /profile
 
 User-agent: Googlebot
 Allow: /
+Disallow: /api/
+Disallow: /profile
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /api/
+Disallow: /profile
 
 # XML Sitemap Official Location
 Sitemap: https://luyenkanji.vercel.app/sitemap.xml
-

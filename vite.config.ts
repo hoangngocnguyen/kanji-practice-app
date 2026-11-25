@@ -25,7 +25,7 @@ export default defineConfig(() => {
           name: 'Luyện Kanji Pro - Tra Cứu & Luyện Nét Vẽ Chữ Hán',
           short_name: 'Luyện Kanji',
           description:
-            'Học Kanji JLPT N5–N1, 2.136 Jōyō Kanji, tra cứu vẽ tay, Flashcard SRS và luyện viết nét SVG ngoại tuyến.',
+            'Học 2.136 Jōyō Kanji từ N5 đến N1, luyện viết nét chuẩn thứ tự, tra cứu vẽ tay, ôn Flashcard SRS và đấu trường Kanji ngoại tuyến.',
           start_url: '/',
           scope: '/',
           lang: 'vi',

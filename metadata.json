@@ -1,6 +1,6 @@
 {
   "name": "Luyện Kanji Pro",
-  "description": "Luyện Kanji Pro - Học Kanji JLPT N5–N1 & 2.136 Jōyō Kanji, 0ms ví dụ tĩnh, Quiz 4 dạng, Flashcard SRS & Cộng đồng chia sẻ bộ thẻ tiếng Nhật.",
+  "description": "Học 2.136 Jōyō Kanji từ N5 đến N1, luyện nét viết chuẩn thứ tự, ôn Flashcard SRS, đấu trường Kanji trực tuyến và tra cứu chữ Hán miễn phí ngay.",
   "requestFramePermissions": ["clipboard-write", "clipboard-read"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
