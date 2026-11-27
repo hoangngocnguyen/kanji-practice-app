@@ -9,7 +9,6 @@ import {
   Search,
   Languages,
   ArrowRight,
-  Sparkles,
   Plus,
   Trash2,
   X,
@@ -220,7 +219,6 @@ export const HomeView: React.FC = () => {
 
         <div className="relative z-10 max-w-3xl space-y-5">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-100 border border-teal-300 text-teal-800 text-xs font-bold">
-            <Sparkles className="w-3.5 h-3.5 text-teal-700" />
             <span>Nền tảng học tiếng Nhật &amp; Luyện viết Kanji toàn diện</span>
           </div>
 
