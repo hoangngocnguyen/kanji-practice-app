@@ -30,7 +30,7 @@ import {
 import { useDecks } from '../context/DeckContext';
 import { useKanji } from '../context/KanjiContext';
 import { KanjiItem } from '../types/kanji';
-import { CompoundWordCard, FolderKanjiItem, ReviewFilterMode } from '../types/deck';
+import { CompoundWordCard, FolderKanjiItem, ReviewFilterMode, StudyFolder } from '../types/deck';
 import { speakJapanese } from '../utils/speech';
 import { formatIntervalLabel } from '../utils/srsAlgorithm';
 import {
@@ -38,6 +38,7 @@ import {
   cleanReadingsList,
   hasMissingKanjiData,
 } from '../utils/kanjiApi';
+import { buildFolderTreeIndex, doesKanjiItemMatchQuery } from '../utils/folderTree';
 import { BatchImportLessonModal } from './BatchImportLessonModal';
 import { BatchImportCompoundModal } from './BatchImportCompoundModal';
 import { KanjiItemDetailModal } from './KanjiItemDetailModal';
@@ -45,11 +46,22 @@ import { MoveKanjiItemsModal } from './MoveKanjiItemsModal';
 import { KanjiPrintModal } from './KanjiPrintModal';
 import { DrillCompoundSeed, InteractiveDrillsModal } from './InteractiveDrillsModal';
 
+export interface ReadOnlyFolderBundle {
+  folders: StudyFolder[];
+  items: FolderKanjiItem[];
+  rootFolderId?: string;
+  selectedFolderId: string;
+  searchQuery?: string;
+  onClearSearch?: () => void;
+  onStartPractice?: (folderId: string, includeSubfolders: boolean) => void;
+}
+
 interface FolderKanjiTableProps {
   onStartReview: (mode: ReviewFilterMode, onlyDue: boolean) => void;
-  onExportFolder: (folderId: string) => void;
-  onOpenShareModal: (folderId: string) => void;
+  onExportFolder?: (folderId: string) => void;
+  onOpenShareModal?: (folderId: string) => void;
   onSelectFolder?: (folderId: string) => void;
+  readOnlyBundle?: ReadOnlyFolderBundle;
 }
 
 type TableViewMode = 'kanji' | 'cards';
@@ -72,11 +84,12 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   onExportFolder,
   onOpenShareModal,
   onSelectFolder,
+  readOnlyBundle,
 }) => {
   const navigate = useNavigate();
   const {
-    folders,
-    selectedFolderId,
+    folders: contextFolders,
+    selectedFolderId: contextSelectedFolderId,
     setSelectedFolderId,
     getFolderPath,
     getItemsForFolderRecursive,
@@ -93,7 +106,14 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
   const { openKanjiPracticeModal, setInputText } = useKanji();
 
+  const isReadOnly = Boolean(readOnlyBundle);
+  const activeFolders = readOnlyBundle ? readOnlyBundle.folders : contextFolders;
+  const activeSelectedFolderId = readOnlyBundle
+    ? readOnlyBundle.selectedFolderId
+    : contextSelectedFolderId;
+
   const [viewMode, setViewMode] = useState<TableViewMode>('kanji');
+  const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [kanjiInput, setKanjiInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [isBatchImportOpen, setIsBatchImportOpen] = useState(false);
@@ -120,10 +140,61 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
   const masterCheckboxRef = useRef<HTMLInputElement | null>(null);
   const flatMasterCheckboxRef = useRef<HTMLInputElement | null>(null);
 
-  const selectedFolder = folders.find((f) => f.id === selectedFolderId) || null;
+  const folderIndex = useMemo(() => {
+    if (!readOnlyBundle) return null;
+    return buildFolderTreeIndex(
+      readOnlyBundle.folders,
+      readOnlyBundle.items,
+      readOnlyBundle.rootFolderId
+    );
+  }, [readOnlyBundle]);
+
+  const selectedFolder =
+    activeFolders.find((f) => f.id === activeSelectedFolderId) || null;
+
+  const directFolderItems = useMemo(() => {
+    if (!selectedFolder || !folderIndex) return [];
+    return folderIndex.getItemsDirect(selectedFolder.id);
+  }, [selectedFolder, folderIndex]);
+
+  const recursiveFolderItems = useMemo(() => {
+    if (!selectedFolder) return [];
+    if (folderIndex) {
+      return folderIndex.getItemsRecursive(selectedFolder.id);
+    }
+    return getItemsForFolderRecursive(selectedFolder.id);
+  }, [selectedFolder, folderIndex, getItemsForFolderRecursive]);
+
+  const rawFolderItems = useMemo(() => {
+    if (!selectedFolder) return [];
+    if (isReadOnly && !includeSubfolders) {
+      return directFolderItems;
+    }
+    return recursiveFolderItems;
+  }, [selectedFolder, isReadOnly, includeSubfolders, directFolderItems, recursiveFolderItems]);
+
+  const activeSearchFilter = readOnlyBundle?.searchQuery?.trim() || '';
+  const selectedFolderMatchesName = Boolean(
+    activeSearchFilter &&
+      selectedFolder &&
+      (selectedFolder.name.toLowerCase().includes(activeSearchFilter.toLowerCase()) ||
+        (selectedFolder.description || '')
+          .toLowerCase()
+          .includes(activeSearchFilter.toLowerCase()))
+  );
+  const matchingRawItems = useMemo(() => {
+    if (!activeSearchFilter) return rawFolderItems;
+    return rawFolderItems.filter((it) => doesKanjiItemMatchQuery(it, activeSearchFilter));
+  }, [rawFolderItems, activeSearchFilter]);
+
+  const isFilteringByFolderNameOnly =
+    Boolean(activeSearchFilter) &&
+    selectedFolderMatchesName &&
+    matchingRawItems.length === 0;
+
   const folderItems = useMemo(
-    () => (selectedFolder ? getItemsForFolderRecursive(selectedFolder.id) : []),
-    [selectedFolder, getItemsForFolderRecursive]
+    () => (isFilteringByFolderNameOnly ? rawFolderItems : matchingRawItems),
+    [isFilteringByFolderNameOnly, rawFolderItems, matchingRawItems]
   );
 
   const deckKanjiChars = useMemo(
@@ -185,14 +256,14 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     return rows;
   }, [folderItems]);
 
-  // Auto-trigger enrichment for cards with missing/placeholder On/Kun/Meanings
+  // Auto-trigger enrichment for cards with missing/placeholder On/Kun/Meanings (personal decks only)
   useEffect(() => {
-    if (!selectedFolder || folderItems.length === 0) return;
+    if (isReadOnly || !selectedFolder || folderItems.length === 0) return;
     const missing = folderItems.filter((it) => hasMissingKanjiData(it));
     if (missing.length > 0) {
       void enrichKanjiItems(missing, false);
     }
-  }, [selectedFolder, folderItems, enrichKanjiItems]);
+  }, [isReadOnly, selectedFolder, folderItems, enrichKanjiItems]);
 
   // Reset selection when switching folders or view mode
   useEffect(() => {
@@ -201,7 +272,8 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     setIsBulkDeleteModalOpen(false);
     setMoveModalItemIds(null);
     setIsHeaderMenuOpen(false);
-  }, [selectedFolderId]);
+    setIncludeSubfolders(true);
+  }, [activeSelectedFolderId]);
 
   useEffect(() => {
     setIsBulkDeleteModalOpen(false);
@@ -288,12 +360,18 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     );
   }
 
-  const breadcrumbs = getFolderPath(selectedFolder.id);
-  const folderNameMap = new Map(folders.map((f) => [f.id, f.name]));
-  const hasSubfolders = folders.some((f) => f.parentId === selectedFolder.id);
+  const breadcrumbs = folderIndex
+    ? folderIndex.getFolderPath(selectedFolder.id)
+    : getFolderPath(selectedFolder.id);
+  const folderNameMap = new Map(activeFolders.map((f) => [f.id, f.name]));
+  const hasSubfolders = activeFolders.some((f) => f.parentId === selectedFolder.id);
 
-  const missingDataItems = folderItems.filter((it) => hasMissingKanjiData(it));
-  const enrichingCount = folderItems.filter((it) => Boolean(enrichingItemIds[it.id])).length;
+  const missingDataItems = isReadOnly
+    ? []
+    : folderItems.filter((it) => hasMissingKanjiData(it));
+  const enrichingCount = isReadOnly
+    ? 0
+    : folderItems.filter((it) => Boolean(enrichingItemIds[it.id])).length;
 
   const selectedItemsList = folderItems.filter((it) => selectedIdSet.has(it.id));
   const selectedCompoundCount = selectedItemsList.reduce(
@@ -406,12 +484,22 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
     navigate('/kanji');
   };
 
-  const dueCards = getReviewCardsForFolder(selectedFolder.id, 'all', true);
+  const dueCards = isReadOnly
+    ? []
+    : getReviewCardsForFolder(selectedFolder.id, 'all', true);
   const totalCompoundWords = folderItems.reduce(
     (sum, it) => sum + (it.compoundWords?.length || 0),
     0
   );
   const totalCards = folderItems.length + totalCompoundWords;
+
+  const triggerPrimaryReview = () => {
+    if (isReadOnly && readOnlyBundle?.onStartPractice) {
+      readOnlyBundle.onStartPractice(selectedFolder.id, includeSubfolders);
+      return;
+    }
+    onStartReview('all', dueCards.length > 0);
+  };
 
   const handleAddKanjiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -508,10 +596,16 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   <strong className="text-slate-800">{totalCompoundWords}</strong> từ ghép
                 </span>
                 <span aria-hidden="true">·</span>
-                <span>
-                  <strong className="text-teal-700">{dueCards.length}</strong> / {totalCards} thẻ đến hạn ôn
-                </span>
-                {hasSubfolders && (
+                {isReadOnly ? (
+                  <span>
+                    <strong className="text-teal-700">{totalCards}</strong> thẻ Flashcard
+                  </span>
+                ) : (
+                  <span>
+                    <strong className="text-teal-700">{dueCards.length}</strong> / {totalCards} thẻ đến hạn ôn
+                  </span>
+                )}
+                {hasSubfolders && (!isReadOnly || includeSubfolders) && (
                   <>
                     <span aria-hidden="true">·</span>
                     <span className="text-teal-700 font-medium">Bao gồm các thư mục con</span>
@@ -534,12 +628,14 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               <button
                 type="button"
                 disabled={totalCards === 0}
-                onClick={() => onStartReview('all', dueCards.length > 0)}
+                onClick={triggerPrimaryReview}
                 className="px-4 py-2 text-xs sm:text-[13px] font-bold text-white bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap shadow-2xs"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>
-                  {dueCards.length > 0
+                  {isReadOnly
+                    ? `Ôn nhánh này (${totalCards})`
+                    : dueCards.length > 0
                     ? `Ôn tập ngay (${dueCards.length})`
                     : totalCards > 0
                     ? `Ôn lại tất cả (${totalCards})`
@@ -553,17 +649,21 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               <button
                 type="button"
                 disabled={totalCards === 0}
-                onClick={() => onStartReview('all', dueCards.length > 0)}
-                className="w-9 h-9 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 text-white flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                onClick={triggerPrimaryReview}
+                className="w-10 h-10 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-slate-200 disabled:text-slate-400 text-white flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed shadow-2xs"
                 title={
-                  dueCards.length > 0
+                  isReadOnly
+                    ? `Ôn nhánh này (${totalCards})`
+                    : dueCards.length > 0
                     ? `Ôn tập ngay (${dueCards.length})`
                     : totalCards > 0
                     ? `Ôn lại tất cả (${totalCards})`
                     : 'Ôn tập ngay'
                 }
                 aria-label={
-                  dueCards.length > 0
+                  isReadOnly
+                    ? `Ôn nhánh này (${totalCards})`
+                    : dueCards.length > 0
                     ? `Ôn tập ngay (${dueCards.length})`
                     : totalCards > 0
                     ? `Ôn lại tất cả (${totalCards})`
@@ -653,33 +753,37 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                         </>
                       )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsHeaderMenuOpen(false);
-                          onExportFolder(selectedFolder.id);
-                        }}
-                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>Xuất JSON</span>
-                      </button>
+                      {!isReadOnly && onExportFolder && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsHeaderMenuOpen(false);
+                            onExportFolder(selectedFolder.id);
+                          }}
+                          className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>Xuất JSON</span>
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsHeaderMenuOpen(false);
-                          onOpenShareModal(selectedFolder.id);
-                        }}
-                        className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
-                      >
-                        {selectedFolder.isPublic ? (
-                          <Globe className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                        ) : (
-                          <Share2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        )}
-                        <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
-                      </button>
+                      {!isReadOnly && onOpenShareModal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsHeaderMenuOpen(false);
+                            onOpenShareModal(selectedFolder.id);
+                          }}
+                          className="w-full px-3.5 py-2 text-left text-slate-700 hover:bg-slate-50 hover:text-teal-800 flex items-center gap-2.5 cursor-pointer"
+                        >
+                          {selectedFolder.isPublic ? (
+                            <Globe className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                          ) : (
+                            <Share2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          )}
+                          <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -746,100 +850,153 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
               </>
             )}
 
-            <button
-              type="button"
-              onClick={() => onExportFolder(selectedFolder.id)}
-              className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span>Xuất JSON</span>
-            </button>
+            {!isReadOnly && onExportFolder && (
+              <button
+                type="button"
+                onClick={() => onExportFolder(selectedFolder.id)}
+                className="px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span>Xuất JSON</span>
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => onOpenShareModal(selectedFolder.id)}
-              className={`px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                selectedFolder.isPublic
-                  ? 'bg-teal-50 text-teal-800 border-teal-300'
-                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
-              }`}
-            >
-              {selectedFolder.isPublic ? (
-                <Globe className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-              ) : (
-                <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              )}
-              <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
-            </button>
+            {!isReadOnly && onOpenShareModal && (
+              <button
+                type="button"
+                onClick={() => onOpenShareModal(selectedFolder.id)}
+                className={`px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  selectedFolder.isPublic
+                    ? 'bg-teal-50 text-teal-800 border-teal-300'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border-slate-200'
+                }`}
+              >
+                {selectedFolder.isPublic ? (
+                  <Globe className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                ) : (
+                  <Share2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                )}
+                <span>{selectedFolder.isPublic ? 'Đang chia sẻ' : 'Chia sẻ'}</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Add Kanji List Bar */}
-        <form onSubmit={handleAddKanjiSubmit} className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-100">
-          <input
-            type="text"
-            value={kanjiInput}
-            onChange={(e) => setKanjiInput(e.target.value)}
-            placeholder="Nhập hoặc dán danh sách chữ Kanji (vd: 漢字勉強)..."
-            className="w-full sm:flex-1 h-11 min-h-[44px] px-3.5 py-2.5 text-[12px]! leading-normal bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all"
-          />
-          <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
-            <button
-              type="submit"
-              disabled={!kanjiInput.trim() || isAdding}
-              className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:bg-slate-100 disabled:text-slate-400 border border-teal-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              <Plus className="w-3.5 h-3.5 shrink-0" />
-              <span>{isAdding ? 'Đang thêm...' : 'Thêm vào bảng'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsBatchImportOpen(true)}
-              className="h-9 sm:h-10 px-3 sm:px-3.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-              title="Nhập hàng loạt Kanji kèm từ ghép bằng Text hoặc JSON"
-            >
-              <ListPlus className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-              <span>Nhập hàng loạt</span>
-            </button>
-          </div>
-        </form>
-
-        {/* View Mode Switcher & Missing Data Retry */}
-        {folderItems.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
-            <div className="grid grid-cols-2 sm:inline-flex w-full sm:w-auto p-1 bg-slate-100 rounded-xl gap-1">
+        {/* Add Kanji List Bar (editable decks only) */}
+        {!isReadOnly && (
+          <form onSubmit={handleAddKanjiSubmit} className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-100">
+            <input
+              type="text"
+              value={kanjiInput}
+              onChange={(e) => setKanjiInput(e.target.value)}
+              placeholder="Nhập hoặc dán danh sách chữ Kanji (vd: 漢字勉強)..."
+              className="w-full sm:flex-1 h-11 min-h-[44px] px-3.5 py-2.5 text-[12px]! leading-normal bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-700 transition-all"
+            />
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
               <button
-                type="button"
-                onClick={() => setViewMode('kanji')}
-                className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  viewMode === 'kanji'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                type="submit"
+                disabled={!kanjiInput.trim() || isAdding}
+                className="h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-[13px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:bg-slate-100 disabled:text-slate-400 border border-teal-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
               >
-                <LayoutList className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                <span className="tabular-nums truncate">Kanji ({folderItems.length})</span>
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span>{isAdding ? 'Đang thêm...' : 'Thêm vào bảng'}</span>
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('cards')}
-                className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                  viewMode === 'cards'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onClick={() => setIsBatchImportOpen(true)}
+                className="h-9 sm:h-10 px-3 sm:px-3.5 text-xs sm:text-[13px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                title="Nhập hàng loạt Kanji kèm từ ghép bằng Text hoặc JSON"
               >
-                <Layers className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                <span className="tabular-nums truncate">Tất cả thẻ ({totalCards})</span>
+                <ListPlus className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                <span>Nhập hàng loạt</span>
               </button>
             </div>
+          </form>
+        )}
 
-            {(tableNotice || missingDataItems.length > 0) && (
+        {/* View Mode Switcher, Subfolder Scope Switcher & Missing Data Retry */}
+        {(rawFolderItems.length > 0 || (isReadOnly && hasSubfolders && directFolderItems.length > 0)) && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-2">
+              {folderItems.length > 0 && (
+                <div className="grid grid-cols-2 sm:inline-flex w-full sm:w-auto p-1 bg-slate-100 rounded-xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('kanji')}
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      viewMode === 'kanji'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <LayoutList className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                    <span className="tabular-nums truncate">Kanji ({folderItems.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('cards')}
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      viewMode === 'cards'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                    <span className="tabular-nums truncate">Tất cả thẻ ({totalCards})</span>
+                  </button>
+                </div>
+              )}
+
+              {isReadOnly && hasSubfolders && directFolderItems.length > 0 && (
+                <div className="inline-flex p-1 bg-slate-100 rounded-xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIncludeSubfolders(true)}
+                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                      includeSubfolders
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Gồm bài con ({recursiveFolderItems.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIncludeSubfolders(false)}
+                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
+                      !includeSubfolders
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Chỉ thư mục này ({directFolderItems.length})
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {(tableNotice || missingDataItems.length > 0 || (isReadOnly && activeSearchFilter)) && (
               <div className="flex items-center flex-wrap gap-2">
                 {tableNotice && (
                   <span className="text-xs font-medium text-teal-800">{tableNotice}</span>
                 )}
-                {missingDataItems.length > 0 && (
+                {isReadOnly && activeSearchFilter && !isFilteringByFolderNameOnly && (
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="tabular-nums">
+                      Đang lọc {folderItems.length}/{rawFolderItems.length} chữ cho &ldquo;{activeSearchFilter}&rdquo;
+                    </span>
+                    {readOnlyBundle?.onClearSearch && (
+                      <button
+                        type="button"
+                        onClick={readOnlyBundle.onClearSearch}
+                        className="font-semibold text-teal-700 hover:text-teal-900 hover:underline cursor-pointer"
+                      >
+                        Xóa lọc
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!isReadOnly && missingDataItems.length > 0 && (
                   <button
                     type="button"
                     disabled={enrichingCount > 0}
@@ -863,16 +1020,45 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       {/* Main List Card */}
       <div className="bg-white rounded-2xl border border-slate-200/90 overflow-visible">
         {folderItems.length === 0 ? (
-          <div className="p-10 text-center space-y-2">
-            <p className="text-sm font-semibold text-slate-700">Thư mục này chưa có chữ Kanji nào</p>
-            <p className="text-xs text-slate-500">
-              Hãy dán danh sách Kanji vào ô phía trên để tự động tạo bảng học và thêm từ ghép.
-            </p>
+          <div className="p-10 text-center space-y-2.5">
+            {isReadOnly && activeSearchFilter && rawFolderItems.length > 0 ? (
+              <>
+                <p className="text-sm font-semibold text-slate-700">
+                  Không tìm thấy chữ Kanji khớp &ldquo;{activeSearchFilter}&rdquo; trong {selectedFolder.name}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Bạn có thể quay lại danh sách thư mục để chọn bài khác hoặc xóa từ khóa để xem lại toàn bộ danh sách.
+                </p>
+                {readOnlyBundle?.onClearSearch && (
+                  <button
+                    type="button"
+                    onClick={readOnlyBundle.onClearSearch}
+                    className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Xóa bộ lọc tìm kiếm
+                  </button>
+                )}
+              </>
+            ) : isReadOnly ? (
+              <>
+                <p className="text-sm font-semibold text-slate-700">Thư mục này chưa có chữ Kanji nào</p>
+                <p className="text-xs text-slate-500">
+                  Hãy quay lại danh sách thư mục để chọn một bài học khác.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-slate-700">Thư mục này chưa có chữ Kanji nào</p>
+                <p className="text-xs text-slate-500">
+                  Hãy dán danh sách Kanji vào ô phía trên để tự động tạo bảng học và thêm từ ghép.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
             {/* Bulk Selection Action Bar */}
-            {activeSelectionCount > 0 && (
+            {!isReadOnly && activeSelectionCount > 0 && (
               <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex flex-wrap items-center justify-between gap-2.5">
                 <div className="flex items-center flex-wrap gap-2 text-xs text-slate-800 tabular-nums">
                   {viewMode === 'kanji' ? (
@@ -951,7 +1137,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             {viewMode === 'kanji' ? (
               <>
                 {/* Mobile Select-All Bar */}
-                {selectedItemIds.length === 0 && (
+                {!isReadOnly && selectedItemIds.length === 0 && (
                   <div className="flex md:hidden items-center justify-between px-4 py-2.5 bg-slate-50/90 border-b border-slate-200/80 rounded-t-2xl text-xs">
                     <label className="inline-flex items-center gap-2.5 cursor-pointer select-none text-slate-700 font-semibold">
                       <input
@@ -968,29 +1154,31 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                 {/* Desktop Table Column Header */}
                 <div
                   className={`hidden md:flex items-center gap-3 px-4 py-2.5 bg-slate-50/90 text-[11px] font-semibold text-slate-500 border-b border-slate-200/80 ${
-                    selectedItemIds.length === 0 ? 'rounded-t-2xl' : ''
+                    isReadOnly || selectedItemIds.length === 0 ? 'rounded-t-2xl' : ''
                   }`}
                 >
-                  <label
-                    className="w-7 h-7 -ml-1.5 flex items-center justify-center rounded-lg hover:bg-slate-200/60 cursor-pointer shrink-0"
-                    title={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả thẻ'}
-                  >
-                    <input
-                      ref={masterCheckboxRef}
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      aria-label="Chọn tất cả thẻ Kanji"
-                      className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
-                    />
-                  </label>
+                  {!isReadOnly && (
+                    <label
+                      className="w-7 h-7 -ml-1.5 flex items-center justify-center rounded-lg hover:bg-slate-200/60 cursor-pointer shrink-0"
+                      title={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả thẻ'}
+                    >
+                      <input
+                        ref={masterCheckboxRef}
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        aria-label="Chọn tất cả thẻ Kanji"
+                        className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                      />
+                    </label>
+                  )}
                   <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
                     <div className="col-span-2">Kanji</div>
                     <div className="col-span-2">Hán-Việt</div>
                     <div className="col-span-2">Âm On / Kun</div>
                     <div className="col-span-3">Nghĩa</div>
-                    <div className="col-span-2">Từ ghép &amp; SRS</div>
-                    <div className="col-span-1 text-right">Thao tác</div>
+                    <div className="col-span-2">{isReadOnly ? 'Từ ghép' : 'Từ ghép & SRS'}</div>
+                    <div className="col-span-1 text-right">{isReadOnly ? 'Chi tiết' : 'Thao tác'}</div>
                   </div>
                 </div>
 
@@ -1017,13 +1205,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                       <div className="md:hidden p-3.5 space-y-2 relative">
                         <div className="flex items-start justify-between gap-2.5">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelectItem(item.id)}
-                              aria-label={`Chọn thẻ ${item.kanji}`}
-                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
-                            />
+                            {!isReadOnly && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectItem(item.id)}
+                                aria-label={`Chọn thẻ ${item.kanji}`}
+                                className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                              />
+                            )}
                             <button
                               type="button"
                               onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
@@ -1034,7 +1224,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             </button>
 
                             <div className="min-w-0 flex-1">
-                              {editingKanjiId === item.id ? (
+                              {!isReadOnly && editingKanjiId === item.id ? (
                                 <input
                                   type="text"
                                   value={editHv}
@@ -1058,27 +1248,45 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                                   </button>
                                 </div>
                               )}
-                              <div className="text-[11px] text-slate-500 flex items-center flex-wrap gap-x-2 gap-y-0.5 tabular-nums">
-                                {isDue ? (
-                                  <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
-                                ) : (
-                                  <span className="text-emerald-700">
-                                    ✓ Ôn sau {formatIntervalLabel(item.srsState.intervalMinutes)}
-                                  </span>
-                                )}
-                                {belongFolderName && (
-                                  <>
-                                    <span className="text-slate-300" aria-hidden="true">·</span>
-                                    <span className="truncate max-w-[130px]">{belongFolderName}</span>
-                                  </>
-                                )}
-                              </div>
+                              {(!isReadOnly || belongFolderName) && (
+                                <div className="text-[11px] text-slate-500 flex items-center flex-wrap gap-x-2 gap-y-0.5 tabular-nums">
+                                  {!isReadOnly && (
+                                    isDue ? (
+                                      <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
+                                    ) : (
+                                      <span className="text-emerald-700">
+                                        ✓ Ôn sau {formatIntervalLabel(item.srsState.intervalMinutes)}
+                                      </span>
+                                    )
+                                  )}
+                                  {belongFolderName && (
+                                    <>
+                                      {!isReadOnly && (
+                                        <span className="text-slate-300" aria-hidden="true">·</span>
+                                      )}
+                                      <span className="truncate max-w-[160px] text-slate-500">
+                                        {isReadOnly ? `Bài: ${belongFolderName}` : belongFolderName}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
 
                           {/* Top-Right Compact Action Control */}
                           <div className="relative shrink-0" data-kanji-menu>
-                            {editingKanjiId === item.id ? (
+                            {isReadOnly ? (
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(item.id)}
+                                className="p-2 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-teal-800 transition-colors cursor-pointer"
+                                title="Xem chi tiết & Từ ghép"
+                                aria-label="Xem chi tiết & Từ ghép"
+                              >
+                                <BookOpen className="w-4 h-4" />
+                              </button>
+                            ) : editingKanjiId === item.id ? (
                               <div className="flex items-center gap-1">
                                 <button
                                   type="button"
@@ -1216,7 +1424,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                         </div>
 
                         {/* Compact Details Body (pl-6 aligns neatly under Kanji box) */}
-                        <div className="pl-6 space-y-1.5">
+                        <div className={`${isReadOnly ? 'pl-13' : 'pl-6'} space-y-1.5`}>
                           {/* Inline On / Kun */}
                           {isEnriching && cleanOn.length === 0 && cleanKun.length === 0 ? (
                             <div className="h-3 w-36 rounded bg-slate-200/80 animate-pulse" />
@@ -1235,7 +1443,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           )}
 
                           {/* Meanings */}
-                          {editingKanjiId === item.id ? (
+                          {!isReadOnly && editingKanjiId === item.id ? (
                             <input
                               type="text"
                               value={editMeanings}
@@ -1261,14 +1469,18 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             </div>
                           ) : (
                             <div className="flex items-center justify-between gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void enrichKanjiItems([item], true)}
-                                className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 cursor-pointer"
-                              >
-                                <RefreshCw className="w-3 h-3" />
-                                <span>Chưa có nghĩa · Tải lại</span>
-                              </button>
+                              {!isReadOnly ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void enrichKanjiItems([item], true)}
+                                  className="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 cursor-pointer"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  <span>Chưa có nghĩa · Tải lại</span>
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400">Chưa có nghĩa</span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setDetailItemId(item.id)}
@@ -1284,18 +1496,20 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
                       {/* Desktop 12-Column Row (>= md) */}
                       <div className="hidden md:flex items-center gap-3 px-4 py-3">
-                        <label
-                          className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0"
-                          title={isSelected ? 'Bỏ chọn thẻ' : 'Chọn thẻ'}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectItem(item.id)}
-                            aria-label={`Chọn thẻ ${item.kanji}`}
-                            className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
-                          />
-                        </label>
+                        {!isReadOnly && (
+                          <label
+                            className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0"
+                            title={isSelected ? 'Bỏ chọn thẻ' : 'Chọn thẻ'}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectItem(item.id)}
+                              aria-label={`Chọn thẻ ${item.kanji}`}
+                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                            />
+                          </label>
+                        )}
                         <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
                           {/* Kanji Character + Pronunciation button right next to it */}
                           <div className="col-span-2 flex items-center gap-2">
@@ -1382,7 +1596,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               <p className="text-xs text-slate-700 line-clamp-2">
                                 {cleanMeanings.join(', ')}
                               </p>
-                            ) : (
+                            ) : !isReadOnly ? (
                               <button
                                 type="button"
                                 onClick={() => void enrichKanjiItems([item], true)}
@@ -1391,6 +1605,8 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                                 <RefreshCw className="w-3 h-3" />
                                 <span>Chưa có nghĩa · Tải lại</span>
                               </button>
+                            ) : (
+                              <span className="text-xs text-slate-400">Chưa có nghĩa</span>
                             )}
                           </div>
 
@@ -1404,18 +1620,20 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               <span className="tabular-nums">{cwCount} từ ghép</span>
                               <ChevronRight className="w-3.5 h-3.5" />
                             </button>
-                            <div className="text-[11px] tabular-nums text-slate-500">
-                              {isDue ? (
-                                <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
-                              ) : (
-                                <span className="text-emerald-700">
-                                  ✓ Ôn sau {formatIntervalLabel(item.srsState.intervalMinutes)}
-                                </span>
-                              )}
-                            </div>
+                            {!isReadOnly && (
+                              <div className="text-[11px] tabular-nums text-slate-500">
+                                {isDue ? (
+                                  <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
+                                ) : (
+                                  <span className="text-emerald-700">
+                                    ✓ Ôn sau {formatIntervalLabel(item.srsState.intervalMinutes)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
 
-                          {/* Actions: 3-dot menu */}
+                          {/* Actions: 3-dot menu (or read-only Detail button) */}
                           <div
                             data-kanji-menu
                             className="col-span-1 flex items-center justify-end gap-1 relative"
@@ -1425,7 +1643,17 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               }
                             }}
                           >
-                            {editingKanjiId === item.id ? (
+                            {isReadOnly ? (
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(item.id)}
+                                className="p-2 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-teal-800 transition-colors cursor-pointer"
+                                title="Xem chi tiết & Từ ghép"
+                                aria-label="Xem chi tiết & Từ ghép"
+                              >
+                                <BookOpen className="w-4 h-4" />
+                              </button>
+                            ) : editingKanjiId === item.id ? (
                               <>
                                 <button
                                   type="button"
@@ -1569,7 +1797,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
             ) : (
               /* Flat All Flashcards View (1 Kanji card or 1 Compound word card = 1 row) */
               <>
-                {selectedFlatKeys.length === 0 && (
+                {!isReadOnly && selectedFlatKeys.length === 0 && (
                   <div className="flex md:hidden items-center justify-between px-4 py-2.5 bg-slate-50/90 border-b border-slate-200/80 rounded-t-2xl text-xs">
                     <label className="inline-flex items-center gap-2.5 cursor-pointer select-none text-slate-700 font-semibold">
                       <input
@@ -1585,28 +1813,30 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
                 <div
                   className={`hidden md:flex items-center gap-3 px-4 py-2.5 bg-slate-50/90 text-[11px] font-semibold text-slate-500 border-b border-slate-200/80 ${
-                    selectedFlatKeys.length === 0 ? 'rounded-t-2xl' : ''
+                    isReadOnly || selectedFlatKeys.length === 0 ? 'rounded-t-2xl' : ''
                   }`}
                 >
-                  <label
-                    className="w-7 h-7 -ml-1.5 flex items-center justify-center rounded-lg hover:bg-slate-200/60 cursor-pointer shrink-0"
-                    title={allFlatSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả thẻ Flashcard'}
-                  >
-                    <input
-                      ref={flatMasterCheckboxRef}
-                      type="checkbox"
-                      checked={allFlatSelected}
-                      onChange={toggleSelectAllFlat}
-                      aria-label="Chọn tất cả thẻ Flashcard"
-                      className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
-                    />
-                  </label>
+                  {!isReadOnly && (
+                    <label
+                      className="w-7 h-7 -ml-1.5 flex items-center justify-center rounded-lg hover:bg-slate-200/60 cursor-pointer shrink-0"
+                      title={allFlatSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả thẻ Flashcard'}
+                    >
+                      <input
+                        ref={flatMasterCheckboxRef}
+                        type="checkbox"
+                        checked={allFlatSelected}
+                        onChange={toggleSelectAllFlat}
+                        aria-label="Chọn tất cả thẻ Flashcard"
+                        className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                      />
+                    </label>
+                  )}
                   <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
                     <div className="col-span-3">Mặt trước &amp; Loại thẻ</div>
                     <div className="col-span-3">Hán-Việt &amp; Cách đọc</div>
                     <div className="col-span-3">Nghĩa</div>
-                    <div className="col-span-2">Trạng thái SRS</div>
-                    <div className="col-span-1 text-right">Thao tác</div>
+                    <div className="col-span-2">{isReadOnly ? 'Thư mục' : 'Trạng thái SRS'}</div>
+                    <div className="col-span-1 text-right">{isReadOnly ? 'Chi tiết' : 'Thao tác'}</div>
                   </div>
                 </div>
 
@@ -1620,6 +1850,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                     const cleanOn = cleanReadingsList(item.onReadings);
                     const cleanKun = cleanReadingsList(item.kunReadings);
                     const cleanMeanings = cleanMeaningsList(item.meanings);
+                    const itemFolderName = folderNameMap.get(item.folderId) || selectedFolder.name;
 
                     return (
                       <div
@@ -1632,13 +1863,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                         <div className="md:hidden p-3.5 space-y-1.5">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <input
-                                type="checkbox"
-                                checked={isRowSelected}
-                                onChange={() => toggleSelectFlatRow(row.rowKey)}
-                                aria-label={`Chọn thẻ Kanji ${item.kanji}`}
-                                className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
-                              />
+                              {!isReadOnly && (
+                                <input
+                                  type="checkbox"
+                                  checked={isRowSelected}
+                                  onChange={() => toggleSelectFlatRow(row.rowKey)}
+                                  aria-label={`Chọn thẻ Kanji ${item.kanji}`}
+                                  className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                                />
+                              )}
                               <button
                                 type="button"
                                 onClick={() => openKanjiPracticeModal(item.kanji, deckKanjiChars)}
@@ -1664,7 +1897,9 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                                   </button>
                                 </div>
                                 <div className="text-[11px] tabular-nums">
-                                  {isDue ? (
+                                  {isReadOnly ? (
+                                    <span className="text-slate-500 truncate block">{itemFolderName}</span>
+                                  ) : isDue ? (
                                     <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
                                   ) : (
                                     <span className="text-emerald-700">
@@ -1684,26 +1919,30 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               >
                                 <BookOpen className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setMoveModalItemIds([item.id])}
-                                className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
-                                title="Di chuyển sang bộ khác"
-                              >
-                                <FolderInput className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteKanjiItem(item.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
-                                title="Xóa thẻ Kanji"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {!isReadOnly && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMoveModalItemIds([item.id])}
+                                    className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
+                                    title="Di chuyển sang bộ khác"
+                                  >
+                                    <FolderInput className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteKanjiItem(item.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
+                                    title="Xóa thẻ Kanji"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
 
-                          <div className="pl-6 space-y-0.5 text-xs">
+                          <div className={`${isReadOnly ? 'pl-12' : 'pl-6'} space-y-0.5 text-xs`}>
                             <div className="font-mono text-slate-600 truncate">
                               {[...cleanOn, ...cleanKun].slice(0, 3).join(', ') || '—'}
                             </div>
@@ -1715,15 +1954,17 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
                         {/* Desktop Row (>= md) */}
                         <div className="hidden md:flex items-center gap-3 px-4 py-3">
-                          <label className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={isRowSelected}
-                              onChange={() => toggleSelectFlatRow(row.rowKey)}
-                              aria-label={`Chọn thẻ Kanji ${item.kanji}`}
-                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
-                            />
-                          </label>
+                          {!isReadOnly && (
+                            <label className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={isRowSelected}
+                                onChange={() => toggleSelectFlatRow(row.rowKey)}
+                                aria-label={`Chọn thẻ Kanji ${item.kanji}`}
+                                className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                              />
+                            </label>
+                          )}
                           <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
                             <div className="col-span-3 flex items-center gap-2.5 min-w-0">
                               <button
@@ -1772,8 +2013,10 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               )}
                             </div>
 
-                            <div className="col-span-2 text-[11px] tabular-nums">
-                              {isDue ? (
+                            <div className="col-span-2 text-[11px] tabular-nums min-w-0">
+                              {isReadOnly ? (
+                                <span className="text-slate-500 truncate block">{itemFolderName}</span>
+                              ) : isDue ? (
                                 <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
                               ) : (
                                 <span className="text-emerald-700">
@@ -1791,22 +2034,26 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                               >
                                 <BookOpen className="w-3.5 h-3.5" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setMoveModalItemIds([item.id])}
-                                className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
-                                title="Di chuyển sang bộ khác"
-                              >
-                                <FolderInput className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteKanjiItem(item.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                                title="Xóa thẻ Kanji"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {!isReadOnly && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMoveModalItemIds([item.id])}
+                                    className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
+                                    title="Di chuyển sang bộ khác"
+                                  >
+                                    <FolderInput className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteKanjiItem(item.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                    title="Xóa thẻ Kanji"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1817,6 +2064,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                   // Compound word card row
                   const { kanjiItem, compoundWord: cw } = row;
                   const isDue = cw.srsState.dueAt <= Date.now();
+                  const itemFolderName = folderNameMap.get(kanjiItem.folderId) || selectedFolder.name;
                   return (
                     <div
                       key={row.rowKey}
@@ -1828,13 +2076,15 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                       <div className="md:hidden p-3.5 space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <input
-                              type="checkbox"
-                              checked={isRowSelected}
-                              onChange={() => toggleSelectFlatRow(row.rowKey)}
-                              aria-label={`Chọn từ ghép ${cw.word}`}
-                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
-                            />
+                            {!isReadOnly && (
+                              <input
+                                type="checkbox"
+                                checked={isRowSelected}
+                                onChange={() => toggleSelectFlatRow(row.rowKey)}
+                                aria-label={`Chọn từ ghép ${cw.word}`}
+                                className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                              />
+                            )}
                             <button
                               type="button"
                               onClick={() => openKanjiPracticeModal(kanjiItem.kanji, deckKanjiChars)}
@@ -1857,7 +2107,9 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                                 </button>
                               </div>
                               <div className="text-[11px] tabular-nums flex items-center gap-1.5">
-                                {isDue ? (
+                                {isReadOnly ? (
+                                  <span className="text-slate-500 truncate">{itemFolderName}</span>
+                                ) : isDue ? (
                                   <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
                                 ) : (
                                   <span className="text-emerald-700">
@@ -1871,26 +2123,39 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </div>
 
                           <div className="flex items-center gap-0.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setDetailItemId(kanjiItem.id)}
-                              className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
-                              title="Sửa từ ghép"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteCompoundWord(kanjiItem.id, cw.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
-                              title="Xóa từ ghép"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isReadOnly ? (
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(kanjiItem.id)}
+                                className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
+                                title="Xem chi tiết chữ Kanji"
+                              >
+                                <BookOpen className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailItemId(kanjiItem.id)}
+                                  className="p-1.5 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer"
+                                  title="Sửa từ ghép"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCompoundWord(kanjiItem.id, cw.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
+                                  title="Xóa từ ghép"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
 
-                        <div className="pl-6 space-y-0.5 text-xs">
+                        <div className={`${isReadOnly ? 'pl-2' : 'pl-6'} space-y-0.5 text-xs`}>
                           <div className="font-mono text-slate-600 truncate">{cw.reading || '—'}</div>
                           <div className="text-slate-700 line-clamp-2">{cw.meaning || '—'}</div>
                         </div>
@@ -1898,15 +2163,17 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
 
                       {/* Desktop Row (>= md) */}
                       <div className="hidden md:flex items-center gap-3 px-4 py-3">
-                        <label className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={isRowSelected}
-                            onChange={() => toggleSelectFlatRow(row.rowKey)}
-                            aria-label={`Chọn từ ghép ${cw.word}`}
-                            className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
-                          />
-                        </label>
+                        {!isReadOnly && (
+                          <label className="w-8 h-8 -ml-2 flex items-center justify-center rounded-lg hover:bg-slate-100 cursor-pointer shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={isRowSelected}
+                              onChange={() => toggleSelectFlatRow(row.rowKey)}
+                              aria-label={`Chọn từ ghép ${cw.word}`}
+                              className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                            />
+                          </label>
+                        )}
                         <div className="flex-1 min-w-0 grid grid-cols-12 gap-3 items-center">
                           <div className="col-span-3 flex items-center gap-2.5 min-w-0">
                             <button
@@ -1945,8 +2212,10 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                             <span className="line-clamp-2">{cw.meaning || '—'}</span>
                           </div>
 
-                          <div className="col-span-2 text-[11px] tabular-nums">
-                            {isDue ? (
+                          <div className="col-span-2 text-[11px] tabular-nums min-w-0">
+                            {isReadOnly ? (
+                              <span className="text-slate-500 truncate block">{itemFolderName}</span>
+                            ) : isDue ? (
                               <span className="text-amber-700 font-medium">● Đến hạn ôn</span>
                             ) : (
                               <span className="text-emerald-700">
@@ -1956,22 +2225,35 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
                           </div>
 
                           <div className="col-span-1 flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setDetailItemId(kanjiItem.id)}
-                              className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
-                              title="Sửa từ ghép"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteCompoundWord(kanjiItem.id, cw.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                              title="Xóa từ ghép"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isReadOnly ? (
+                              <button
+                                type="button"
+                                onClick={() => setDetailItemId(kanjiItem.id)}
+                                className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
+                                title="Xem chi tiết chữ Kanji"
+                              >
+                                <BookOpen className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailItemId(kanjiItem.id)}
+                                  className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
+                                  title="Sửa từ ghép"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCompoundWord(kanjiItem.id, cw.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                                  title="Xóa từ ghép"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1985,7 +2267,7 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       </div>
 
       {/* Bulk Delete Confirmation Modal */}
-      {isBulkDeleteModalOpen && (
+      {!isReadOnly && isBulkDeleteModalOpen && (
         <div
           className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => setIsBulkDeleteModalOpen(false)}
@@ -2058,39 +2340,48 @@ export const FolderKanjiTable: React.FC<FolderKanjiTableProps> = ({
       )}
 
       {/* Move Cards Modal */}
-      <MoveKanjiItemsModal
-        isOpen={Boolean(moveModalItemIds && moveModalItemIds.length > 0)}
-        itemIds={moveModalItemIds || []}
-        sourceFolderId={selectedFolder.id}
-        onClose={() => setMoveModalItemIds(null)}
-        onMoved={({ movedCount, mergedCount, targetName }) => {
-          setSelectedItemIds([]);
-          setSelectedFlatKeys([]);
-          const parts: string[] = [];
-          if (movedCount > 0) parts.push(`chuyển ${movedCount} thẻ`);
-          if (mergedCount > 0) parts.push(`gộp ${mergedCount} thẻ trùng`);
-          showTempNotice(`Đã ${parts.join(' và ')} sang "${targetName}".`);
-        }}
-      />
+      {!isReadOnly && (
+        <>
+          <MoveKanjiItemsModal
+            isOpen={Boolean(moveModalItemIds && moveModalItemIds.length > 0)}
+            itemIds={moveModalItemIds || []}
+            sourceFolderId={selectedFolder.id}
+            onClose={() => setMoveModalItemIds(null)}
+            onMoved={({ movedCount, mergedCount, targetName }) => {
+              setSelectedItemIds([]);
+              setSelectedFlatKeys([]);
+              const parts: string[] = [];
+              if (movedCount > 0) parts.push(`chuyển ${movedCount} thẻ`);
+              if (mergedCount > 0) parts.push(`gộp ${mergedCount} thẻ trùng`);
+              showTempNotice(`Đã ${parts.join(' và ')} sang "${targetName}".`);
+            }}
+          />
 
-      <BatchImportLessonModal
-        isOpen={isBatchImportOpen}
-        folderId={selectedFolder.id}
-        folderName={selectedFolder.name}
-        onClose={() => setIsBatchImportOpen(false)}
-      />
+          <BatchImportLessonModal
+            isOpen={isBatchImportOpen}
+            folderId={selectedFolder.id}
+            folderName={selectedFolder.name}
+            onClose={() => setIsBatchImportOpen(false)}
+          />
+        </>
+      )}
 
       <KanjiItemDetailModal
         item={detailItem}
         deckKanjiChars={deckKanjiChars}
+        readOnly={isReadOnly}
         onClose={() => setDetailItemId(null)}
-        onOpenBatchCompoundImport={(itemId) => setCompoundImportItemId(itemId)}
+        onOpenBatchCompoundImport={
+          isReadOnly ? undefined : (itemId) => setCompoundImportItemId(itemId)
+        }
       />
 
-      <BatchImportCompoundModal
-        item={compoundImportItem}
-        onClose={() => setCompoundImportItemId(null)}
-      />
+      {!isReadOnly && (
+        <BatchImportCompoundModal
+          item={compoundImportItem}
+          onClose={() => setCompoundImportItemId(null)}
+        />
+      )}
 
       <KanjiPrintModal
         kanjiList={printableDeckItems}

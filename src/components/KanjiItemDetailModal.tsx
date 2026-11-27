@@ -20,13 +20,15 @@ import { cleanMeaningsList, cleanReadingsList } from '../utils/kanjiApi';
 interface KanjiItemDetailModalProps {
   item: FolderKanjiItem | null;
   deckKanjiChars?: string[];
+  readOnly?: boolean;
   onClose: () => void;
-  onOpenBatchCompoundImport: (itemId: string) => void;
+  onOpenBatchCompoundImport?: (itemId: string) => void;
 }
 
 export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
   item,
   deckKanjiChars,
+  readOnly = false,
   onClose,
   onOpenBatchCompoundImport,
 }) => {
@@ -283,13 +285,15 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                             · {item.strokeCount} nét
                           </span>
                         ) : null}
-                        <span
-                          className={`text-xs font-medium tabular-nums ${
-                            isDue ? 'text-amber-700' : 'text-emerald-700'
-                          }`}
-                        >
-                          · {isDue ? 'Đến hạn ôn' : `Ôn sau ${formatIntervalLabel(item.srsState.intervalMinutes)}`}
-                        </span>
+                        {!readOnly && (
+                          <span
+                            className={`text-xs font-medium tabular-nums ${
+                              isDue ? 'text-amber-700' : 'text-emerald-700'
+                            }`}
+                          >
+                            · {isDue ? 'Đến hạn ôn' : `Ôn sau ${formatIntervalLabel(item.srsState.intervalMinutes)}`}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-slate-700 mt-1">
                         {cleanMeaningsList(item.meanings).length > 0
@@ -300,7 +304,7 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                   )}
                 </div>
 
-                {!isEditingKanji && (
+                {!readOnly && !isEditingKanji && (
                   <button
                     type="button"
                     onClick={startEditKanji}
@@ -344,88 +348,98 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                   Mỗi từ ghép sẽ tạo thành một thẻ Flashcard riêng khi ôn tập bài học.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => onOpenBatchCompoundImport(item.id)}
-                className="px-3 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-              >
-                <ListPlus className="w-3.5 h-3.5 text-teal-700" />
-                <span>Nhập hàng loạt (Text / JSON)</span>
-              </button>
+              {!readOnly && onOpenBatchCompoundImport && (
+                <button
+                  type="button"
+                  onClick={() => onOpenBatchCompoundImport(item.id)}
+                  className="px-3 py-1.5 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ListPlus className="w-3.5 h-3.5 text-teal-700" />
+                  <span>Nhập hàng loạt (Text / JSON)</span>
+                </button>
+              )}
             </div>
 
             {item.compoundWords.length === 0 ? (
               <div className="p-6 text-center bg-slate-50/70 border border-dashed border-slate-200 rounded-xl text-xs text-slate-500">
-                Chưa có từ ghép nào cho chữ <strong className="font-kanji">{item.kanji}</strong>. Hãy thêm từ ghép ở form bên dưới hoặc dùng nút Nhập hàng loạt.
+                {readOnly
+                  ? `Chưa có từ ghép nào cho chữ ${item.kanji}.`
+                  : (
+                    <>
+                      Chưa có từ ghép nào cho chữ <strong className="font-kanji">{item.kanji}</strong>. Hãy thêm từ ghép ở form bên dưới hoặc dùng nút Nhập hàng loạt.
+                    </>
+                  )}
               </div>
             ) : (
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
                 {/* Compound Word Selection Header */}
-                <div
-                  className={`px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs ${
-                    selectedWordIds.length > 0
-                      ? 'bg-rose-50/85 border-b border-rose-200'
-                      : 'bg-slate-50/90'
-                  }`}
-                >
-                  <label className="inline-flex items-center gap-2.5 cursor-pointer select-none font-semibold text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={allWordsSelected}
-                      onChange={toggleSelectAllWords}
-                      className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
-                    />
-                    <span className="tabular-nums">
-                      {selectedWordIds.length > 0
-                        ? `Đã chọn ${selectedWordIds.length} / ${item.compoundWords.length} từ ghép`
-                        : `Chọn tất cả (${item.compoundWords.length})`}
-                    </span>
-                  </label>
+                {!readOnly && (
+                  <div
+                    className={`px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs ${
+                      selectedWordIds.length > 0
+                        ? 'bg-rose-50/85 border-b border-rose-200'
+                        : 'bg-slate-50/90'
+                    }`}
+                  >
+                    <label className="inline-flex items-center gap-2.5 cursor-pointer select-none font-semibold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={allWordsSelected}
+                        onChange={toggleSelectAllWords}
+                        className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer"
+                      />
+                      <span className="tabular-nums">
+                        {selectedWordIds.length > 0
+                          ? `Đã chọn ${selectedWordIds.length} / ${item.compoundWords.length} từ ghép`
+                          : `Chọn tất cả (${item.compoundWords.length})`}
+                      </span>
+                    </label>
 
-                  {selectedWordIds.length > 0 && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {!confirmBulkDelete ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedWordIds([])}
-                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
-                          >
-                            Bỏ chọn
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmBulkDelete(true)}
-                            className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Xóa đã chọn ({selectedWordIds.length})</span>
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-xs font-semibold text-rose-900 mr-1">
-                            Xóa {selectedWordIds.length} thẻ?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmBulkDelete(false)}
-                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
-                          >
-                            Hủy
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleConfirmBulkDeleteWords}
-                            className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer"
-                          >
-                            Xác nhận xóa
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    {selectedWordIds.length > 0 && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!confirmBulkDelete ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedWordIds([])}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer whitespace-nowrap"
+                            >
+                              Bỏ chọn
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmBulkDelete(true)}
+                              className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Xóa đã chọn ({selectedWordIds.length})</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs font-semibold text-rose-900 mr-1">
+                              Xóa {selectedWordIds.length} thẻ?
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmBulkDelete(false)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleConfirmBulkDeleteWords}
+                              className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer"
+                            >
+                              Xác nhận xóa
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {item.compoundWords.map((cw) => {
                   const cwDue = cw.srsState.dueAt <= Date.now();
@@ -523,13 +537,15 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center flex-wrap gap-3 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={isWordSelected}
-                          onChange={() => toggleSelectWord(cw.id)}
-                          aria-label={`Chọn từ ghép ${cw.word}`}
-                          className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
-                        />
+                        {!readOnly && (
+                          <input
+                            type="checkbox"
+                            checked={isWordSelected}
+                            onChange={() => toggleSelectWord(cw.id)}
+                            aria-label={`Chọn từ ghép ${cw.word}`}
+                            className="w-4 h-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600 cursor-pointer shrink-0"
+                          />
+                        )}
                         <button
                           type="button"
                           onClick={() => speakJapanese(cw.word)}
@@ -548,29 +564,31 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
                         <span className="text-slate-600">{cw.meaning}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[11px] tabular-nums text-slate-400 mr-1">
-                          {cwDue
-                            ? 'Đến hạn ôn'
-                            : `Ôn sau ${formatIntervalLabel(cw.srsState.intervalMinutes)}`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => startEditCw(cw)}
-                          className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
-                          title="Sửa từ ghép"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteCompoundWord(item.id, cw.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
-                          title="Xóa từ ghép"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {!readOnly && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[11px] tabular-nums text-slate-400 mr-1">
+                            {cwDue
+                              ? 'Đến hạn ôn'
+                              : `Ôn sau ${formatIntervalLabel(cw.srsState.intervalMinutes)}`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => startEditCw(cw)}
+                            className="p-1.5 text-slate-400 hover:text-teal-700 hover:bg-teal-50 rounded-lg cursor-pointer"
+                            title="Sửa từ ghép"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteCompoundWord(item.id, cw.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer"
+                            title="Xóa từ ghép"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -578,48 +596,50 @@ export const KanjiItemDetailModal: React.FC<KanjiItemDetailModalProps> = ({
             )}
 
             {/* Add New Compound Word Form */}
-            <form
-              onSubmit={handleAddCompoundSubmit}
-              className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1"
-            >
-              <input
-                type="text"
-                value={newWord}
-                onChange={(e) => setNewWord(e.target.value)}
-                placeholder="Từ ghép (vd: 日本)"
-                className="sm:col-span-3 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
-                required
-              />
-              <input
-                type="text"
-                value={newReading}
-                onChange={(e) => setNewReading(e.target.value)}
-                placeholder="Cách đọc (vd: にほん)"
-                className="sm:col-span-3 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
-              />
-              <input
-                type="text"
-                value={newHanViet}
-                onChange={(e) => setNewHanViet(e.target.value)}
-                placeholder="Hán-Việt (vd: NHẬT BẢN)"
-                className="sm:col-span-2 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
-              />
-              <input
-                type="text"
-                value={newMeaning}
-                onChange={(e) => setNewMeaning(e.target.value)}
-                placeholder="Nghĩa tiếng Việt..."
-                className="sm:col-span-3 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
-                required
-              />
-              <button
-                type="submit"
-                className="sm:col-span-1 py-2 px-3 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
-                title="Thêm từ ghép"
+            {!readOnly && (
+              <form
+                onSubmit={handleAddCompoundSubmit}
+                className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1"
               >
-                <Plus className="w-4 h-4" />
-              </button>
-            </form>
+                <input
+                  type="text"
+                  value={newWord}
+                  onChange={(e) => setNewWord(e.target.value)}
+                  placeholder="Từ ghép (vd: 日本)"
+                  className="sm:col-span-3 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
+                  required
+                />
+                <input
+                  type="text"
+                  value={newReading}
+                  onChange={(e) => setNewReading(e.target.value)}
+                  placeholder="Cách đọc (vd: にほん)"
+                  className="sm:col-span-3 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
+                />
+                <input
+                  type="text"
+                  value={newHanViet}
+                  onChange={(e) => setNewHanViet(e.target.value)}
+                  placeholder="Hán-Việt (vd: NHẬT BẢN)"
+                  className="sm:col-span-2 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
+                />
+                <input
+                  type="text"
+                  value={newMeaning}
+                  onChange={(e) => setNewMeaning(e.target.value)}
+                  placeholder="Nghĩa tiếng Việt..."
+                  className="sm:col-span-3 px-3 py-2 text-xs bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-teal-600"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="sm:col-span-1 py-2 px-3 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
+                  title="Thêm từ ghép"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>

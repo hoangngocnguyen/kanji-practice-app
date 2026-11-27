@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Globe,
   Download,
@@ -35,6 +35,10 @@ import {
   apiToggleFollowUser,
   DeckCommunityMeta,
 } from '../services/communityService';
+import { FolderKanjiItem, StudyFolder } from '../types/deck';
+import { buildFolderTreeIndex } from '../utils/folderTree';
+import { FolderTreeExplorer } from './FolderTreeExplorer';
+import { FolderKanjiTable } from './FolderKanjiTable';
 import { UserAvatar } from './UserAvatar';
 
 interface GuestCard {
@@ -46,8 +50,44 @@ interface GuestCard {
   meaning: string;
 }
 
+type PracticeScope =
+  | { kind: 'all'; title: string }
+  | { kind: 'folder'; folderId: string; title: string; includeSubfolders: boolean };
+
+function buildGuestCardsFromItems(items: FolderKanjiItem[]): GuestCard[] {
+  const list: GuestCard[] = [];
+  for (const item of items) {
+    const cleanReadings = [
+      ...cleanReadingsList(item.onReadings),
+      ...cleanReadingsList(item.kunReadings),
+    ];
+    const cleanMeanings = cleanMeaningsList(item.meanings);
+
+    list.push({
+      id: `k-${item.id}`,
+      type: 'kanji',
+      front: item.kanji,
+      hanViet: item.hanViet,
+      reading: cleanReadings.join(', '),
+      meaning: cleanMeanings.join(', '),
+    });
+    for (const cw of item.compoundWords || []) {
+      list.push({
+        id: `cw-${cw.id}`,
+        type: 'compound',
+        front: cw.word,
+        hanViet: cw.hanViet,
+        reading: cw.reading,
+        meaning: cw.meaning,
+      });
+    }
+  }
+  return list;
+}
+
 export const PublicShareView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { importDeckBundle } = useDecks();
   const { user, displayName, avatarUrl, openAuthGuard } = useAuth();
@@ -60,6 +100,7 @@ export const PublicShareView: React.FC = () => {
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const [showLikers, setShowLikers] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Latest-intent refs for rapid optimistic toggling without UI locking
   const likeSeqRef = useRef(0);
@@ -67,6 +108,7 @@ export const PublicShareView: React.FC = () => {
 
   // Guest in-memory flashcard mode
   const [isPracticing, setIsPracticing] = useState(false);
+  const [practiceScope, setPracticeScope] = useState<PracticeScope | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -116,37 +158,129 @@ export const PublicShareView: React.FC = () => {
     };
   }, [slug, user?.id]);
 
-  const guestCards: GuestCard[] = useMemo(() => {
-    if (!record?.bundle?.items) return [];
-    const list: GuestCard[] = [];
-    for (const item of record.bundle.items) {
-      const cleanReadings = [
-        ...cleanReadingsList(item.onReadings),
-        ...cleanReadingsList(item.kunReadings),
-      ];
-      const cleanMeanings = cleanMeaningsList(item.meanings);
-
-      list.push({
-        id: `k-${item.id}`,
-        type: 'kanji',
-        front: item.kanji,
-        hanViet: item.hanViet,
-        reading: cleanReadings.join(', '),
-        meaning: cleanMeanings.join(', '),
-      });
-      for (const cw of item.compoundWords || []) {
-        list.push({
-          id: `cw-${cw.id}`,
-          type: 'compound',
-          front: cw.word,
-          hanViet: cw.hanViet,
-          reading: cw.reading,
-          meaning: cw.meaning,
-        });
-      }
-    }
-    return list;
+  const normalizedFolders: StudyFolder[] = useMemo(() => {
+    if (!record?.bundle) return [];
+    const rawFolders = record.bundle.folders || [];
+    if (rawFolders.length > 0) return rawFolders;
+    // Fallback virtual folder for legacy bundles without folder metadata
+    return [
+      {
+        id: record.bundle.rootFolderId || 'shared-root',
+        parentId: null,
+        name: record.title,
+        sortOrder: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+    ];
   }, [record]);
+
+  const normalizedItems: FolderKanjiItem[] = useMemo(() => {
+    if (!record?.bundle) return [];
+    const items = record.bundle.items || [];
+    if ((record.bundle.folders || []).length > 0 || normalizedFolders.length === 0) {
+      return items;
+    }
+    const fallbackId = normalizedFolders[0].id;
+    return items.map((it) => ({ ...it, folderId: fallbackId }));
+  }, [record, normalizedFolders]);
+
+  const folderTree = useMemo(
+    () =>
+      buildFolderTreeIndex(
+        normalizedFolders,
+        normalizedItems,
+        record?.bundle?.rootFolderId
+      ),
+    [normalizedFolders, normalizedItems, record?.bundle?.rootFolderId]
+  );
+
+  useEffect(() => {
+    setSearchQuery('');
+    setIsPracticing(false);
+    setPracticeScope(null);
+  }, [slug]);
+
+  const folderParam = searchParams.get('folder');
+  const activeFolderId =
+    folderParam && folderTree.folderMap.has(folderParam) ? folderParam : null;
+
+  const openFolderDetail = (folderId: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('folder', folderId);
+    setSearchParams(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const backToFolderTree = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('folder');
+    setSearchParams(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const allGuestCards: GuestCard[] = useMemo(
+    () => buildGuestCardsFromItems(normalizedItems),
+    [normalizedItems]
+  );
+
+  const practiceCards: GuestCard[] = useMemo(() => {
+    if (!practiceScope || practiceScope.kind === 'all') {
+      return allGuestCards;
+    }
+    const scopedItems = practiceScope.includeSubfolders
+      ? folderTree.getItemsRecursive(practiceScope.folderId)
+      : folderTree.getItemsDirect(practiceScope.folderId);
+    return buildGuestCardsFromItems(scopedItems);
+  }, [practiceScope, allGuestCards, folderTree]);
+
+  const startPracticeAll = () => {
+    if (!record || allGuestCards.length === 0) return;
+    setPracticeScope({ kind: 'all', title: record.title });
+    setCardIndex(0);
+    setIsFlipped(false);
+    setIsPracticing(true);
+  };
+
+  const startPracticeFolder = (folderId: string, includeSubfolders = true) => {
+    const folder = folderTree.folderMap.get(folderId);
+    const items = includeSubfolders
+      ? folderTree.getItemsRecursive(folderId)
+      : folderTree.getItemsDirect(folderId);
+    if (items.length === 0) return;
+    setPracticeScope({
+      kind: 'folder',
+      folderId,
+      title: folder?.name || record?.title || 'Thư mục',
+      includeSubfolders,
+    });
+    setCardIndex(0);
+    setIsFlipped(false);
+    setIsPracticing(true);
+  };
+
+  useEffect(() => {
+    if (!isPracticing || practiceCards.length === 0) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCardIndex((i) => Math.max(0, i - 1));
+        setIsFlipped(false);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCardIndex((i) => Math.min(practiceCards.length - 1, i + 1));
+        setIsFlipped(false);
+      } else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        setIsFlipped((f) => !f);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsPracticing(false);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isPracticing, practiceCards.length]);
 
   const handleSaveToMyDecks = async () => {
     if (!record?.bundle || !slug) return;
@@ -340,21 +474,25 @@ export const PublicShareView: React.FC = () => {
     );
   }
 
-  if (isPracticing && guestCards.length > 0) {
-    const current = guestCards[cardIndex];
+  if (isPracticing && practiceCards.length > 0) {
+    const safeIdx = Math.min(cardIndex, practiceCards.length - 1);
+    const current = practiceCards[safeIdx];
     return (
       <div className="max-w-2xl mx-auto space-y-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => setIsPracticing(false)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-teal-800 cursor-pointer min-h-[36px]"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-teal-800 cursor-pointer min-h-[36px] shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại danh sách</span>
+            <span>Quay lại bộ thẻ</span>
           </button>
-          <span className="text-xs font-mono tabular-nums text-slate-500">
-            {cardIndex + 1} / {guestCards.length}
+          <span className="text-xs font-semibold text-slate-800 truncate text-center">
+            {practiceScope?.title || record.title}
+          </span>
+          <span className="text-xs font-mono tabular-nums text-slate-500 shrink-0">
+            {safeIdx + 1} / {practiceCards.length}
           </span>
         </div>
 
@@ -373,6 +511,8 @@ export const PublicShareView: React.FC = () => {
                 speakJapanese(current.front);
               }}
               className="p-2 text-slate-400 hover:text-teal-700 rounded-lg cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+              title="Nghe phát âm"
+              aria-label="Nghe phát âm"
             >
               <Volume2 className="w-4 h-4" />
             </button>
@@ -381,7 +521,7 @@ export const PublicShareView: React.FC = () => {
           {!isFlipped ? (
             <div className="py-10 text-center space-y-3">
               <div className="font-kanji font-black text-6xl text-slate-900">{current.front}</div>
-              <p className="text-xs text-slate-400">Nhấn vào thẻ để xem đáp án</p>
+              <p className="text-xs text-slate-400">Nhấn vào thẻ hoặc phím Space để xem đáp án</p>
             </div>
           ) : (
             <div className="py-6 text-center space-y-3">
@@ -407,24 +547,24 @@ export const PublicShareView: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            disabled={cardIndex === 0}
+            disabled={safeIdx === 0}
             onClick={() => {
               setCardIndex((i) => Math.max(0, i - 1));
               setIsFlipped(false);
             }}
-            className="flex-1 py-2.5 min-h-[42px] bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
+            className="flex-1 py-2.5 min-h-[44px] bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Thẻ trước</span>
           </button>
           <button
             type="button"
-            disabled={cardIndex >= guestCards.length - 1}
+            disabled={safeIdx >= practiceCards.length - 1}
             onClick={() => {
-              setCardIndex((i) => Math.min(guestCards.length - 1, i + 1));
+              setCardIndex((i) => Math.min(practiceCards.length - 1, i + 1));
               setIsFlipped(false);
             }}
-            className="flex-1 py-2.5 min-h-[42px] bg-teal-700 hover:bg-teal-800 disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
+            className="flex-1 py-2.5 min-h-[44px] bg-teal-700 hover:bg-teal-800 disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 cursor-pointer"
           >
             <span>Thẻ tiếp theo</span>
             <ChevronRight className="w-4 h-4" />
@@ -442,8 +582,54 @@ export const PublicShareView: React.FC = () => {
   const viewerLiked = Boolean(meta?.viewerLiked);
   const isSelfAuthor = Boolean(user && authorId && user.id === authorId);
 
+  if (activeFolderId) {
+    return (
+      <div className="w-full space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <button
+            type="button"
+            onClick={backToFolderTree}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-teal-800 transition-colors cursor-pointer min-h-[36px]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay lại danh sách thư mục</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline text-xs text-slate-500 truncate max-w-[260px]">
+              Bộ thẻ: <strong className="text-slate-800">{record.title}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleSaveToMyDecks()}
+              className="px-3.5 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl flex items-center gap-1.5 cursor-pointer whitespace-nowrap min-h-[36px] active:scale-95"
+            >
+              {savedSuccess ? <Check className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+              <span>{savedSuccess ? 'Đã lưu!' : 'Lưu về thư mục của tôi'}</span>
+            </button>
+          </div>
+        </div>
+
+        <FolderKanjiTable
+          onStartReview={() => startPracticeFolder(activeFolderId, true)}
+          onSelectFolder={openFolderDetail}
+          readOnlyBundle={{
+            folders: normalizedFolders,
+            items: normalizedItems,
+            rootFolderId: record.bundle.rootFolderId,
+            selectedFolderId: activeFolderId,
+            searchQuery,
+            onClearSearch: () => setSearchQuery(''),
+            onStartPractice: (folderId, includeSubfolders) =>
+              startPracticeFolder(folderId, includeSubfolders),
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="w-full space-y-5">
       <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="space-y-2 min-w-0">
@@ -510,11 +696,11 @@ export const PublicShareView: React.FC = () => {
             </h1>
 
             <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 tabular-nums">
-              <span>{record.bundle.folders.length} thư mục</span>
+              <span>{normalizedFolders.length} thư mục</span>
               <span aria-hidden="true">·</span>
-              <span>{record.bundle.items.length} chữ Kanji</span>
+              <span>{normalizedItems.length} chữ Kanji</span>
               <span aria-hidden="true">·</span>
-              <span>{guestCards.length} thẻ Flashcard</span>
+              <span>{allGuestCards.length} thẻ Flashcard</span>
               <span aria-hidden="true">·</span>
               <span>{downloadsCount} lượt tải</span>
               <span aria-hidden="true">·</span>
@@ -550,16 +736,12 @@ export const PublicShareView: React.FC = () => {
 
             <button
               type="button"
-              disabled={guestCards.length === 0}
-              onClick={() => {
-                setCardIndex(0);
-                setIsFlipped(false);
-                setIsPracticing(true);
-              }}
+              disabled={allGuestCards.length === 0}
+              onClick={startPracticeAll}
               className="px-3.5 sm:px-4 py-2 text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl flex items-center gap-1.5 cursor-pointer whitespace-nowrap min-h-[40px] active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Ôn Flashcard ngay</span>
+              <span>Ôn toàn bộ</span>
             </button>
 
             <button
@@ -628,47 +810,16 @@ export const PublicShareView: React.FC = () => {
         )}
       </div>
 
-      {/* Preview Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden divide-y divide-slate-100">
-        {record.bundle.items.map((item) => {
-          const cleanMeanings = cleanMeaningsList(item.meanings);
-          return (
-            <div key={item.id} className="p-4 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-10 h-10 shrink-0 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center font-kanji text-xl font-black text-slate-900">
-                    {item.kanji}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900">{item.hanViet || '—'}</div>
-                    <div className="text-xs text-slate-600 break-words">
-                      {cleanMeanings.length > 0 ? cleanMeanings.join(', ') : 'Chưa có nghĩa'}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => speakJapanese(item.kanji)}
-                  className="p-2 text-slate-400 hover:text-teal-700 cursor-pointer shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
-                >
-                  <Volume2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              {item.compoundWords && item.compoundWords.length > 0 && (
-                <div className="pl-0 sm:pl-13 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
-                  {item.compoundWords.map((cw) => (
-                    <span key={cw.id}>
-                      <strong className="font-kanji text-slate-900">{cw.word}</strong>{' '}
-                      <span className="font-mono text-slate-500">({cw.reading})</span>: {cw.meaning}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {/* Hierarchical Folder Structure Tree (Click a folder to open its Kanji list) */}
+      <FolderTreeExplorer
+        folders={normalizedFolders}
+        items={normalizedItems}
+        rootFolderId={record.bundle.rootFolderId}
+        onSelectFolder={openFolderDetail}
+        onPracticeFolder={(folderId) => startPracticeFolder(folderId, true)}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+      />
     </div>
   );
 };
