@@ -25,10 +25,10 @@ export default defineConfig(() => {
         ],
         manifest: {
           id: '/',
-          name: 'Luyện Kanji Pro - Tra Cứu & Luyện Nét Vẽ Chữ Hán',
+          name: 'Luyện Kanji Pro - Luyện Viết Kanji & Sửa Lỗi Từng Nét',
           short_name: 'Luyện Kanji',
           description:
-            'Học 2.136 Jōyō Kanji từ N5 đến N1, luyện viết nét chuẩn thứ tự, tra cứu vẽ tay, ôn Flashcard SRS và đấu trường Kanji ngoại tuyến.',
+            'Luyện viết Kanji chuẩn thứ tự nét có chấm điểm và sửa lỗi từng nét ngay lập tức, kèm Flashcard SRS, Streak bạn bè, Đấu trường và 2.136 Jōyō Kanji ngoại tuyến.',
           start_url: '/',
           scope: '/',
           lang: 'vi',

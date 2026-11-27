@@ -13,9 +13,9 @@ interface RouteSeoMeta {
 }
 
 const DEFAULT_SEO: RouteSeoMeta = {
-  title: 'Luyện Kanji Pro – Học & Luyện Viết Kanji JLPT N5–N1',
+  title: 'Luyện Kanji Pro – Luyện Viết Kanji & Sửa Lỗi Từng Nét',
   description:
-    'Học 2.136 Jōyō Kanji từ N5 đến N1, luyện nét viết chuẩn thứ tự, ôn Flashcard SRS, đấu trường Kanji trực tuyến và tra cứu chữ Hán miễn phí ngay.',
+    'Luyện viết Kanji chuẩn thứ tự nét có chấm điểm và sửa lỗi từng nét ngay lập tức, kèm Flashcard SRS, Streak bạn bè, Đấu trường và 2.136 Jōyō Kanji N5–N1.',
 };
 
 const ROUTE_SEO_MAP: Record<string, RouteSeoMeta> = {
@@ -23,27 +23,27 @@ const ROUTE_SEO_MAP: Record<string, RouteSeoMeta> = {
   '/input': {
     title: 'Nhập Văn Bản & Quét Ảnh OCR Kanji | Luyện Kanji Pro',
     description:
-      'Nhập văn bản tiếng Nhật với bộ gõ IME thông minh hoặc quét ảnh OCR để tách chữ Kanji, xem âm Hán-Việt và bắt đầu luyện viết ngay.',
+      'Nhập văn bản tiếng Nhật với bộ gõ IME thông minh hoặc quét ảnh OCR để tách chữ Kanji, xem âm Hán-Việt và bắt đầu luyện viết sửa lỗi ngay.',
   },
   '/kanji': {
-    title: 'Luyện Nét Viết Kanji & Thứ Tự Nét | Luyện Kanji Pro',
+    title: 'Luyện Viết Kanji & Sửa Lỗi Từng Nét | Luyện Kanji Pro',
     description:
-      'Luyện viết chữ Kanji chuẩn thứ tự nét với hướng dẫn bóng mờ, chế độ viết mù, chấm điểm tự động và xuất ảnh nét vẽ hoặc in phiếu tập viết.',
+      'Tập viết chữ Kanji chuẩn thứ tự nét với hướng dẫn bóng mờ, chế độ viết mù, chấm điểm hình học 2 chiều phát hiện sửa lỗi từng nét và in phiếu tập viết.',
   },
   '/levels': {
-    title: 'Học 2.136 Jōyō Kanji Theo Cấp Độ JLPT | Luyện Kanji Pro',
+    title: 'Tập Viết & Học 2.136 Kanji JLPT N5–N1 | Luyện Kanji Pro',
     description:
-      'Khám phá trọn bộ 2.136 Jōyō Kanji theo cấp độ JLPT N5 đến N1 kèm âm Hán-Việt, câu ví dụ Nhật - Việt, Quiz 4 dạng và trò chơi ghép bộ thủ.',
+      'Luyện viết và tra cứu 2.136 Jōyō Kanji chuẩn hóa nghĩa Nhật - Việt theo KANJIDIC2 từ N5 đến N1, kèm âm Hán-Việt, câu ví dụ, Quiz 4 dạng và ghép bộ thủ.',
   },
   '/search': {
     title: 'Tra Cứu Kanji Ngược & Nhận Diện Vẽ Tay | Luyện Kanji Pro',
     description:
-      'Tra cứu nhanh hơn 3.000 chữ Kanji theo nghĩa tiếng Việt, âm Hán-Việt, On/Kun, bộ thủ hoặc vẽ tay trực tiếp để nhận diện chữ chính xác.',
+      'Tra cứu nhanh hơn 3.000 chữ Kanji theo nghĩa tiếng Việt, âm Hán-Việt, On/Kun, bộ thủ hoặc vẽ tay trực tiếp trên bảng vẽ để nhận diện và luyện viết ngay.',
   },
   '/decks': {
     title: 'Flashcard SRS 4 Chế Độ & Đồng Bộ Anki | Luyện Kanji Pro',
     description:
-      'Quản lý thư mục bài học nhiều tầng, ôn tập Flashcard SRS với Lật thẻ, Viết mù, Nghe, Điền câu, theo dõi Heatmap 365 ngày và đồng bộ Anki.',
+      'Quản lý thư mục bài học nhiều tầng, ôn Flashcard SRS với Lật thẻ, Viết mù chấm nét, Nghe, Điền câu, theo dõi Heatmap 365 ngày và đồng bộ Anki.',
   },
   '/arena': {
     title: 'Đấu Trường Kanji Trực Tuyến 1v1 & Nhóm | Luyện Kanji Pro',
@@ -56,9 +56,9 @@ const ROUTE_SEO_MAP: Record<string, RouteSeoMeta> = {
       'Khám phá, lưu về học và chia sẻ bộ thẻ Kanji theo cấp độ JLPT từ cộng đồng người học tiếng Nhật kèm tính năng theo dõi tác giả.',
   },
   '/leaderboard': {
-    title: 'Bảng Xếp Hạng Streak Học Kanji | Luyện Kanji Pro',
+    title: 'Streak Bạn Bè, Băng Streak & Xếp Hạng | Luyện Kanji Pro',
     description:
-      'Theo dõi chuỗi ngày học Kanji liên tục và bảng xếp hạng cộng đồng để duy trì động lực ôn luyện tiếng Nhật mỗi ngày.',
+      'Kết nối Streak bạn bè tối đa 6 người, dùng Băng Streak bảo vệ hoặc cứu chuỗi học cho bạn bè và theo dõi bảng xếp hạng cộng đồng mỗi ngày.',
   },
   '/radicals': {
     title: '214 Bộ Thủ Khang Hy & Cấu Tạo Kanji | Luyện Kanji Pro',

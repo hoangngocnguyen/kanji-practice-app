@@ -3,16 +3,19 @@ User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /profile
+Disallow: /invite/
 
 User-agent: Googlebot
 Allow: /
 Disallow: /api/
 Disallow: /profile
+Disallow: /invite/
 
 User-agent: Google-Extended
 Allow: /
 Disallow: /api/
 Disallow: /profile
+Disallow: /invite/
 
 # XML Sitemap Official Location
 Sitemap: https://luyenkanji.vercel.app/sitemap.xml
