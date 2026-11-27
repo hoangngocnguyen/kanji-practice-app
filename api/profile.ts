@@ -42,6 +42,7 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
         email: profile.email || user.email || '',
         displayName: (profile.display_name || '').trim() || identity.preferredDisplayName,
         avatarUrl: sanitizeHttpAvatarUrl(profile.avatar_url) || identity.metaAvatar,
+        role: profile.role || 'user',
         createdAt: user.created_at || profile.created_at,
         syncVersion: Number(profile.sync_version || 0),
         lastSyncAt: profile.last_sync_at,

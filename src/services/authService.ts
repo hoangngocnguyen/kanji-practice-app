@@ -13,6 +13,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  role?: string;
   createdAt: string;
   syncVersion: number;
   lastSyncAt: string | null;

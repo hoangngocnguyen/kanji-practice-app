@@ -21,6 +21,7 @@ import { KanjiStrokesView } from './components/KanjiStrokesView';
 import { DecksView } from './components/DecksView';
 import { DeckDetailView } from './components/DeckDetailView';
 import { PublicShareView } from './components/PublicShareView';
+import { HomeView } from './components/HomeView';
 import { ProfilePage } from './pages/ProfilePage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
 import { SharedDecksPage } from './pages/SharedDecksPage';
@@ -138,7 +139,7 @@ function AppLayout() {
         <main className="flex-1 flex flex-col w-full px-4 sm:px-6 lg:px-8 pt-5 sm:pt-6 pb-0">
           <div className="flex-1 space-y-6">
             <Routes>
-              <Route path="/" element={<InputSection />} />
+              <Route path="/" element={<HomeView />} />
               <Route path="/input" element={<InputSection />} />
               <Route path="/kanji" element={<KanjiStrokesView />} />
               <Route path="/levels" element={<KanjiByLevelPage />} />

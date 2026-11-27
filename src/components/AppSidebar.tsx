@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Trophy,
   Swords,
+  Home,
   LucideIcon,
 } from 'lucide-react';
 import { useKanji } from '../context/KanjiContext';
@@ -152,7 +153,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       items: [
         {
           to: '/input',
-          matchExact: ['/'],
           label: 'Nhập văn bản',
           icon: FileText,
           badge: null,
@@ -363,6 +363,34 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             effectiveCollapsed ? 'space-y-1' : 'space-y-2'
           }`}
         >
+          {/* Standalone Trang chủ button at top */}
+          <NavLink
+            to="/"
+            onClick={() => {
+              hideCollapsedTooltip();
+              if (isMobileOpen) onCloseMobile();
+            }}
+            onMouseEnter={(e) => showCollapsedTooltip(e, 'Trang chủ')}
+            onMouseLeave={hideCollapsedTooltip}
+            className={({ isActive }) => `w-full group relative flex items-center ${
+              effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
+            } rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer ${
+              isActive
+                ? 'bg-teal-700 text-white font-bold shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
+            }`}
+            aria-label="Trang chủ"
+          >
+            {({ isActive }) => (
+              <>
+                <Home className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-teal-700'}`} />
+                {!effectiveCollapsed && <span className="truncate">Trang chủ</span>}
+              </>
+            )}
+          </NavLink>
+
+          <div className="pt-1.5 border-t border-slate-100" />
+
           {navGroups.map((group, groupIdx) => {
             const isOpen = openGroups[group.id];
             const hasActiveItem = group.items.some((item) =>
@@ -415,8 +443,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   <div className={`space-y-1 ${!effectiveCollapsed ? 'mt-1' : ''}`}>
                     {group.items.map((item) => {
                       const Icon = item.icon;
-                      const isHomeInputMatch =
-                        item.to === '/input' && location.pathname === '/';
 
                       return (
                         <NavLink
@@ -428,25 +454,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                           }}
                           onMouseEnter={(e) => showCollapsedTooltip(e, item.label, item.badge)}
                           onMouseLeave={hideCollapsedTooltip}
-                          className={({ isActive }) => {
-                            const active = isActive || isHomeInputMatch;
-                            return `w-full group relative flex items-center ${
-                              effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
-                            } rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer ${
-                              active
-                                ? 'bg-teal-700 text-white font-bold shadow-xs'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
-                            }`;
-                          }}
+                          className={({ isActive }) => `w-full group relative flex items-center ${
+                            effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
+                          } rounded-xl text-xs sm:text-[13px] transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-teal-700 text-white font-bold shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
+                          }`}
                           aria-label={item.label}
                         >
                           {({ isActive }) => {
-                            const active = isActive || isHomeInputMatch;
                             return (
                               <>
                                 <Icon
                                   className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 transition-transform group-hover:scale-110 ${
-                                    active
+                                    isActive
                                       ? 'text-white'
                                       : 'text-slate-500 group-hover:text-teal-700'
                                   }`}
@@ -458,7 +480,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                                     {item.badge !== null && (
                                       <span
                                         className={`ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded-full shrink-0 tabular-nums ${
-                                          active
+                                          isActive
                                             ? 'bg-white/20 text-white'
                                             : 'bg-slate-100 text-slate-600 group-hover:bg-teal-100 group-hover:text-teal-800'
                                         }`}

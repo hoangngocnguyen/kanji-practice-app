@@ -12,6 +12,7 @@ import communityHandler from './api/community.js';
 import notificationsHandler from './api/notifications.js';
 import arenaHandler from './api/arena.js';
 import authCallbackHandler from './api/auth/callback.js';
+import postsHandler from './api/posts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -44,6 +45,7 @@ async function startServer() {
   mountHandler('/api/community', communityHandler);
   mountHandler('/api/notifications', notificationsHandler);
   mountHandler('/api/arena', arenaHandler);
+  mountHandler('/api/posts', postsHandler);
   mountHandler('/api/auth/callback', authCallbackHandler);
   mountHandler('/api/auth/callback/', authCallbackHandler);
   mountHandler('/auth/callback', authCallbackHandler);
