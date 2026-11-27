@@ -1,6 +1,6 @@
 # ⛩️ Luyện Kanji Pro – Kanji Handwriting Practice & Real-Time Stroke Correction
 
-### *(2D Geometric Stroke Scoring · 4-Mode SRS Flashcards & Anki · Friend Streaks & Streak Freeze · Web Push PWA Notifications · Live Kanji Arena · 2,136 KANJIDIC2 Jōyō Kanji)*
+### *(Stroke Scoring & Correction · Radical Decomposition · SRS Flashcards & Anki · Live Arena & Friend Streaks · 2,136 Jōyō Kanji N5–N1)*
 
 [![Live App](https://img.shields.io/badge/App-Luy%E1%BB%87n%20Kanji%20Pro-0f766e.svg)](https://luyenkanji.vercel.app)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)

@@ -1,6 +1,6 @@
 # ⛩️ Luyện Kanji Pro – Nền Tảng Luyện Viết Kanji & Sửa Lỗi Từng Nét
 
-### *(Chấm Điểm Nét Viết Hình Học 2 Chiều · Flashcard SRS 4 Chế Độ & Anki · Streak Bạn Bè & Băng Streak · Thông Báo Web Push PWA · Đấu Trường Kanji · 2.136 Jōyō Kanji Chuẩn Nhật)*
+### *(Chấm Điểm & Sửa Lỗi Từng Nét · Phân Tích Bộ Thủ · Flashcard SRS & Anki · Đấu Trường & Streak Bạn Bè · 2.136 Jōyō Kanji N5–N1)*
 
 [![Trang chủ](https://img.shields.io/badge/App-Luy%E1%BB%87n%20Kanji%20Pro-0f766e.svg)](https://luyenkanji.vercel.app)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)

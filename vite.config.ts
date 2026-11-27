@@ -28,7 +28,7 @@ export default defineConfig(() => {
           name: 'Luyện Kanji Pro - Luyện Viết Kanji & Sửa Lỗi Từng Nét',
           short_name: 'Luyện Kanji',
           description:
-            'Luyện viết Kanji chuẩn thứ tự nét có chấm điểm và sửa lỗi từng nét ngay lập tức, kèm Flashcard SRS, Streak bạn bè, Đấu trường và 2.136 Jōyō Kanji ngoại tuyến.',
+            'Luyện viết Kanji chấm điểm, sửa lỗi từng nét; học 2.136 Jōyō Kanji N5–N1, phân tích bộ thủ, Flashcard SRS, Đấu trường và Streak cùng bạn bè.',
           start_url: '/',
           scope: '/',
           lang: 'vi',

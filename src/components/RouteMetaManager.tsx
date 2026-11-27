@@ -15,7 +15,7 @@ interface RouteSeoMeta {
 const DEFAULT_SEO: RouteSeoMeta = {
   title: 'Luyện Kanji Pro – Luyện Viết Kanji & Sửa Lỗi Từng Nét',
   description:
-    'Luyện viết Kanji chuẩn thứ tự nét có chấm điểm và sửa lỗi từng nét ngay lập tức, kèm Flashcard SRS, Streak bạn bè, Đấu trường và 2.136 Jōyō Kanji N5–N1.',
+    'Luyện viết Kanji chấm điểm, sửa lỗi từng nét; học 2.136 Jōyō Kanji N5–N1, phân tích bộ thủ, Flashcard SRS, Đấu trường và Streak cùng bạn bè.',
 };
 
 const ROUTE_SEO_MAP: Record<string, RouteSeoMeta> = {
