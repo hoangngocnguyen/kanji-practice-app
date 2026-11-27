@@ -130,15 +130,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const displayName = useMemo(() => {
-    const fromProfile = profile?.displayName?.trim();
-    if (fromProfile) return fromProfile;
-    const fromMeta = (
-      (user?.user_metadata?.display_name as string | undefined) ||
+    const fromProfile = profile?.displayName?.trim() || '';
+    const emailPrefix = user?.email ? user.email.split('@')[0].trim() : '';
+    const isCustomName =
+      user?.user_metadata?.custom_display_name === true ||
+      user?.user_metadata?.custom_display_name === 'true';
+
+    const fromGoogleMeta = (
       (user?.user_metadata?.full_name as string | undefined) ||
-      (user?.user_metadata?.name as string | undefined)
-    )?.trim();
-    if (fromMeta) return fromMeta;
-    if (user?.email) return user.email.split('@')[0];
+      (user?.user_metadata?.name as string | undefined) ||
+      ''
+    ).trim();
+    const fromMetaDisplay = (
+      (user?.user_metadata?.display_name as string | undefined) || ''
+    ).trim();
+
+    if (isCustomName && (fromProfile || fromMetaDisplay)) {
+      return fromProfile || fromMetaDisplay;
+    }
+
+    const isEmailPrefix = (val: string) =>
+      Boolean(emailPrefix && val && val.toLowerCase() === emailPrefix.toLowerCase());
+
+    if (fromProfile && (!isEmailPrefix(fromProfile) || !fromGoogleMeta)) {
+      return fromProfile;
+    }
+    if (fromMetaDisplay && (!isEmailPrefix(fromMetaDisplay) || !fromGoogleMeta)) {
+      return fromMetaDisplay;
+    }
+    if (fromGoogleMeta) return fromGoogleMeta;
+    if (fromProfile) return fromProfile;
+    if (emailPrefix) return emailPrefix;
     return 'Thành viên';
   }, [profile, user]);
 

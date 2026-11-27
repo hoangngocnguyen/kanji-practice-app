@@ -168,13 +168,43 @@ export default async function handler(
       if (!ctx) return;
       const { user, supabaseAdmin } = ctx;
 
-      const { data: targetProfile, error: profErr } = await supabaseAdmin
+      let { data: targetProfile, error: profErr } = await supabaseAdmin
         .from('profiles')
-        .select('id, display_name, avatar_url, created_at')
+        .select('id, email, display_name, avatar_url, created_at')
         .eq('id', targetUserId)
         .maybeSingle();
 
       if (profErr) throw profErr;
+
+      // Lazily heal legacy Google profiles (missing avatar or stuck on email prefix) on view
+      const targetEmailPrefix = targetProfile?.email
+        ? String(targetProfile.email).split('@')[0].trim().toLowerCase()
+        : '';
+      const targetNameLower = (targetProfile?.display_name || '').trim().toLowerCase();
+      const needsHeal =
+        !targetProfile ||
+        !targetProfile.avatar_url ||
+        !targetNameLower ||
+        (Boolean(targetEmailPrefix) && targetNameLower === targetEmailPrefix);
+
+      if (needsHeal) {
+        try {
+          const { data: authData } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+          if (authData?.user) {
+            const healed = await ensureUserProfile(supabaseAdmin, authData.user);
+            targetProfile = {
+              id: healed.id,
+              email: healed.email,
+              display_name: healed.display_name,
+              avatar_url: healed.avatar_url,
+              created_at: healed.created_at,
+            };
+          }
+        } catch {
+          // Keep existing profile if auth lookup fails
+        }
+      }
+
       if (!targetProfile) {
         return res.status(404).json({ error: 'Không tìm thấy hồ sơ người dùng này.' });
       }

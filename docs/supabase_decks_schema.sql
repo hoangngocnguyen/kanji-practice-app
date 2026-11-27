@@ -40,15 +40,41 @@ returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
+declare
+  resolved_name text;
+  resolved_avatar text;
 begin
-  insert into public.profiles (id, email, display_name)
+  resolved_name := left(
+    coalesce(
+      nullif(trim(new.raw_user_meta_data->>'display_name'), ''),
+      nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+      nullif(trim(new.raw_user_meta_data->>'name'), ''),
+      nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+      'Người học Kanji'
+    ),
+    60
+  );
+
+  resolved_avatar := nullif(
+    trim(
+      coalesce(
+        new.raw_user_meta_data->>'avatar_url',
+        new.raw_user_meta_data->>'picture',
+        ''
+      )
+    ),
+    ''
+  );
+  if resolved_avatar is not null and resolved_avatar !~* '^https?://' then
+    resolved_avatar := null;
+  end if;
+
+  insert into public.profiles (id, email, display_name, avatar_url)
   values (
     new.id,
     coalesce(new.email, ''),
-    coalesce(
-      nullif(trim(new.raw_user_meta_data->>'display_name'), ''),
-      split_part(coalesce(new.email, 'User'), '@', 1)
-    )
+    resolved_name,
+    left(resolved_avatar, 500)
   )
   on conflict (id) do nothing;
   return new;

@@ -24,12 +24,7 @@ import {
   apiUnpublishShareBySlug,
   MySharedDeckItem,
 } from '../services/communityService';
-
-function getInitials(name: string): string {
-  const parts = (name || 'U').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
-}
+import { UserAvatar } from './UserAvatar';
 
 export const SharedDecksManager: React.FC = () => {
   const { user, openAuthModal, supabaseEnabled } = useAuth();
@@ -413,9 +408,12 @@ export const SharedDecksManager: React.FC = () => {
                             to={`/u/${liker.id}`}
                             className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 text-xs transition-colors"
                           >
-                            <span className="w-6 h-6 rounded-full bg-teal-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                              {getInitials(liker.displayName)}
-                            </span>
+                            <UserAvatar
+                              name={liker.displayName}
+                              avatarUrl={liker.avatarUrl}
+                              sizeClass="w-6 h-6"
+                              textSizeClass="text-[10px]"
+                            />
                             <span className="font-semibold text-slate-800 hover:text-teal-800">
                               {liker.displayName}
                             </span>

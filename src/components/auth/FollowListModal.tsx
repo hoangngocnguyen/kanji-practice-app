@@ -18,6 +18,7 @@ import {
   FollowUserItem,
   SearchUserResult,
 } from '../../services/communityService';
+import { UserAvatar } from '../UserAvatar';
 
 export type FollowModalTab = 'followers' | 'following' | 'find';
 
@@ -34,12 +35,6 @@ interface FollowListModalProps {
     followers: FollowUserItem[],
     following: FollowUserItem[]
   ) => void;
-}
-
-function getInitials(name: string): string {
-  const parts = (name || 'U').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
 }
 
 export const FollowListModal: React.FC<FollowListModalProps> = ({
@@ -271,9 +266,12 @@ export const FollowListModal: React.FC<FollowListModalProps> = ({
           onClick={onClose}
           className="flex items-center gap-3 min-w-0 flex-1"
         >
-          <span className="w-10 h-10 rounded-full bg-teal-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-            {getInitials(person.displayName)}
-          </span>
+          <UserAvatar
+            name={person.displayName}
+            avatarUrl={person.avatarUrl}
+            sizeClass="w-10 h-10"
+            textSizeClass="text-xs"
+          />
           <div className="min-w-0">
             <div className="text-sm font-semibold text-slate-900 hover:text-teal-800 truncate">
               {person.displayName}
@@ -454,9 +452,12 @@ export const FollowListModal: React.FC<FollowListModalProps> = ({
                           onClick={onClose}
                           className="flex items-center gap-3 min-w-0 flex-1"
                         >
-                          <span className="w-9 h-9 rounded-full bg-teal-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                            {getInitials(person.displayName)}
-                          </span>
+                          <UserAvatar
+                            name={person.displayName}
+                            avatarUrl={person.avatarUrl}
+                            sizeClass="w-9 h-9"
+                            textSizeClass="text-xs"
+                          />
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-slate-900 hover:text-teal-800 truncate">
                               {person.displayName}

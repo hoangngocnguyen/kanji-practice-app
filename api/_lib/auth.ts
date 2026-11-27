@@ -105,11 +105,63 @@ export interface ProfileRow {
   updated_at: string;
 }
 
-function sanitizeHttpAvatarUrl(raw: unknown): string | null {
+export function sanitizeHttpAvatarUrl(raw: unknown): string | null {
   const val = typeof raw === 'string' ? raw.trim() : '';
   if (!val) return null;
   if (/^https?:\/\//i.test(val)) return val.slice(0, 500);
   return null;
+}
+
+export interface ResolvedUserIdentity {
+  emailPrefix: string;
+  isCustomDisplayName: boolean;
+  googleName: string;
+  metaDisplayName: string;
+  preferredDisplayName: string;
+  metaAvatar: string | null;
+}
+
+export function resolveUserIdentity(user: User): ResolvedUserIdentity {
+  const meta = (user.user_metadata || {}) as Record<string, unknown>;
+  const emailPrefix = user.email ? user.email.split('@')[0].trim() : '';
+  const isCustomDisplayName =
+    meta.custom_display_name === true || meta.custom_display_name === 'true';
+
+  const metaDisplayName =
+    typeof meta.display_name === 'string' ? meta.display_name.trim() : '';
+
+  const fullName =
+    typeof meta.full_name === 'string' ? meta.full_name.trim() : '';
+  const name = typeof meta.name === 'string' ? meta.name.trim() : '';
+  const googleName = fullName || name;
+
+  const metaAvatar = sanitizeHttpAvatarUrl(meta.avatar_url || meta.picture);
+
+  const metaDisplayIsEmailPrefix =
+    Boolean(emailPrefix) &&
+    metaDisplayName.toLowerCase() === emailPrefix.toLowerCase();
+
+  let preferredDisplayName = '';
+  if (isCustomDisplayName && metaDisplayName) {
+    preferredDisplayName = metaDisplayName;
+  } else if (metaDisplayName && (!metaDisplayIsEmailPrefix || !googleName)) {
+    preferredDisplayName = metaDisplayName;
+  } else if (googleName) {
+    preferredDisplayName = googleName;
+  } else if (emailPrefix) {
+    preferredDisplayName = emailPrefix;
+  } else {
+    preferredDisplayName = 'Người học Kanji';
+  }
+
+  return {
+    emailPrefix,
+    isCustomDisplayName,
+    googleName,
+    metaDisplayName,
+    preferredDisplayName: preferredDisplayName.slice(0, 60),
+    metaAvatar,
+  };
 }
 
 export async function ensureUserProfile(
@@ -126,32 +178,65 @@ export async function ensureUserProfile(
     throw selectError;
   }
 
-  const metaAvatar = sanitizeHttpAvatarUrl(
-    user.user_metadata?.avatar_url || user.user_metadata?.picture
-  );
+  const identity = resolveUserIdentity(user);
 
   if (existing) {
     const existingRow = existing as ProfileRow;
-    if (!existingRow.avatar_url && metaAvatar) {
+    const currentName = (existingRow.display_name || '').trim();
+    const looksLikeEmailPrefix =
+      Boolean(identity.emailPrefix) &&
+      currentName.toLowerCase() === identity.emailPrefix.toLowerCase();
+
+    const shouldUpgradeName =
+      !identity.isCustomDisplayName &&
+      ((!currentName && Boolean(identity.preferredDisplayName)) ||
+        (looksLikeEmailPrefix &&
+          Boolean(identity.googleName) &&
+          identity.googleName.toLowerCase() !== identity.emailPrefix.toLowerCase()));
+
+    const currentAvatar = sanitizeHttpAvatarUrl(existingRow.avatar_url);
+    const isGoogleHostedAvatar = Boolean(
+      currentAvatar && /googleusercontent\.com|ggpht\.com/i.test(currentAvatar)
+    );
+    const shouldUpdateAvatar = Boolean(
+      identity.metaAvatar &&
+        (!currentAvatar ||
+          (isGoogleHostedAvatar && currentAvatar !== identity.metaAvatar))
+    );
+
+    if (shouldUpgradeName || shouldUpdateAvatar) {
+      const nextName = shouldUpgradeName
+        ? (identity.googleName || identity.preferredDisplayName).slice(0, 60)
+        : existingRow.display_name;
+      const nextAvatar = shouldUpdateAvatar ? identity.metaAvatar : existingRow.avatar_url;
+
       const { data: patched } = await supabaseAdmin
         .from('profiles')
         .update({
-          avatar_url: metaAvatar,
+          ...(shouldUpgradeName ? { display_name: nextName } : {}),
+          ...(shouldUpdateAvatar ? { avatar_url: nextAvatar } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
         .select('*')
         .maybeSingle();
+
+      if (shouldUpgradeName && nextName) {
+        try {
+          await supabaseAdmin
+            .from('public_shared_decks')
+            .update({ author_name: nextName })
+            .eq('owner_id', user.id);
+        } catch {
+          // Non-blocking sync for public deck author snapshot
+        }
+      }
+
       if (patched) return patched as ProfileRow;
     }
+
     return existingRow;
   }
-
-  const fallbackDisplayName =
-    (user.user_metadata?.display_name as string | undefined)?.trim() ||
-    (user.user_metadata?.full_name as string | undefined)?.trim() ||
-    (user.user_metadata?.name as string | undefined)?.trim() ||
-    (user.email ? user.email.split('@')[0] : 'Người học Kanji');
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('profiles')
@@ -159,8 +244,8 @@ export async function ensureUserProfile(
       {
         id: user.id,
         email: user.email || '',
-        display_name: fallbackDisplayName.slice(0, 60),
-        avatar_url: metaAvatar,
+        display_name: identity.preferredDisplayName,
+        avatar_url: identity.metaAvatar,
         sync_version: 0,
         data_hash: '',
       },

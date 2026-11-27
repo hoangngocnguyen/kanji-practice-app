@@ -1,5 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ensureUserProfile, requireAuth, setCorsHeaders } from './_lib/auth.js';
+import {
+  ensureUserProfile,
+  requireAuth,
+  resolveUserIdentity,
+  sanitizeHttpAvatarUrl,
+  setCorsHeaders,
+} from './_lib/auth.js';
 
 export default async function handler(req: VercelRequest | any, res: VercelResponse | any) {
   setCorsHeaders(res);
@@ -15,6 +21,7 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
 
   try {
     const profile = await ensureUserProfile(supabaseAdmin, user);
+    const identity = resolveUserIdentity(user);
 
     if (req.method === 'GET') {
       const [{ count: deckCount }, { count: cardCount }] = await Promise.all([
@@ -33,17 +40,8 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
       return res.status(200).json({
         id: profile.id,
         email: profile.email || user.email || '',
-        displayName:
-          profile.display_name ||
-          (user.user_metadata?.display_name as string | undefined) ||
-          (user.user_metadata?.full_name as string | undefined) ||
-          (user.user_metadata?.name as string | undefined) ||
-          (user.email ? user.email.split('@')[0] : 'Người học Kanji'),
-        avatarUrl:
-          profile.avatar_url ||
-          (user.user_metadata?.avatar_url as string | undefined) ||
-          (user.user_metadata?.picture as string | undefined) ||
-          null,
+        displayName: (profile.display_name || '').trim() || identity.preferredDisplayName,
+        avatarUrl: sanitizeHttpAvatarUrl(profile.avatar_url) || identity.metaAvatar,
         createdAt: user.created_at || profile.created_at,
         syncVersion: Number(profile.sync_version || 0),
         lastSyncAt: profile.last_sync_at,
@@ -78,19 +76,26 @@ export default async function handler(req: VercelRequest | any, res: VercelRespo
         throw updateError;
       }
 
-      // Sync display_name back to Supabase Auth user_metadata
-      await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        user_metadata: {
-          ...(user.user_metadata || {}),
-          display_name: displayName,
-        },
-      });
+      // Mark custom_display_name so subsequent Google OAuth logins preserve user edits
+      await Promise.all([
+        supabaseAdmin.auth.admin.updateUserById(user.id, {
+          user_metadata: {
+            ...(user.user_metadata || {}),
+            display_name: displayName,
+            custom_display_name: true,
+          },
+        }),
+        supabaseAdmin
+          .from('public_shared_decks')
+          .update({ author_name: displayName })
+          .eq('owner_id', user.id),
+      ]);
 
       return res.status(200).json({
         id: updated.id,
         email: updated.email,
         displayName: updated.display_name,
-        avatarUrl: updated.avatar_url || null,
+        avatarUrl: sanitizeHttpAvatarUrl(updated.avatar_url) || identity.metaAvatar,
         createdAt: user.created_at || updated.created_at,
         updatedAt: updated.updated_at,
         syncVersion: Number(updated.sync_version || 0),

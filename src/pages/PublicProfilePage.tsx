@@ -23,18 +23,13 @@ import {
   PublicProfileData,
 } from '../services/communityService';
 import { FollowListModal, FollowModalTab } from '../components/auth/FollowListModal';
-
-function getInitials(name: string): string {
-  const parts = (name || 'U').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
-}
+import { UserAvatar } from '../components/UserAvatar';
 
 type PublicProfileTab = 'decks' | 'followers' | 'following';
 
 export const PublicProfilePage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
-  const { user, displayName, openAuthGuard } = useAuth();
+  const { user, displayName, avatarUrl, openAuthGuard } = useAuth();
 
   const [data, setData] = useState<PublicProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +88,7 @@ export const PublicProfilePage: React.FC = () => {
           {
             id: user.id,
             displayName: displayName || 'Thành viên',
-            avatarUrl: null,
+            avatarUrl: avatarUrl || null,
             followedAt: new Date().toISOString(),
           },
           ...filteredFollowers,
@@ -170,9 +165,13 @@ export const PublicProfilePage: React.FC = () => {
       <section className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-8 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 min-w-0">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-teal-700 text-white font-bold text-lg sm:text-xl flex items-center justify-center shrink-0 ring-4 ring-teal-50">
-              {getInitials(data.profile.displayName)}
-            </div>
+            <UserAvatar
+              name={data.profile.displayName}
+              avatarUrl={data.profile.avatarUrl}
+              sizeClass="w-14 h-14 sm:w-16 sm:h-16"
+              textSizeClass="text-lg sm:text-xl"
+              className="ring-4 ring-teal-50"
+            />
             <div className="space-y-1.5 min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
                 {data.profile.displayName}
@@ -379,9 +378,12 @@ export const PublicProfilePage: React.FC = () => {
                 className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors min-h-[56px]"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-9 h-9 rounded-full bg-teal-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                    {getInitials(person.displayName)}
-                  </span>
+                  <UserAvatar
+                    name={person.displayName}
+                    avatarUrl={person.avatarUrl}
+                    sizeClass="w-9 h-9"
+                    textSizeClass="text-xs"
+                  />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-900 truncate">
                       {person.displayName}
@@ -417,9 +419,12 @@ export const PublicProfilePage: React.FC = () => {
                 className="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors min-h-[56px]"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-9 h-9 rounded-full bg-teal-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                    {getInitials(person.displayName)}
-                  </span>
+                  <UserAvatar
+                    name={person.displayName}
+                    avatarUrl={person.avatarUrl}
+                    sizeClass="w-9 h-9"
+                    textSizeClass="text-xs"
+                  />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-900 truncate">
                       {person.displayName}

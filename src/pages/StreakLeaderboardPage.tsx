@@ -27,6 +27,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { usePageLoadingIndicator } from '../context/LoadingContext';
 import { StudyHeatmap365 } from '../components/StudyHeatmap365';
+import { UserAvatar } from '../components/UserAvatar';
 
 export const StreakLeaderboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -103,13 +104,6 @@ export const StreakLeaderboardPage: React.FC = () => {
       </div>
     );
   };
-
-  const renderInitials = (name: string) =>
-    name
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() || '')
-      .join('') || 'U';
 
   const topThree: StreakLeaderboardEntry[] =
     data && data.entries.length >= 3 ? data.entries.slice(0, 3) : [];
@@ -300,18 +294,13 @@ export const StreakLeaderboardPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {entry.avatarUrl ? (
-                        <img
-                          src={entry.avatarUrl}
-                          alt={entry.displayName}
-                          referrerPolicy="no-referrer"
-                          className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-teal-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                          {renderInitials(entry.displayName)}
-                        </div>
-                      )}
+                      <UserAvatar
+                        name={entry.displayName}
+                        avatarUrl={entry.avatarUrl}
+                        sizeClass="w-10 h-10"
+                        textSizeClass="text-xs"
+                        className="border border-slate-200"
+                      />
                       <div className="min-w-0">
                         <Link
                           to={`/u/${entry.userId}`}
@@ -350,18 +339,13 @@ export const StreakLeaderboardPage: React.FC = () => {
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     {renderRankBadge(entry.rank)}
 
-                    {entry.avatarUrl ? (
-                      <img
-                        src={entry.avatarUrl}
-                        alt={entry.displayName}
-                        referrerPolicy="no-referrer"
-                        className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-teal-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                        {renderInitials(entry.displayName)}
-                      </div>
-                    )}
+                    <UserAvatar
+                      name={entry.displayName}
+                      avatarUrl={entry.avatarUrl}
+                      sizeClass="w-9 h-9"
+                      textSizeClass="text-xs"
+                      className="border border-slate-200"
+                    />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 min-w-0">

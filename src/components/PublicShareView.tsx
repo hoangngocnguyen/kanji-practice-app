@@ -35,6 +35,7 @@ import {
   apiToggleFollowUser,
   DeckCommunityMeta,
 } from '../services/communityService';
+import { UserAvatar } from './UserAvatar';
 
 interface GuestCard {
   id: string;
@@ -45,17 +46,11 @@ interface GuestCard {
   meaning: string;
 }
 
-function getInitials(name: string): string {
-  const parts = (name || 'U').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
-}
-
 export const PublicShareView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { importDeckBundle } = useDecks();
-  const { user, displayName, openAuthGuard } = useAuth();
+  const { user, displayName, avatarUrl, openAuthGuard } = useAuth();
 
   const [record, setRecord] = useState<PublicSharedDeckRecord | null>(null);
   const [meta, setMeta] = useState<DeckCommunityMeta | null>(null);
@@ -213,7 +208,7 @@ export const PublicShareView: React.FC = () => {
           {
             id: user.id,
             displayName: displayName || 'Thành viên',
-            avatarUrl: null,
+            avatarUrl: avatarUrl || null,
             likedAt: new Date().toISOString(),
           },
           ...filteredLikedBy,
@@ -466,9 +461,12 @@ export const PublicShareView: React.FC = () => {
                       to={`/u/${authorId}`}
                       className="inline-flex items-center gap-1.5 font-bold text-slate-900 hover:text-teal-700 transition-colors"
                     >
-                      <span className="w-5 h-5 rounded-full bg-teal-700 text-white text-[10px] font-bold inline-flex items-center justify-center shrink-0">
-                        {getInitials(authorName)}
-                      </span>
+                      <UserAvatar
+                        name={authorName}
+                        avatarUrl={meta?.author.avatarUrl}
+                        sizeClass="w-5 h-5"
+                        textSizeClass="text-[10px]"
+                      />
                       <span>{authorName}</span>
                     </Link>
                     {meta && (
@@ -615,9 +613,12 @@ export const PublicShareView: React.FC = () => {
                     to={`/u/${liker.id}`}
                     className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 text-xs transition-colors"
                   >
-                    <span className="w-5 h-5 rounded-full bg-teal-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {getInitials(liker.displayName)}
-                    </span>
+                    <UserAvatar
+                      name={liker.displayName}
+                      avatarUrl={liker.avatarUrl}
+                      sizeClass="w-5 h-5"
+                      textSizeClass="text-[10px]"
+                    />
                     <span className="font-semibold text-slate-800">{liker.displayName}</span>
                   </Link>
                 ))}
