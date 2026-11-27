@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -6,6 +7,445 @@ import {
   requireAuth,
   setCorsHeaders,
 } from './_lib/auth.js';
+import {
+  createNotificationAndPush,
+  isMissingTableError,
+} from './_lib/notifications.js';
+
+const MAX_FRIEND_STREAK_SLOTS = 6;
+const MAX_PENDING_OUTGOING_INVITES = 10;
+const MAX_FREEZE_SLOTS = 2;
+const FREEZE_RECHARGE_DAYS_REQUIRED = 10;
+
+function getVnDateKey(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function getVnHour(date: Date = new Date()): number {
+  const hourStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    hour12: false,
+  }).format(date);
+  const parsed = Number(hourStr);
+  return Number.isFinite(parsed) ? parsed % 24 : 12;
+}
+
+function addDaysToDateKey(dateKey: string, deltaDays: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dt = new Date(Date.UTC(y || 2026, (m || 1) - 1, d || 1));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function normalizeFrozenDates(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set<string>();
+  for (const item of raw) {
+    if (typeof item === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.trim())) {
+      valid.add(item.trim());
+    }
+  }
+  return Array.from(valid).sort().slice(-371);
+}
+
+type ActivityMap = Record<
+  string,
+  { reviewed: number; hard: number; good: number; easy: number }
+>;
+
+function sanitizeActivityMap(raw: unknown): ActivityMap {
+  const clean: ActivityMap = {};
+  if (!raw || typeof raw !== 'object') return clean;
+  const clamp = (v: unknown) => {
+    const n = Math.floor(Number(v));
+    return Number.isFinite(n) ? Math.max(0, Math.min(10000, n)) : 0;
+  };
+  const keys = Object.keys(raw as Record<string, any>)
+    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    .sort()
+    .slice(-371);
+  for (const key of keys) {
+    const entry = (raw as Record<string, any>)[key];
+    if (entry && typeof entry === 'object') {
+      clean[key] = {
+        reviewed: clamp(entry.reviewed),
+        hard: clamp(entry.hard),
+        good: clamp(entry.good),
+        easy: clamp(entry.easy),
+      };
+    }
+  }
+  return clean;
+}
+
+function mergeActivityMaps(a: ActivityMap, b: ActivityMap): ActivityMap {
+  const merged: ActivityMap = { ...a };
+  for (const [k, rec] of Object.entries(b)) {
+    const existing = merged[k];
+    if (!existing) {
+      merged[k] = { ...rec };
+    } else {
+      merged[k] = {
+        reviewed: Math.max(existing.reviewed, rec.reviewed),
+        hard: Math.max(existing.hard, rec.hard),
+        good: Math.max(existing.good, rec.good),
+        easy: Math.max(existing.easy, rec.easy),
+      };
+    }
+  }
+  const trimmed: ActivityMap = {};
+  for (const key of Object.keys(merged).sort().slice(-371)) {
+    trimmed[key] = merged[key];
+  }
+  return trimmed;
+}
+
+function computeFreezeAwareMetrics(params: {
+  activityByDate: ActivityMap;
+  frozenDates: string[];
+  todayVn: string;
+}) {
+  const { activityByDate, frozenDates, todayVn } = params;
+  const yesterdayVn = addDaysToDateKey(todayVn, -1);
+
+  const activeDates = Object.keys(activityByDate)
+    .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && (activityByDate[k]?.reviewed || 0) > 0)
+    .sort();
+  const activeSet = new Set(activeDates);
+  const frozenSet = new Set(frozenDates);
+
+  let totalReviewed = 0;
+  for (const key of activeDates) {
+    totalReviewed += Math.max(0, Number(activityByDate[key]?.reviewed || 0));
+  }
+
+  const lastStudyDate = activeDates.length > 0 ? activeDates[activeDates.length - 1] : null;
+  const todayCount = Math.max(0, Number(activityByDate[todayVn]?.reviewed || 0));
+
+  let currentStreak = 0;
+  let cursorKey: string | null = null;
+  if (activeSet.has(todayVn) || frozenSet.has(todayVn)) {
+    cursorKey = todayVn;
+  } else if (activeSet.has(yesterdayVn) || frozenSet.has(yesterdayVn)) {
+    cursorKey = yesterdayVn;
+  }
+
+  let steps = 0;
+  while (cursorKey && steps < 4000) {
+    steps += 1;
+    if (activeSet.has(cursorKey)) {
+      currentStreak += 1;
+      cursorKey = addDaysToDateKey(cursorKey, -1);
+    } else if (frozenSet.has(cursorKey)) {
+      cursorKey = addDaysToDateKey(cursorKey, -1);
+    } else {
+      break;
+    }
+  }
+
+  // Longest streak bridging frozen dates
+  const allRelevantDates = Array.from(new Set([...activeDates, ...frozenDates])).sort();
+  let longestStreak = currentStreak;
+  let run = 0;
+  let prevKey: string | null = null;
+  for (const key of allRelevantDates) {
+    const isActive = activeSet.has(key);
+    const isFrozen = frozenSet.has(key);
+    if (!isActive && !isFrozen) continue;
+
+    if (prevKey && addDaysToDateKey(prevKey, 1) === key) {
+      if (isActive) run += 1;
+    } else {
+      run = isActive ? 1 : 0;
+    }
+    if (run > longestStreak) longestStreak = run;
+    prevKey = key;
+  }
+
+  return {
+    currentStreak,
+    longestStreak,
+    todayCount,
+    totalReviewed,
+    lastStudyDate,
+    isActiveToday: activeSet.has(todayVn),
+  };
+}
+
+async function fetchStreakRowSafe(
+  supabaseAdmin: SupabaseClient,
+  userId: string
+): Promise<{ row: any | null; tableReady: boolean; freezeReady: boolean }> {
+  const extended = await supabaseAdmin
+    .from('user_study_streaks')
+    .select(
+      'user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, activity_by_date, streak_freezes, freeze_recharge_days, frozen_dates, last_freeze_at, updated_at'
+    )
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!extended.error) {
+    return { row: extended.data || null, tableReady: true, freezeReady: true };
+  }
+
+  const code = String((extended.error as any)?.code || '');
+  const msg = String(extended.error.message || '').toLowerCase();
+  if (code === '42703' || msg.includes('streak_freezes') || msg.includes('frozen_dates')) {
+    const basic = await supabaseAdmin
+      .from('user_study_streaks')
+      .select(
+        'user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, activity_by_date, updated_at'
+      )
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!basic.error) {
+      return { row: basic.data || null, tableReady: true, freezeReady: false };
+    }
+    if (isMissingTableError(basic.error)) {
+      return { row: null, tableReady: false, freezeReady: false };
+    }
+    throw basic.error;
+  }
+
+  if (isMissingTableError(extended.error)) {
+    return { row: null, tableReady: false, freezeReady: false };
+  }
+  throw extended.error;
+}
+
+async function reconcileAutoFreezeForUser(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+  row: any | null,
+  freezeReady: boolean,
+  todayVn: string,
+  notify = true
+): Promise<any | null> {
+  if (!row || !freezeReady) return row;
+
+  const yesterdayVn = addDaysToDateKey(todayVn, -1);
+  const twoDaysAgoVn = addDaysToDateKey(todayVn, -2);
+  const activity = sanitizeActivityMap(row.activity_by_date);
+  const frozenDates = normalizeFrozenDates(row.frozen_dates);
+  const frozenSet = new Set(frozenDates);
+
+  const streakFreezes = Math.max(
+    0,
+    Math.min(MAX_FREEZE_SLOTS, Number(row.streak_freezes ?? 1))
+  );
+
+  const yesterdayReviewed = Math.max(0, Number(activity[yesterdayVn]?.reviewed || 0));
+  const missedYesterday =
+    yesterdayReviewed === 0 &&
+    row.last_study_date !== yesterdayVn &&
+    !frozenSet.has(yesterdayVn);
+
+  const hadStreakBeforeYesterday =
+    (activity[twoDaysAgoVn]?.reviewed || 0) > 0 ||
+    frozenSet.has(twoDaysAgoVn) ||
+    (row.last_study_date === twoDaysAgoVn && Number(row.current_streak || 0) > 0);
+
+  if (missedYesterday && hadStreakBeforeYesterday && streakFreezes >= 1) {
+    const nextFreezes = streakFreezes - 1;
+    const nextFrozenDates = normalizeFrozenDates([...frozenDates, yesterdayVn]);
+    const metrics = computeFreezeAwareMetrics({
+      activityByDate: activity,
+      frozenDates: nextFrozenDates,
+      todayVn,
+    });
+    const nextCurrentStreak = Math.max(metrics.currentStreak, Number(row.current_streak || 0));
+    const nextLongestStreak = Math.max(
+      nextCurrentStreak,
+      metrics.longestStreak,
+      Number(row.longest_streak || 0)
+    );
+    const nowIso = new Date().toISOString();
+
+    const { data: updatedRow } = await supabaseAdmin
+      .from('user_study_streaks')
+      .update({
+        streak_freezes: nextFreezes,
+        frozen_dates: nextFrozenDates,
+        last_freeze_at: nowIso,
+        current_streak: nextCurrentStreak,
+        longest_streak: nextLongestStreak,
+      })
+      .eq('user_id', userId)
+      .select(
+        'user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, activity_by_date, streak_freezes, freeze_recharge_days, frozen_dates, last_freeze_at, updated_at'
+      )
+      .maybeSingle();
+
+    if (notify) {
+      await createNotificationAndPush(supabaseAdmin, {
+        userId,
+        type: 'freeze_auto_used',
+        title: 'Băng Streak đã tự động bảo vệ chuỗi ngày của bạn!',
+        body: `Hệ thống đã dùng 1 Băng Streak cho ngày hôm qua để giữ chuỗi ${nextCurrentStreak} ngày. Bạn còn ${nextFreezes}/${MAX_FREEZE_SLOTS} Băng.`,
+        actionUrl: '/leaderboard?tab=friends',
+        metadata: { date: yesterdayVn, remainingFreezes: nextFreezes },
+        sendPush: true,
+        tag: `freeze-used-${yesterdayVn}`,
+      });
+    }
+
+    return updatedRow || {
+      ...row,
+      streak_freezes: nextFreezes,
+      frozen_dates: nextFrozenDates,
+      last_freeze_at: nowIso,
+      current_streak: nextCurrentStreak,
+      longest_streak: nextLongestStreak,
+    };
+  }
+
+  return row;
+}
+
+async function advanceFriendStreaksForUser(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+  todayVn: string
+): Promise<void> {
+  try {
+    const yesterdayVn = addDaysToDateKey(todayVn, -1);
+    const { data: pairs, error } = await supabaseAdmin
+      .from('friend_streaks')
+      .select('*')
+      .eq('status', 'active')
+      .or(`user_low.eq.${userId},user_high.eq.${userId}`);
+
+    if (error || !pairs || pairs.length === 0) return;
+
+    const partnerIds = pairs.map((p: any) =>
+      p.user_low === userId ? p.user_high : p.user_low
+    );
+    const uniquePartnerIds = Array.from(new Set(partnerIds));
+
+    const [{ data: streakRows }, usersMap] = await Promise.all([
+      supabaseAdmin
+        .from('user_study_streaks')
+        .select(
+          'user_id, current_streak, longest_streak, today_count, last_study_date, activity_by_date, streak_freezes, frozen_dates'
+        )
+        .in('user_id', [userId, ...uniquePartnerIds]),
+      fetchPublicUsersMap(supabaseAdmin, [userId, ...uniquePartnerIds]),
+    ]);
+
+    const streakMap = new Map<string, any>();
+    for (const r of streakRows || []) {
+      streakMap.set(r.user_id, r);
+    }
+
+    const myRow = streakMap.get(userId);
+    const myAct = sanitizeActivityMap(myRow?.activity_by_date);
+    const myFrozen = new Set(normalizeFrozenDates(myRow?.frozen_dates));
+    const mySatisfiedToday =
+      myRow?.last_study_date === todayVn ||
+      (myAct[todayVn]?.reviewed || 0) > 0 ||
+      myFrozen.has(todayVn);
+    if (!mySatisfiedToday) return;
+
+    const mySatisfiedYesterday =
+      myRow?.last_study_date === yesterdayVn ||
+      (myAct[yesterdayVn]?.reviewed || 0) > 0 ||
+      myFrozen.has(yesterdayVn);
+
+    for (const pair of pairs) {
+      if (pair.last_pair_date === todayVn) continue;
+
+      const partnerId = pair.user_low === userId ? pair.user_high : pair.user_low;
+      let partnerRow = streakMap.get(partnerId) || null;
+      if (partnerRow) {
+        partnerRow = await reconcileAutoFreezeForUser(
+          supabaseAdmin,
+          partnerId,
+          partnerRow,
+          true,
+          todayVn,
+          true
+        );
+      }
+      if (!partnerRow) continue;
+
+      const pAct = sanitizeActivityMap(partnerRow.activity_by_date);
+      const pFrozen = new Set(normalizeFrozenDates(partnerRow.frozen_dates));
+      const partnerSatisfiedToday =
+        partnerRow.last_study_date === todayVn ||
+        (pAct[todayVn]?.reviewed || 0) > 0 ||
+        pFrozen.has(todayVn);
+
+      if (!partnerSatisfiedToday) continue;
+
+      const pairFrozen = new Set(normalizeFrozenDates(pair.frozen_dates));
+      const partnerSatisfiedYesterday =
+        partnerRow.last_study_date === yesterdayVn ||
+        (pAct[yesterdayVn]?.reviewed || 0) > 0 ||
+        pFrozen.has(yesterdayVn);
+
+      const continuedFromYesterday =
+        pair.last_pair_date === yesterdayVn ||
+        pairFrozen.has(yesterdayVn) ||
+        (Number(pair.pair_streak || 0) > 0 && mySatisfiedYesterday && partnerSatisfiedYesterday);
+
+      const nextPairStreak = continuedFromYesterday
+        ? Math.max(1, Number(pair.pair_streak || 0) + 1)
+        : 1;
+      const nextLongest = Math.max(
+        nextPairStreak,
+        Number(pair.longest_pair_streak || 0)
+      );
+
+      await supabaseAdmin
+        .from('friend_streaks')
+        .update({
+          pair_streak: nextPairStreak,
+          longest_pair_streak: nextLongest,
+          last_pair_date: todayVn,
+        })
+        .eq('id', pair.id);
+
+      const milestones = new Set([7, 14, 30, 60, 100]);
+      if (milestones.has(nextPairStreak)) {
+        const myName = usersMap.get(userId)?.displayName || 'Bạn học';
+        const partnerName = usersMap.get(partnerId)?.displayName || 'Bạn học';
+        await Promise.all([
+          createNotificationAndPush(supabaseAdmin, {
+            userId,
+            actorId: partnerId,
+            type: 'friend_streak_milestone',
+            title: `Cột mốc ${nextPairStreak} ngày Streak cùng ${partnerName}!`,
+            body: 'Cả hai bạn đã giữ vững ngọn lửa học Kanji liên tục cùng nhau.',
+            actionUrl: '/leaderboard?tab=friends',
+            metadata: { pairId: pair.id, streak: nextPairStreak },
+            sendPush: true,
+          }),
+          createNotificationAndPush(supabaseAdmin, {
+            userId: partnerId,
+            actorId: userId,
+            type: 'friend_streak_milestone',
+            title: `Cột mốc ${nextPairStreak} ngày Streak cùng ${myName}!`,
+            body: 'Cả hai bạn đã giữ vững ngọn lửa học Kanji liên tục cùng nhau.',
+            actionUrl: '/leaderboard?tab=friends',
+            metadata: { pairId: pair.id, streak: nextPairStreak },
+            sendPush: true,
+          }),
+        ]);
+      }
+    }
+  } catch {
+    // Non-blocking if friend_streaks tables haven't been migrated yet
+  }
+}
 
 interface PublicUserLite {
   id: string;
@@ -410,6 +850,30 @@ export default async function handler(
         .update({ likes_count: likesCount })
         .eq('slug', slug);
 
+      if (liked) {
+        const { data: deckOwnerRow } = await supabaseAdmin
+          .from('public_shared_decks')
+          .select('owner_id, title')
+          .eq('slug', slug)
+          .maybeSingle();
+
+        if (deckOwnerRow?.owner_id && deckOwnerRow.owner_id !== user.id) {
+          const actorsMap = await fetchPublicUsersMap(supabaseAdmin, [user.id]);
+          const actorName = actorsMap.get(user.id)?.displayName || 'Một thành viên';
+          const deckTitle = deckOwnerRow.title || 'bộ thẻ chia sẻ';
+          await createNotificationAndPush(supabaseAdmin, {
+            userId: deckOwnerRow.owner_id,
+            actorId: user.id,
+            type: 'deck_liked',
+            title: `${actorName} đã thả tim bộ thẻ của bạn`,
+            body: `Bộ thẻ "${deckTitle}" vừa nhận được một lượt thích mới.`,
+            actionUrl: `/share/${slug}`,
+            metadata: { slug, title: deckTitle },
+            sendPush: false,
+          });
+        }
+      }
+
       return res.status(200).json({
         liked,
         likesCount,
@@ -560,6 +1024,21 @@ export default async function handler(
         .select('follower_id', { count: 'exact', head: true })
         .eq('following_id', targetUserId);
 
+      if (isFollowing) {
+        const actorsMap = await fetchPublicUsersMap(supabaseAdmin, [user.id]);
+        const actorName = actorsMap.get(user.id)?.displayName || 'Một thành viên';
+        await createNotificationAndPush(supabaseAdmin, {
+          userId: targetUserId,
+          actorId: user.id,
+          type: 'new_follower',
+          title: `${actorName} đã bắt đầu theo dõi bạn`,
+          body: 'Nhấn để xem hồ sơ hoặc mời bạn ấy nối Streak học Kanji.',
+          actionUrl: `/u/${user.id}`,
+          metadata: { followerId: user.id },
+          sendPush: true,
+        });
+      }
+
       return res.status(200).json({
         isFollowing,
         followersCount: followersCount || 0,
@@ -623,22 +1102,35 @@ export default async function handler(
       if (!ctx) return;
       const { user, supabaseAdmin } = ctx;
 
-      const { data: rows, error: lbErr } = await supabaseAdmin
+      let rows: any[] | null = null;
+      let lbErr: any = null;
+      const extendedRes = await supabaseAdmin
         .from('user_study_streaks')
-        .select('user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, updated_at')
+        .select(
+          'user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, frozen_dates, updated_at'
+        )
         .order('current_streak', { ascending: false })
         .order('total_reviewed', { ascending: false })
         .limit(100);
 
+      if (extendedRes.error && String((extendedRes.error as any)?.code || '') === '42703') {
+        const basicRes = await supabaseAdmin
+          .from('user_study_streaks')
+          .select(
+            'user_id, current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, updated_at'
+          )
+          .order('current_streak', { ascending: false })
+          .order('total_reviewed', { ascending: false })
+          .limit(100);
+        rows = basicRes.data;
+        lbErr = basicRes.error;
+      } else {
+        rows = extendedRes.data;
+        lbErr = extendedRes.error;
+      }
+
       if (lbErr) {
-        const errCode = String((lbErr as any)?.code || '');
-        const errMsg = String(lbErr.message || '').toLowerCase();
-        if (
-          errCode === '42P01' ||
-          errCode === 'PGRST205' ||
-          errMsg.includes('does not exist') ||
-          errMsg.includes('user_study_streaks')
-        ) {
+        if (isMissingTableError(lbErr)) {
           return res.status(200).json({
             tableReady: false,
             entries: [],
@@ -649,18 +1141,9 @@ export default async function handler(
         throw lbErr;
       }
 
-      const now = new Date();
-      const formatVnDate = (d: Date) =>
-        new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(d);
-
-      const todayVn = formatVnDate(now);
-      const yesterdayVn = formatVnDate(new Date(now.getTime() - 24 * 60 * 60 * 1000));
-      const tomorrowVn = formatVnDate(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+      const todayVn = getVnDateKey();
+      const yesterdayVn = addDaysToDateKey(todayVn, -1);
+      const tomorrowVn = addDaysToDateKey(todayVn, 1);
       const activeDateSet = new Set([yesterdayVn, todayVn, tomorrowVn]);
 
       const rawRows = rows || [];
@@ -672,7 +1155,9 @@ export default async function handler(
 
       const normalizedEntries = rawRows.map((r: any) => {
         const lastDate = typeof r.last_study_date === 'string' ? r.last_study_date : null;
-        const isStreakActive = Boolean(lastDate && activeDateSet.has(lastDate));
+        const frozenDates = normalizeFrozenDates(r.frozen_dates);
+        const isFrozenGrace = frozenDates.includes(yesterdayVn) || frozenDates.includes(todayVn);
+        const isStreakActive = Boolean((lastDate && activeDateSet.has(lastDate)) || isFrozenGrace);
         const effectiveStreak = isStreakActive ? Math.max(0, Number(r.current_streak || 0)) : 0;
         const todayCount =
           lastDate === todayVn || lastDate === tomorrowVn
@@ -717,6 +1202,88 @@ export default async function handler(
       });
     }
 
+    // Public/Auth-optional preview for shareable Friend Streak Invite links
+    if (req.method === 'GET' && action === 'friend_streak_invite_preview') {
+      const code = String(req.query?.code || '').trim();
+      if (!code) {
+        return res.status(400).json({ error: 'Thiếu mã lời mời nối Streak.' });
+      }
+      const ctx = await optionalAuth(req, res);
+      if (!ctx) return;
+      const { user, supabaseAdmin } = ctx;
+
+      const { data: invite, error: invErr } = await supabaseAdmin
+        .from('friend_streak_invites')
+        .select('id, inviter_id, invitee_id, invite_code, status, expires_at, created_at')
+        .eq('invite_code', code)
+        .maybeSingle();
+
+      if (invErr) {
+        if (isMissingTableError(invErr)) {
+          return res.status(200).json({ tableReady: false, invite: null });
+        }
+        throw invErr;
+      }
+
+      if (!invite) {
+        return res.status(404).json({ error: 'Không tìm thấy lời mời nối Streak này.' });
+      }
+
+      const [usersMap, inviterStreak] = await Promise.all([
+        fetchPublicUsersMap(supabaseAdmin, [invite.inviter_id]),
+        fetchStreakRowSafe(supabaseAdmin, invite.inviter_id),
+      ]);
+
+      const inviterProfile = usersMap.get(invite.inviter_id);
+      const isExpired =
+        invite.status === 'expired' ||
+        (invite.status === 'pending' && new Date(invite.expires_at).getTime() < Date.now());
+
+      let viewerSlotCount = 0;
+      let alreadyConnected = false;
+      if (user) {
+        const [{ count }, { data: pairRow }] = await Promise.all([
+          supabaseAdmin
+            .from('friend_streaks')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active')
+            .or(`user_low.eq.${user.id},user_high.eq.${user.id}`),
+          user.id !== invite.inviter_id
+            ? supabaseAdmin
+                .from('friend_streaks')
+                .select('id, status')
+                .eq('user_low', user.id < invite.inviter_id ? user.id : invite.inviter_id)
+                .eq('user_high', user.id < invite.inviter_id ? invite.inviter_id : user.id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
+        viewerSlotCount = count || 0;
+        alreadyConnected = Boolean((pairRow as any)?.status === 'active');
+      }
+
+      return res.status(200).json({
+        tableReady: true,
+        invite: {
+          id: invite.id,
+          inviteCode: invite.invite_code,
+          status: isExpired ? 'expired' : invite.status,
+          expiresAt: invite.expires_at,
+          isTargetedToOther: Boolean(
+            user && invite.invitee_id && invite.invitee_id !== user.id
+          ),
+          isOwnInvite: Boolean(user && invite.inviter_id === user.id),
+          alreadyConnected,
+          viewerSlotsFull: viewerSlotCount >= MAX_FRIEND_STREAK_SLOTS,
+          inviter: {
+            id: invite.inviter_id,
+            displayName: inviterProfile?.displayName || 'Thành viên',
+            avatarUrl: inviterProfile?.avatarUrl || null,
+            currentStreak: Math.max(0, Number(inviterStreak.row?.current_streak || 0)),
+          },
+        },
+      });
+    }
+
     if (req.method === 'GET' && action === 'search_users') {
       const q = String(req.query?.q || '').trim();
 
@@ -755,23 +1322,42 @@ export default async function handler(
     }
 
     if (req.method === 'GET' && action === 'my_study_streak') {
-      const { data: row, error } = await supabaseAdmin
-        .from('user_study_streaks')
-        .select('current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, activity_by_date, updated_at')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const todayVn = getVnDateKey();
+      const { row, tableReady, freezeReady } = await fetchStreakRowSafe(
+        supabaseAdmin,
+        user.id
+      );
 
-      if (error) {
-        const errCode = String((error as any)?.code || '');
-        if (errCode === '42P01' || errCode === 'PGRST205') {
-          return res.status(200).json({ tableReady: false, streak: null });
-        }
-        throw error;
+      if (!tableReady) {
+        return res.status(200).json({ tableReady: false, freezeReady: false, streak: null });
       }
+
+      const reconciled = await reconcileAutoFreezeForUser(
+        supabaseAdmin,
+        user.id,
+        row,
+        freezeReady,
+        todayVn,
+        true
+      );
 
       return res.status(200).json({
         tableReady: true,
-        streak: row || null,
+        freezeReady,
+        streak: reconciled
+          ? {
+              ...reconciled,
+              streak_freezes: Math.max(
+                0,
+                Math.min(MAX_FREEZE_SLOTS, Number(reconciled.streak_freezes ?? 1))
+              ),
+              freeze_recharge_days: Math.max(
+                0,
+                Math.min(FREEZE_RECHARGE_DAYS_REQUIRED, Number(reconciled.freeze_recharge_days ?? 0))
+              ),
+              frozen_dates: normalizeFrozenDates(reconciled.frozen_dates),
+            }
+          : null,
       });
     }
 
@@ -782,63 +1368,925 @@ export default async function handler(
         return Math.max(min, Math.min(max, n));
       };
 
-      const currentStreak = sanitizeInt(req.body?.currentStreak, 0, 5000, 0);
-      const longestStreak = Math.max(currentStreak, sanitizeInt(req.body?.longestStreak, 0, 5000, 0));
-      const todayCount = sanitizeInt(req.body?.todayCount, 0, 10000, 0);
-      const dailyGoal = sanitizeInt(req.body?.dailyGoal, 1, 500, 20);
-      const totalReviewed = sanitizeInt(req.body?.totalReviewed, 0, 5000000, 0);
+      const todayVn = getVnDateKey();
+      const yesterdayVn = addDaysToDateKey(todayVn, -1);
+
+      const { row: existingRowRaw, tableReady, freezeReady } = await fetchStreakRowSafe(
+        supabaseAdmin,
+        user.id
+      );
+
+      if (!tableReady) {
+        return res.status(200).json({ tableReady: false, freezeReady: false, saved: null });
+      }
+
+      const existingRow = await reconcileAutoFreezeForUser(
+        supabaseAdmin,
+        user.id,
+        existingRowRaw,
+        freezeReady,
+        todayVn,
+        true
+      );
+
+      const clientActivity = sanitizeActivityMap(req.body?.activityByDate);
+      const serverActivity = sanitizeActivityMap(existingRow?.activity_by_date);
+      const mergedActivity = mergeActivityMaps(serverActivity, clientActivity);
+
+      const frozenDates = normalizeFrozenDates(existingRow?.frozen_dates);
+      const dailyGoal = sanitizeInt(req.body?.dailyGoal, 1, 500, existingRow?.daily_goal || 20);
+      const todayCount = Math.max(
+        sanitizeInt(req.body?.todayCount, 0, 10000, 0),
+        Number(mergedActivity[todayVn]?.reviewed || 0)
+      );
+
+      // Default 1 Freeze for brand new users
+      let streakFreezes = existingRow
+        ? Math.max(0, Math.min(MAX_FREEZE_SLOTS, Number(existingRow.streak_freezes ?? 1)))
+        : 1;
+      let freezeRechargeDays = existingRow
+        ? Math.max(
+            0,
+            Math.min(FREEZE_RECHARGE_DAYS_REQUIRED, Number(existingRow.freeze_recharge_days ?? 0))
+          )
+        : 0;
+
+      // 10-day recharge check: only count once on the first study session of todayVn
+      const alreadyStudiedTodayOnServer =
+        existingRow?.last_study_date === todayVn ||
+        Number(serverActivity[todayVn]?.reviewed || 0) > 0;
+
+      if (todayCount > 0 && !alreadyStudiedTodayOnServer && streakFreezes < MAX_FREEZE_SLOTS) {
+        freezeRechargeDays += 1;
+        if (freezeRechargeDays >= FREEZE_RECHARGE_DAYS_REQUIRED) {
+          streakFreezes = Math.min(MAX_FREEZE_SLOTS, streakFreezes + 1);
+          freezeRechargeDays = 0;
+
+          await createNotificationAndPush(supabaseAdmin, {
+            userId: user.id,
+            type: 'freeze_recharged',
+            title: 'Bạn vừa nhận được +1 Băng Streak mới!',
+            body: `Chúc mừng bạn đã học đủ 10 ngày để hồi 1 Băng Streak (Hiện có ${streakFreezes}/${MAX_FREEZE_SLOTS} Băng).`,
+            actionUrl: '/leaderboard?tab=friends',
+            metadata: { date: todayVn, streakFreezes },
+            sendPush: true,
+            tag: `freeze-recharged-${todayVn}`,
+          });
+        }
+      }
+
+      const computed = computeFreezeAwareMetrics({
+        activityByDate: mergedActivity,
+        frozenDates,
+        todayVn,
+      });
+
+      const fallbackStreak = sanitizeInt(req.body?.currentStreak, 0, 5000, 0);
+      const currentStreak = Math.max(computed.currentStreak, fallbackStreak);
+      const longestStreak = Math.max(
+        currentStreak,
+        computed.longestStreak,
+        sanitizeInt(req.body?.longestStreak, 0, 5000, 0),
+        Number(existingRow?.longest_streak || 0)
+      );
+      const totalReviewed = Math.max(
+        computed.totalReviewed,
+        sanitizeInt(req.body?.totalReviewed, 0, 5000000, 0)
+      );
 
       const rawDate = typeof req.body?.lastStudyDate === 'string' ? req.body.lastStudyDate.trim() : '';
-      const lastStudyDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
+      const clientLastStudyDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : null;
+      const lastStudyDate =
+        todayCount > 0
+          ? todayVn
+          : computed.lastStudyDate || clientLastStudyDate || existingRow?.last_study_date || null;
 
-      // Sanitize recent 371 date keys in activityByDate (53 weeks for annual Heatmap)
-      const cleanActivity: Record<string, { reviewed: number; hard: number; good: number; easy: number }> = {};
-      if (req.body?.activityByDate && typeof req.body.activityByDate === 'object') {
-        const validKeys = Object.keys(req.body.activityByDate)
-          .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
-          .sort()
-          .slice(-371);
+      const basePayload: Record<string, any> = {
+        user_id: user.id,
+        current_streak: currentStreak,
+        longest_streak: longestStreak,
+        today_count: todayCount,
+        daily_goal: dailyGoal,
+        total_reviewed: totalReviewed,
+        last_study_date: lastStudyDate,
+        activity_by_date: mergedActivity,
+      };
 
-        for (const key of validKeys) {
-          const entry = req.body.activityByDate[key];
-          if (entry && typeof entry === 'object') {
-            cleanActivity[key] = {
-              reviewed: sanitizeInt(entry.reviewed, 0, 10000, 0),
-              hard: sanitizeInt(entry.hard, 0, 10000, 0),
-              good: sanitizeInt(entry.good, 0, 10000, 0),
-              easy: sanitizeInt(entry.easy, 0, 10000, 0),
-            };
-          }
-        }
+      if (freezeReady) {
+        basePayload.streak_freezes = streakFreezes;
+        basePayload.freeze_recharge_days = freezeRechargeDays;
+        basePayload.frozen_dates = frozenDates;
       }
 
       const { data: saved, error: upErr } = await supabaseAdmin
         .from('user_study_streaks')
-        .upsert(
-          {
-            user_id: user.id,
-            current_streak: currentStreak,
-            longest_streak: longestStreak,
-            today_count: todayCount,
-            daily_goal: dailyGoal,
-            total_reviewed: totalReviewed,
-            last_study_date: lastStudyDate,
-            activity_by_date: cleanActivity,
-          },
-          { onConflict: 'user_id' }
+        .upsert(basePayload, { onConflict: 'user_id' })
+        .select(
+          freezeReady
+            ? 'current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date, streak_freezes, freeze_recharge_days, frozen_dates'
+            : 'current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date'
         )
-        .select('current_streak, longest_streak, today_count, daily_goal, total_reviewed, last_study_date')
         .maybeSingle();
 
       if (upErr) {
-        const errCode = String((upErr as any)?.code || '');
-        if (errCode === '42P01' || errCode === 'PGRST205') {
-          return res.status(200).json({ tableReady: false, saved: null });
+        if (isMissingTableError(upErr)) {
+          return res.status(200).json({ tableReady: false, freezeReady: false, saved: null });
         }
         throw upErr;
       }
 
-      return res.status(200).json({ tableReady: true, saved });
+      if (todayCount > 0) {
+        await advanceFriendStreaksForUser(supabaseAdmin, user.id, todayVn);
+      }
+
+      return res.status(200).json({
+        tableReady: true,
+        freezeReady,
+        saved: saved
+          ? {
+              ...(saved as Record<string, any>),
+              streak_freezes: Number((saved as any).streak_freezes ?? streakFreezes),
+              freeze_recharge_days: Number(
+                (saved as any).freeze_recharge_days ?? freezeRechargeDays
+              ),
+              frozen_dates: normalizeFrozenDates((saved as any).frozen_dates ?? frozenDates),
+            }
+          : null,
+      });
+    }
+
+    // 3b. Friend Streaks Hub (Active 6 slots, Freeze inventory, Pending Invites)
+    if (req.method === 'GET' && action === 'friend_streaks_hub') {
+      const todayVn = getVnDateKey();
+      const yesterdayVn = addDaysToDateKey(todayVn, -1);
+      const twoDaysAgoVn = addDaysToDateKey(todayVn, -2);
+      const vnHour = getVnHour();
+
+      const { row: viewerRowRaw, freezeReady } = await fetchStreakRowSafe(
+        supabaseAdmin,
+        user.id
+      );
+      const viewerRow = await reconcileAutoFreezeForUser(
+        supabaseAdmin,
+        user.id,
+        viewerRowRaw,
+        freezeReady,
+        todayVn,
+        true
+      );
+
+      const viewerFreezes = viewerRow
+        ? Math.max(0, Math.min(MAX_FREEZE_SLOTS, Number(viewerRow.streak_freezes ?? 1)))
+        : 1;
+      const viewerRechargeDays = viewerRow
+        ? Math.max(
+            0,
+            Math.min(FREEZE_RECHARGE_DAYS_REQUIRED, Number(viewerRow.freeze_recharge_days ?? 0))
+          )
+        : 0;
+      const viewerFrozenDates = normalizeFrozenDates(viewerRow?.frozen_dates);
+      const viewerAct = sanitizeActivityMap(viewerRow?.activity_by_date);
+      const viewerStudiedToday =
+        viewerRow?.last_study_date === todayVn || (viewerAct[todayVn]?.reviewed || 0) > 0;
+
+      const [
+        { data: pairRows, error: pairErr },
+        { data: incomingRows, error: incErr },
+        { data: outgoingRows, error: outErr },
+      ] = await Promise.all([
+        supabaseAdmin
+          .from('friend_streaks')
+          .select('*')
+          .eq('status', 'active')
+          .or(`user_low.eq.${user.id},user_high.eq.${user.id}`)
+          .order('pair_streak', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabaseAdmin
+          .from('friend_streak_invites')
+          .select('id, inviter_id, invitee_id, invite_code, status, expires_at, created_at')
+          .eq('invitee_id', user.id)
+          .eq('status', 'pending')
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false }),
+        supabaseAdmin
+          .from('friend_streak_invites')
+          .select('id, inviter_id, invitee_id, invite_code, status, expires_at, created_at')
+          .eq('inviter_id', user.id)
+          .eq('status', 'pending')
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (pairErr || incErr || outErr) {
+        const err = pairErr || incErr || outErr;
+        if (isMissingTableError(err)) {
+          return res.status(200).json({
+            tableReady: false,
+            maxSlots: MAX_FRIEND_STREAK_SLOTS,
+            freezeState: {
+              streakFreezes: viewerFreezes,
+              maxFreezes: MAX_FREEZE_SLOTS,
+              freezeRechargeDays: viewerRechargeDays,
+              rechargeTarget: FREEZE_RECHARGE_DAYS_REQUIRED,
+              frozenDates: viewerFrozenDates,
+            },
+            activePairs: [],
+            incomingInvites: [],
+            outgoingInvites: [],
+          });
+        }
+        throw err;
+      }
+
+      const partnerIds = (pairRows || []).map((p: any) =>
+        p.user_low === user.id ? p.user_high : p.user_low
+      );
+      const relatedIds = Array.from(
+        new Set([
+          ...partnerIds,
+          ...(incomingRows || []).map((r: any) => r.inviter_id),
+          ...(outgoingRows || []).map((r: any) => r.invitee_id).filter(Boolean),
+        ])
+      );
+
+      const [usersMap, { data: partnerStreakRows }] = await Promise.all([
+        fetchPublicUsersMap(supabaseAdmin, relatedIds),
+        partnerIds.length > 0
+          ? supabaseAdmin
+              .from('user_study_streaks')
+              .select(
+                'user_id, current_streak, longest_streak, today_count, daily_goal, last_study_date, activity_by_date, streak_freezes, frozen_dates'
+              )
+              .in('user_id', partnerIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const partnerStreakMap = new Map<string, any>();
+      for (const row of partnerStreakRows || []) {
+        const reconciled = await reconcileAutoFreezeForUser(
+          supabaseAdmin,
+          row.user_id,
+          row,
+          true,
+          todayVn,
+          true
+        );
+        partnerStreakMap.set(row.user_id, reconciled || row);
+      }
+
+      const activePairs = (pairRows || []).map((pair: any) => {
+        const partnerId = pair.user_low === user.id ? pair.user_high : pair.user_low;
+        const prof = usersMap.get(partnerId);
+        const pStreak = partnerStreakMap.get(partnerId) || null;
+        const pAct = sanitizeActivityMap(pStreak?.activity_by_date);
+        const pFrozen = normalizeFrozenDates(pStreak?.frozen_dates);
+        const pFrozenSet = new Set(pFrozen);
+        const pFreezes = pStreak
+          ? Math.max(0, Math.min(MAX_FREEZE_SLOTS, Number(pStreak.streak_freezes ?? 1)))
+          : 1;
+
+        const partnerStudiedToday = Boolean(
+          pStreak &&
+            (pStreak.last_study_date === todayVn || (pAct[todayVn]?.reviewed || 0) > 0)
+        );
+        const partnerFrozenToday = pFrozenSet.has(todayVn);
+        const partnerSatisfiedYesterday = Boolean(
+          pStreak &&
+            (pStreak.last_study_date === yesterdayVn ||
+              (pAct[yesterdayVn]?.reviewed || 0) > 0 ||
+              pFrozenSet.has(yesterdayVn))
+        );
+        const partnerHadPriorStreak = Boolean(
+          pStreak &&
+            ((pAct[twoDaysAgoVn]?.reviewed || 0) > 0 ||
+              pFrozenSet.has(twoDaysAgoVn) ||
+              (pStreak.last_study_date === twoDaysAgoVn && Number(pStreak.current_streak || 0) > 0) ||
+              (pair.last_pair_date === twoDaysAgoVn && Number(pair.pair_streak || 0) > 0))
+        );
+
+        const pairFrozen = normalizeFrozenDates(pair.frozen_dates);
+        const pairFrozenSet = new Set(pairFrozen);
+        const isPairActiveToday = pair.last_pair_date === todayVn;
+        const isPairAlive =
+          isPairActiveToday ||
+          pair.last_pair_date === yesterdayVn ||
+          pairFrozenSet.has(yesterdayVn) ||
+          pairFrozenSet.has(todayVn);
+        const effectivePairStreak = isPairAlive ? Math.max(0, Number(pair.pair_streak || 0)) : 0;
+
+        // Nudge check (once per VN day per pair, only if partner hasn't studied today)
+        const lastNudgeVn = pair.last_nudged_at
+          ? getVnDateKey(new Date(pair.last_nudged_at))
+          : null;
+        const nudgedToday = lastNudgeVn === todayVn;
+        const canNudge = !partnerStudiedToday && !partnerFrozenToday && !nudgedToday;
+
+        // Rescue check (7-day pair cooldown, rescuer has >= 1 Freeze)
+        const cooldownMs = 7 * 24 * 60 * 60 * 1000;
+        const rescueCooldownActive = Boolean(
+          pair.last_rescued_at &&
+            Date.now() - new Date(pair.last_rescued_at).getTime() < cooldownMs
+        );
+
+        let rescueTargetDate: string | null = null;
+        let rescueReason: string | null = null;
+        if (!rescueCooldownActive) {
+          if (!partnerSatisfiedYesterday && partnerHadPriorStreak) {
+            rescueTargetDate = yesterdayVn;
+            rescueReason = 'Bạn ấy lỡ học hôm qua — dùng 1 Băng để cứu chuỗi kịp thời';
+          } else if (
+            vnHour >= 20 &&
+            !partnerStudiedToday &&
+            !partnerFrozenToday &&
+            pFreezes === 0 &&
+            (Number(pStreak?.current_streak || 0) > 0 || effectivePairStreak > 0)
+          ) {
+            rescueTargetDate = todayVn;
+            rescueReason = 'Đã tối muộn & bạn ấy hết Băng — đóng băng hộ hôm nay';
+          }
+        }
+
+        const canRescue = Boolean(rescueTargetDate && viewerFreezes >= 1);
+
+        return {
+          pairId: pair.id,
+          partner: {
+            id: partnerId,
+            displayName: prof?.displayName || 'Thành viên',
+            avatarUrl: prof?.avatarUrl || null,
+            currentStreak: Math.max(0, Number(pStreak?.current_streak || 0)),
+            longestStreak: Math.max(0, Number(pStreak?.longest_streak || 0)),
+            todayCount: partnerStudiedToday ? Math.max(0, Number(pStreak?.today_count || 0)) : 0,
+            dailyGoal: Math.max(1, Number(pStreak?.daily_goal || 20)),
+            studiedToday: partnerStudiedToday,
+            frozenToday: partnerFrozenToday,
+            streakFreezes: pFreezes,
+          },
+          pairStreak: effectivePairStreak,
+          longestPairStreak: Math.max(
+            effectivePairStreak,
+            Number(pair.longest_pair_streak || 0)
+          ),
+          lastPairDate: pair.last_pair_date || null,
+          isActiveToday: isPairActiveToday,
+          viewerStudiedToday,
+          viewerFrozenToday: viewerFrozenDates.includes(todayVn),
+          canNudge,
+          nudgedToday,
+          canRescue,
+          rescueTargetDate,
+          rescueReason,
+          rescueCooldownActive,
+          createdAt: pair.created_at,
+        };
+      });
+
+      return res.status(200).json({
+        tableReady: true,
+        maxSlots: MAX_FRIEND_STREAK_SLOTS,
+        freezeState: {
+          streakFreezes: viewerFreezes,
+          maxFreezes: MAX_FREEZE_SLOTS,
+          freezeRechargeDays: viewerRechargeDays,
+          rechargeTarget: FREEZE_RECHARGE_DAYS_REQUIRED,
+          frozenDates: viewerFrozenDates,
+        },
+        activePairs,
+        incomingInvites: (incomingRows || []).map((r: any) => {
+          const prof = usersMap.get(r.inviter_id);
+          return {
+            id: r.id,
+            inviteCode: r.invite_code,
+            inviter: {
+              id: r.inviter_id,
+              displayName: prof?.displayName || 'Thành viên',
+              avatarUrl: prof?.avatarUrl || null,
+            },
+            expiresAt: r.expires_at,
+            createdAt: r.created_at,
+          };
+        }),
+        outgoingInvites: (outgoingRows || []).map((r: any) => {
+          const prof = r.invitee_id ? usersMap.get(r.invitee_id) : null;
+          return {
+            id: r.id,
+            inviteCode: r.invite_code,
+            invitee: r.invitee_id
+              ? {
+                  id: r.invitee_id,
+                  displayName: prof?.displayName || 'Thành viên',
+                  avatarUrl: prof?.avatarUrl || null,
+                }
+              : null,
+            expiresAt: r.expires_at,
+            createdAt: r.created_at,
+          };
+        }),
+      });
+    }
+
+    if (req.method === 'POST' && action === 'create_friend_streak_invite') {
+      const targetUserId = String(req.body?.targetUserId || '').trim() || null;
+      if (targetUserId && targetUserId === user.id) {
+        return res.status(400).json({ error: 'Bạn không thể tự mời chính mình nối Streak.' });
+      }
+
+      const [{ count: activeCount, error: cntErr }, { count: pendingCount }] =
+        await Promise.all([
+          supabaseAdmin
+            .from('friend_streaks')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active')
+            .or(`user_low.eq.${user.id},user_high.eq.${user.id}`),
+          supabaseAdmin
+            .from('friend_streak_invites')
+            .select('id', { count: 'exact', head: true })
+            .eq('inviter_id', user.id)
+            .eq('status', 'pending')
+            .gt('expires_at', new Date().toISOString()),
+        ]);
+
+      if (cntErr) {
+        if (isMissingTableError(cntErr)) {
+          return res.status(400).json({
+            error:
+              'Tính năng Streak Bạn Bè chưa được kích hoạt trên Supabase. Vui lòng chạy script migration trước.',
+          });
+        }
+        throw cntErr;
+      }
+
+      if ((activeCount || 0) >= MAX_FRIEND_STREAK_SLOTS) {
+        return res.status(400).json({
+          error: `Bạn đã đạt tối đa ${MAX_FRIEND_STREAK_SLOTS} kết nối Streak bạn bè.`,
+        });
+      }
+
+      if ((pendingCount || 0) >= MAX_PENDING_OUTGOING_INVITES) {
+        return res.status(400).json({
+          error: `Bạn đang có ${MAX_PENDING_OUTGOING_INVITES} lời mời chờ xử lý. Hãy hủy bớt lời mời cũ trước khi tạo thêm.`,
+        });
+      }
+
+      if (targetUserId) {
+        const low = user.id < targetUserId ? user.id : targetUserId;
+        const high = user.id < targetUserId ? targetUserId : user.id;
+        const [{ data: existingPair }, { data: existingInvite }] = await Promise.all([
+          supabaseAdmin
+            .from('friend_streaks')
+            .select('id, status')
+            .eq('user_low', low)
+            .eq('user_high', high)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('friend_streak_invites')
+            .select('id, invite_code, expires_at')
+            .eq('inviter_id', user.id)
+            .eq('invitee_id', targetUserId)
+            .eq('status', 'pending')
+            .gt('expires_at', new Date().toISOString())
+            .maybeSingle(),
+        ]);
+
+        if (existingPair?.status === 'active') {
+          return res.status(400).json({
+            error: 'Hai bạn đã đang nối Streak cùng nhau rồi.',
+          });
+        }
+        if (existingInvite) {
+          return res.status(200).json({
+            alreadyPending: true,
+            invite: {
+              id: existingInvite.id,
+              inviteCode: existingInvite.invite_code,
+              expiresAt: existingInvite.expires_at,
+            },
+          });
+        }
+      }
+
+      const inviteCode = crypto.randomBytes(6).toString('base64url');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: created, error: insErr } = await supabaseAdmin
+        .from('friend_streak_invites')
+        .insert({
+          inviter_id: user.id,
+          invitee_id: targetUserId,
+          invite_code: inviteCode,
+          status: 'pending',
+          expires_at: expiresAt,
+        })
+        .select('id, invite_code, expires_at, created_at')
+        .single();
+
+      if (insErr) throw insErr;
+
+      if (targetUserId) {
+        const usersMap = await fetchPublicUsersMap(supabaseAdmin, [user.id]);
+        const actorName = usersMap.get(user.id)?.displayName || 'Một bạn học';
+        await createNotificationAndPush(supabaseAdmin, {
+          userId: targetUserId,
+          actorId: user.id,
+          type: 'friend_streak_invite',
+          title: `${actorName} mời bạn nối Streak học Kanji!`,
+          body: 'Cùng ôn tập mỗi ngày để thắp sáng chuỗi Streak chung (tối đa 6 người bạn).',
+          actionUrl: '/leaderboard?tab=friends',
+          metadata: { inviteId: created.id, inviteCode: created.invite_code },
+          sendPush: true,
+        });
+      }
+
+      return res.status(200).json({
+        invite: {
+          id: created.id,
+          inviteCode: created.invite_code,
+          expiresAt: created.expires_at,
+          createdAt: created.created_at,
+        },
+      });
+    }
+
+    if (req.method === 'POST' && action === 'respond_friend_streak_invite') {
+      const decision = String(req.body?.decision || '').trim();
+      const inviteIdParam = String(req.body?.inviteId || '').trim();
+      const inviteCodeParam = String(req.body?.inviteCode || '').trim();
+
+      if (!['accept', 'decline', 'cancel'].includes(decision)) {
+        return res.status(400).json({ error: 'Lựa chọn xử lý lời mời không hợp lệ.' });
+      }
+
+      let inviteRow: any = null;
+      if (inviteIdParam) {
+        const { data, error } = await supabaseAdmin
+          .from('friend_streak_invites')
+          .select('*')
+          .eq('id', inviteIdParam)
+          .maybeSingle();
+        if (error) throw error;
+        inviteRow = data;
+      } else if (inviteCodeParam) {
+        const { data, error } = await supabaseAdmin
+          .from('friend_streak_invites')
+          .select('*')
+          .eq('invite_code', inviteCodeParam)
+          .maybeSingle();
+        if (error) throw error;
+        inviteRow = data;
+      }
+
+      if (!inviteRow) {
+        return res.status(404).json({ error: 'Không tìm thấy lời mời nối Streak.' });
+      }
+
+      if (decision === 'cancel') {
+        if (inviteRow.inviter_id !== user.id) {
+          return res.status(403).json({ error: 'Bạn không có quyền hủy lời mời này.' });
+        }
+        const { error: updErr } = await supabaseAdmin
+          .from('friend_streak_invites')
+          .update({ status: 'canceled', responded_at: new Date().toISOString() })
+          .eq('id', inviteRow.id)
+          .eq('status', 'pending');
+        if (updErr) throw updErr;
+        return res.status(200).json({ ok: true, status: 'canceled' });
+      }
+
+      if (decision === 'decline') {
+        if (inviteRow.invitee_id && inviteRow.invitee_id !== user.id) {
+          return res.status(403).json({ error: 'Lời mời này dành cho thành viên khác.' });
+        }
+        const { error: updErr } = await supabaseAdmin
+          .from('friend_streak_invites')
+          .update({ status: 'declined', responded_at: new Date().toISOString() })
+          .eq('id', inviteRow.id)
+          .eq('status', 'pending');
+        if (updErr) throw updErr;
+        return res.status(200).json({ ok: true, status: 'declined' });
+      }
+
+      // Accept via atomic PostgreSQL RPC (enforces <= 6 active connections per side)
+      const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+        'accept_friend_streak_invite',
+        {
+          p_invite_id: inviteRow.id,
+          p_accepter_id: user.id,
+        }
+      );
+
+      if (rpcErr) throw rpcErr;
+      if (!rpcRes?.ok) {
+        return res.status(400).json({
+          error: rpcRes?.message || 'Không thể chấp nhận lời mời nối Streak.',
+          code: rpcRes?.code || 'ACCEPT_FAILED',
+        });
+      }
+
+      const todayVn = getVnDateKey();
+      await advanceFriendStreaksForUser(supabaseAdmin, user.id, todayVn);
+
+      if (!rpcRes.alreadyConnected && rpcRes.inviterId && rpcRes.inviterId !== user.id) {
+        const usersMap = await fetchPublicUsersMap(supabaseAdmin, [user.id]);
+        const accepterName = usersMap.get(user.id)?.displayName || 'Bạn học';
+        await createNotificationAndPush(supabaseAdmin, {
+          userId: rpcRes.inviterId,
+          actorId: user.id,
+          type: 'friend_streak_accepted',
+          title: `${accepterName} đã nhận lời nối Streak cùng bạn!`,
+          body: 'Hai bạn đã bắt đầu chuỗi Streak chung. Hãy ôn tập hôm nay để thắp lửa nhé.',
+          actionUrl: '/leaderboard?tab=friends',
+          metadata: { pairId: rpcRes.pairId },
+          sendPush: true,
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        status: 'accepted',
+        pairId: rpcRes.pairId,
+        alreadyConnected: Boolean(rpcRes.alreadyConnected),
+      });
+    }
+
+    if (req.method === 'POST' && action === 'nudge_friend_streak') {
+      const pairId = String(req.body?.pairId || '').trim();
+      if (!pairId) {
+        return res.status(400).json({ error: 'Thiếu pairId.' });
+      }
+
+      const { data: pair, error: pairErr } = await supabaseAdmin
+        .from('friend_streaks')
+        .select('*')
+        .eq('id', pairId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (pairErr) throw pairErr;
+      if (!pair || (pair.user_low !== user.id && pair.user_high !== user.id)) {
+        return res.status(404).json({ error: 'Không tìm thấy kết nối Streak bạn bè.' });
+      }
+
+      const todayVn = getVnDateKey();
+      const lastNudgeVn = pair.last_nudged_at
+        ? getVnDateKey(new Date(pair.last_nudged_at))
+        : null;
+      if (lastNudgeVn === todayVn) {
+        return res.status(400).json({ error: 'Bạn đã nhắc bạn ấy hôm nay rồi.' });
+      }
+
+      const partnerId = pair.user_low === user.id ? pair.user_high : pair.user_low;
+      const partnerStreak = await fetchStreakRowSafe(supabaseAdmin, partnerId);
+      const pAct = sanitizeActivityMap(partnerStreak.row?.activity_by_date);
+      if (
+        partnerStreak.row?.last_study_date === todayVn ||
+        (pAct[todayVn]?.reviewed || 0) > 0
+      ) {
+        return res.status(400).json({ error: 'Bạn ấy đã học hôm nay rồi!' });
+      }
+
+      await supabaseAdmin
+        .from('friend_streaks')
+        .update({
+          last_nudged_at: new Date().toISOString(),
+          last_nudged_by: user.id,
+        })
+        .eq('id', pair.id);
+
+      const usersMap = await fetchPublicUsersMap(supabaseAdmin, [user.id]);
+      const senderName = usersMap.get(user.id)?.displayName || 'Bạn học';
+      const streakLabel =
+        Number(pair.pair_streak || 0) > 0
+          ? `chuỗi ${pair.pair_streak} ngày`
+          : 'chuỗi học Kanji hôm nay';
+
+      await createNotificationAndPush(supabaseAdmin, {
+        userId: partnerId,
+        actorId: user.id,
+        type: 'friend_streak_nudge',
+        title: `${senderName} nhắc bạn học Kanji hôm nay!`,
+        body: `Ôn nhanh ít nhất 1 thẻ Flashcard để cùng nhau giữ ${streakLabel} nhé.`,
+        actionUrl: '/decks',
+        metadata: { pairId: pair.id },
+        sendPush: true,
+        tag: `nudge-${pair.id}-${todayVn}`,
+      });
+
+      return res.status(200).json({ ok: true });
+    }
+
+    if (req.method === 'POST' && action === 'rescue_friend_streak') {
+      const pairId = String(req.body?.pairId || '').trim();
+      if (!pairId) {
+        return res.status(400).json({ error: 'Thiếu pairId.' });
+      }
+
+      const { data: pair, error: pairErr } = await supabaseAdmin
+        .from('friend_streaks')
+        .select('*')
+        .eq('id', pairId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (pairErr) throw pairErr;
+      if (!pair || (pair.user_low !== user.id && pair.user_high !== user.id)) {
+        return res.status(404).json({ error: 'Không tìm thấy kết nối Streak bạn bè.' });
+      }
+
+      const cooldownMs = 7 * 24 * 60 * 60 * 1000;
+      if (
+        pair.last_rescued_at &&
+        Date.now() - new Date(pair.last_rescued_at).getTime() < cooldownMs
+      ) {
+        return res.status(400).json({
+          error: 'Mỗi cặp bạn bè chỉ có thể dùng tính năng Cứu Streak tối đa 1 lần mỗi 7 ngày.',
+        });
+      }
+
+      const todayVn = getVnDateKey();
+      const yesterdayVn = addDaysToDateKey(todayVn, -1);
+      const twoDaysAgoVn = addDaysToDateKey(todayVn, -2);
+      const vnHour = getVnHour();
+      const partnerId = pair.user_low === user.id ? pair.user_high : pair.user_low;
+
+      const [rescuerRes, partnerRes, usersMap] = await Promise.all([
+        fetchStreakRowSafe(supabaseAdmin, user.id),
+        fetchStreakRowSafe(supabaseAdmin, partnerId),
+        fetchPublicUsersMap(supabaseAdmin, [user.id, partnerId]),
+      ]);
+
+      if (!rescuerRes.freezeReady) {
+        return res.status(400).json({
+          error: 'Chưa chạy script migration Băng Streak trên Supabase.',
+        });
+      }
+
+      const rescuerFreezes = rescuerRes.row
+        ? Math.max(0, Math.min(MAX_FREEZE_SLOTS, Number(rescuerRes.row.streak_freezes ?? 1)))
+        : 1;
+
+      if (rescuerFreezes < 1) {
+        return res.status(400).json({
+          error: 'Bạn không còn Băng Streak nào để cứu bạn bè.',
+        });
+      }
+
+      const pRow = partnerRes.row;
+      const pAct = sanitizeActivityMap(pRow?.activity_by_date);
+      const pFrozen = normalizeFrozenDates(pRow?.frozen_dates);
+      const pFrozenSet = new Set(pFrozen);
+      const pFreezes = pRow
+        ? Math.max(0, Math.min(MAX_FREEZE_SLOTS, Number(pRow.streak_freezes ?? 1)))
+        : 1;
+
+      const partnerSatisfiedYesterday = Boolean(
+        pRow &&
+          (pRow.last_study_date === yesterdayVn ||
+            (pAct[yesterdayVn]?.reviewed || 0) > 0 ||
+            pFrozenSet.has(yesterdayVn))
+      );
+      const partnerHadPriorStreak = Boolean(
+        pRow &&
+          ((pAct[twoDaysAgoVn]?.reviewed || 0) > 0 ||
+            pFrozenSet.has(twoDaysAgoVn) ||
+            (pRow.last_study_date === twoDaysAgoVn && Number(pRow.current_streak || 0) > 0) ||
+            (pair.last_pair_date === twoDaysAgoVn && Number(pair.pair_streak || 0) > 0))
+      );
+      const partnerStudiedToday = Boolean(
+        pRow && (pRow.last_study_date === todayVn || (pAct[todayVn]?.reviewed || 0) > 0)
+      );
+
+      let targetDate: string | null = null;
+      if (!partnerSatisfiedYesterday && partnerHadPriorStreak) {
+        targetDate = yesterdayVn;
+      } else if (
+        vnHour >= 20 &&
+        !partnerStudiedToday &&
+        !pFrozenSet.has(todayVn) &&
+        pFreezes === 0 &&
+        (Number(pRow?.current_streak || 0) > 0 || Number(pair.pair_streak || 0) > 0)
+      ) {
+        targetDate = todayVn;
+      }
+
+      if (!targetDate) {
+        return res.status(400).json({
+          error:
+            'Hiện bạn ấy chưa cần cứu Streak (hoặc chưa đến 20:00 để đóng băng hộ hôm nay).',
+        });
+      }
+
+      // 1. Deduct 1 Freeze from rescuer
+      const nextRescuerFreezes = rescuerFreezes - 1;
+      if (rescuerRes.row) {
+        await supabaseAdmin
+          .from('user_study_streaks')
+          .update({ streak_freezes: nextRescuerFreezes })
+          .eq('user_id', user.id);
+      } else {
+        await supabaseAdmin.from('user_study_streaks').insert({
+          user_id: user.id,
+          streak_freezes: nextRescuerFreezes,
+          freeze_recharge_days: 0,
+        });
+      }
+
+      // 2. Grant targetDate freeze to partner + pair
+      const nextPartnerFrozen = normalizeFrozenDates([...pFrozen, targetDate]);
+      const pMetrics = computeFreezeAwareMetrics({
+        activityByDate: pAct,
+        frozenDates: nextPartnerFrozen,
+        todayVn,
+      });
+      const nextPartnerStreak = Math.max(
+        pMetrics.currentStreak,
+        Number(pRow?.current_streak || 0)
+      );
+      const nextPartnerLongest = Math.max(
+        nextPartnerStreak,
+        pMetrics.longestStreak,
+        Number(pRow?.longest_streak || 0)
+      );
+
+      if (pRow) {
+        await supabaseAdmin
+          .from('user_study_streaks')
+          .update({
+            frozen_dates: nextPartnerFrozen,
+            current_streak: nextPartnerStreak,
+            longest_streak: nextPartnerLongest,
+            last_freeze_at: new Date().toISOString(),
+          })
+          .eq('user_id', partnerId);
+      } else {
+        await supabaseAdmin.from('user_study_streaks').insert({
+          user_id: partnerId,
+          frozen_dates: nextPartnerFrozen,
+          current_streak: nextPartnerStreak,
+          longest_streak: nextPartnerLongest,
+          streak_freezes: 1,
+          last_freeze_at: new Date().toISOString(),
+        });
+      }
+
+      const nextPairFrozen = normalizeFrozenDates([...(pair.frozen_dates || []), targetDate]);
+      await supabaseAdmin
+        .from('friend_streaks')
+        .update({
+          frozen_dates: nextPairFrozen,
+          last_rescued_at: new Date().toISOString(),
+          last_rescued_by: user.id,
+        })
+        .eq('id', pair.id);
+
+      if (targetDate === todayVn) {
+        await advanceFriendStreaksForUser(supabaseAdmin, user.id, todayVn);
+      }
+
+      const rescuerName = usersMap.get(user.id)?.displayName || 'Bạn học';
+      const partnerName = usersMap.get(partnerId)?.displayName || 'bạn';
+      await createNotificationAndPush(supabaseAdmin, {
+        userId: partnerId,
+        actorId: user.id,
+        type: 'friend_streak_rescued',
+        title: `${rescuerName} đã dùng 1 Băng Streak để cứu chuỗi ngày của bạn!`,
+        body: `Chuỗi học Kanji của ${partnerName} đã được bảo vệ an toàn. Vào học ngay để cảm ơn bạn ấy nhé!`,
+        actionUrl: '/leaderboard?tab=friends',
+        metadata: { pairId: pair.id, targetDate },
+        sendPush: true,
+        tag: `rescued-${pair.id}-${targetDate}`,
+      });
+
+      return res.status(200).json({
+        ok: true,
+        targetDate,
+        remainingFreezes: nextRescuerFreezes,
+      });
+    }
+
+    if (req.method === 'POST' && action === 'end_friend_streak') {
+      const pairId = String(req.body?.pairId || '').trim();
+      if (!pairId) {
+        return res.status(400).json({ error: 'Thiếu pairId.' });
+      }
+
+      const { data: pair, error: pairErr } = await supabaseAdmin
+        .from('friend_streaks')
+        .select('id, user_low, user_high, status')
+        .eq('id', pairId)
+        .maybeSingle();
+
+      if (pairErr) throw pairErr;
+      if (!pair || (pair.user_low !== user.id && pair.user_high !== user.id)) {
+        return res.status(404).json({ error: 'Không tìm thấy kết nối Streak bạn bè.' });
+      }
+
+      const { error: updErr } = await supabaseAdmin
+        .from('friend_streaks')
+        .update({ status: 'ended' })
+        .eq('id', pair.id);
+
+      if (updErr) throw updErr;
+      return res.status(200).json({ ok: true });
     }
 
     if (req.method === 'GET' && action === 'my_kanji_mistakes') {

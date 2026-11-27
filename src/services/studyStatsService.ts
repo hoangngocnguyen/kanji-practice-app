@@ -11,6 +11,9 @@ export interface DailyActivityRecord {
 export interface LocalStudyStats {
   dailyGoal: number;
   activityByDate: Record<string, DailyActivityRecord>;
+  streakFreezes: number;
+  freezeRechargeDays: number;
+  frozenDates: string[];
   updatedAt: number;
 }
 
@@ -19,6 +22,7 @@ export interface StreakDayCell {
   label: string;
   reviewed: number;
   metGoal: boolean;
+  isFrozen: boolean;
   isToday: boolean;
 }
 
@@ -31,6 +35,9 @@ export interface ComputedStreakMetrics {
   lastStudyDate: string | null;
   goalProgressPercent: number;
   isStreakActiveToday: boolean;
+  streakFreezes: number;
+  freezeRechargeDays: number;
+  frozenDates: string[];
   last30Days: StreakDayCell[];
 }
 
@@ -73,17 +80,37 @@ function addDaysToDateKey(dateKey: string, deltaDays: number): string {
   return getLocalDateKey(dt);
 }
 
+function normalizeFrozenDatesList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set<string>();
+  for (const item of raw) {
+    if (typeof item === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.trim())) {
+      valid.add(item.trim());
+    }
+  }
+  return Array.from(valid).sort().slice(-371);
+}
+
 export function loadLocalStudyStats(): LocalStudyStats {
   try {
     const raw = localStorage.getItem(STORAGE_STUDY_STATS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      const rawFreezes = Number(parsed?.streakFreezes);
+      const rawRecharge = Number(parsed?.freezeRechargeDays);
       return {
         dailyGoal: Math.max(1, Math.min(500, Math.floor(Number(parsed?.dailyGoal) || 20))),
         activityByDate:
           parsed?.activityByDate && typeof parsed.activityByDate === 'object'
             ? parsed.activityByDate
             : {},
+        streakFreezes: Number.isFinite(rawFreezes)
+          ? Math.max(0, Math.min(2, Math.floor(rawFreezes)))
+          : 1,
+        freezeRechargeDays: Number.isFinite(rawRecharge)
+          ? Math.max(0, Math.min(10, Math.floor(rawRecharge)))
+          : 0,
+        frozenDates: normalizeFrozenDatesList(parsed?.frozenDates),
         updatedAt: Number(parsed?.updatedAt) || Date.now(),
       };
     }
@@ -91,6 +118,9 @@ export function loadLocalStudyStats(): LocalStudyStats {
   return {
     dailyGoal: 20,
     activityByDate: {},
+    streakFreezes: 1,
+    freezeRechargeDays: 0,
+    frozenDates: [],
     updatedAt: Date.now(),
   };
 }
@@ -106,6 +136,12 @@ export function saveLocalStudyStats(stats: LocalStudyStats): void {
     const payload: LocalStudyStats = {
       dailyGoal: stats.dailyGoal,
       activityByDate: pruned,
+      streakFreezes: Math.max(0, Math.min(2, Math.floor(stats.streakFreezes ?? 1))),
+      freezeRechargeDays: Math.max(
+        0,
+        Math.min(10, Math.floor(stats.freezeRechargeDays ?? 0))
+      ),
+      frozenDates: normalizeFrozenDatesList(stats.frozenDates),
       updatedAt: Date.now(),
     };
     localStorage.setItem(STORAGE_STUDY_STATS_KEY, JSON.stringify(payload));
@@ -125,6 +161,9 @@ export function computeStreakMetrics(stats: LocalStudyStats): ComputedStreakMetr
   const allDatesSorted = Object.keys(stats.activityByDate)
     .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && (stats.activityByDate[k]?.reviewed || 0) > 0)
     .sort();
+  const activeSet = new Set(allDatesSorted);
+  const frozenDates = normalizeFrozenDatesList(stats.frozenDates);
+  const frozenSet = new Set(frozenDates);
 
   let totalReviewed = 0;
   for (const key of allDatesSorted) {
@@ -133,29 +172,42 @@ export function computeStreakMetrics(stats: LocalStudyStats): ComputedStreakMetr
 
   const lastStudyDate = allDatesSorted.length > 0 ? allDatesSorted[allDatesSorted.length - 1] : null;
 
-  // Calculate current active streak (today if >0, or yesterday as active grace period)
+  // Calculate current active streak bridging frozen dates seamlessly
   let currentStreak = 0;
   let cursorKey: string | null = null;
-  if (todayReviewed > 0) {
+  if (todayReviewed > 0 || frozenSet.has(todayKey)) {
     cursorKey = todayKey;
-  } else if ((stats.activityByDate[yesterdayKey]?.reviewed || 0) > 0) {
+  } else if (activeSet.has(yesterdayKey) || frozenSet.has(yesterdayKey)) {
     cursorKey = yesterdayKey;
   }
 
-  while (cursorKey && (stats.activityByDate[cursorKey]?.reviewed || 0) > 0) {
-    currentStreak += 1;
-    cursorKey = addDaysToDateKey(cursorKey, -1);
+  let steps = 0;
+  while (cursorKey && steps < 4000) {
+    steps += 1;
+    if (activeSet.has(cursorKey)) {
+      currentStreak += 1;
+      cursorKey = addDaysToDateKey(cursorKey, -1);
+    } else if (frozenSet.has(cursorKey)) {
+      cursorKey = addDaysToDateKey(cursorKey, -1);
+    } else {
+      break;
+    }
   }
 
-  // Calculate longest historical streak
+  // Calculate longest historical streak bridging frozen dates
+  const relevantDates = Array.from(new Set([...allDatesSorted, ...frozenDates])).sort();
   let longestStreak = currentStreak;
   let run = 0;
   let prevKey: string | null = null;
-  for (const key of allDatesSorted) {
+  for (const key of relevantDates) {
+    const isActive = activeSet.has(key);
+    const isFrozen = frozenSet.has(key);
+    if (!isActive && !isFrozen) continue;
+
     if (prevKey && addDaysToDateKey(prevKey, 1) === key) {
-      run += 1;
+      if (isActive) run += 1;
     } else {
-      run = 1;
+      run = isActive ? 1 : 0;
     }
     if (run > longestStreak) longestStreak = run;
     prevKey = key;
@@ -172,6 +224,7 @@ export function computeStreakMetrics(stats: LocalStudyStats): ComputedStreakMetr
       label: `${dd}/${mm}`,
       reviewed,
       metGoal: reviewed >= stats.dailyGoal,
+      isFrozen: reviewed === 0 && frozenSet.has(key),
       isToday: offset === 0,
     });
   }
@@ -190,6 +243,9 @@ export function computeStreakMetrics(stats: LocalStudyStats): ComputedStreakMetr
     lastStudyDate,
     goalProgressPercent,
     isStreakActiveToday: todayReviewed > 0,
+    streakFreezes: Math.max(0, Math.min(2, Math.floor(stats.streakFreezes ?? 1))),
+    freezeRechargeDays: Math.max(0, Math.min(10, Math.floor(stats.freezeRechargeDays ?? 0))),
+    frozenDates,
     last30Days,
   };
 }
@@ -276,6 +332,26 @@ export async function pushStudyStatsToCloud(): Promise<boolean> {
 
     if (!res.ok) return false;
     const data = await res.json().catch(() => null);
+    if (data?.saved) {
+      const serverFreezes = Number(data.saved.streak_freezes);
+      const serverRecharge = Number(data.saved.freeze_recharge_days);
+      const serverFrozen = normalizeFrozenDatesList(data.saved.frozen_dates);
+      const changed =
+        (Number.isFinite(serverFreezes) && serverFreezes !== stats.streakFreezes) ||
+        (Number.isFinite(serverRecharge) && serverRecharge !== stats.freezeRechargeDays) ||
+        JSON.stringify(serverFrozen) !== JSON.stringify(stats.frozenDates);
+
+      if (changed) {
+        saveLocalStudyStats({
+          ...stats,
+          streakFreezes: Number.isFinite(serverFreezes) ? serverFreezes : stats.streakFreezes,
+          freezeRechargeDays: Number.isFinite(serverRecharge)
+            ? serverRecharge
+            : stats.freezeRechargeDays,
+          frozenDates: serverFrozen,
+        });
+      }
+    }
     return Boolean(data?.tableReady);
   } catch {
     return false;
@@ -334,9 +410,20 @@ export async function syncStudyStatsFromCloud(): Promise<LocalStudyStats> {
       }
     }
 
+    const cloudFreezes = Number(cloudRow.streak_freezes);
+    const cloudRecharge = Number(cloudRow.freeze_recharge_days);
+    const cloudFrozen = normalizeFrozenDatesList(cloudRow.frozen_dates);
+
     const mergedStats: LocalStudyStats = {
       dailyGoal: local.dailyGoal || Number(cloudRow.daily_goal || 20),
       activityByDate: mergedActivity,
+      streakFreezes: Number.isFinite(cloudFreezes)
+        ? Math.max(0, Math.min(2, cloudFreezes))
+        : local.streakFreezes,
+      freezeRechargeDays: Number.isFinite(cloudRecharge)
+        ? Math.max(0, Math.min(10, cloudRecharge))
+        : local.freezeRechargeDays,
+      frozenDates: cloudFrozen.length > 0 ? cloudFrozen : local.frozenDates,
       updatedAt: Date.now(),
     };
     saveLocalStudyStats(mergedStats);

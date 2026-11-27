@@ -6,6 +6,7 @@ import {
   Calendar,
   Download,
   ExternalLink,
+  Flame,
   Globe,
   Heart,
   Loader2,
@@ -22,6 +23,7 @@ import {
   apiToggleFollowUser,
   PublicProfileData,
 } from '../services/communityService';
+import { apiCreateFriendStreakInvite } from '../services/friendStreakService';
 import { FollowListModal, FollowModalTab } from '../components/auth/FollowListModal';
 import { UserAvatar } from '../components/UserAvatar';
 
@@ -39,6 +41,8 @@ export const PublicProfilePage: React.FC = () => {
 
   const [followModalOpen, setFollowModalOpen] = useState(false);
   const [followModalTab, setFollowModalTab] = useState<FollowModalTab>('followers');
+  const [streakInviteBusy, setStreakInviteBusy] = useState(false);
+  const [streakInviteStatus, setStreakInviteStatus] = useState<string | null>(null);
 
   const followSeqRef = useRef(0);
 
@@ -124,6 +128,26 @@ export const PublicProfilePage: React.FC = () => {
         setData(prevSnapshot);
         setActionError(err?.message || 'Không thể cập nhật theo dõi. Vui lòng thử lại.');
       });
+  };
+
+  const handleInviteFriendStreak = async () => {
+    if (!userId || !data || data.isSelf) return;
+    if (!user) {
+      openAuthGuard('Mời nối Streak bạn bè');
+      return;
+    }
+    setStreakInviteBusy(true);
+    setActionError(null);
+    try {
+      const res = await apiCreateFriendStreakInvite(userId);
+      setStreakInviteStatus(
+        res.alreadyPending ? 'Đã gửi lời mời (đang chờ)' : 'Đã gửi lời mời nối Streak'
+      );
+    } catch (err: any) {
+      setActionError(err?.message || 'Không thể gửi lời mời nối Streak.');
+    } finally {
+      setStreakInviteBusy(false);
+    }
   };
 
   usePageLoadingIndicator('public-profile', loading);
@@ -215,7 +239,7 @@ export const PublicProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="shrink-0">
+          <div className="shrink-0 flex flex-wrap items-center gap-2">
             {data.isSelf ? (
               <Link
                 to="/profile"
@@ -224,27 +248,39 @@ export const PublicProfilePage: React.FC = () => {
                 <span>Quản lý trang cá nhân</span>
               </Link>
             ) : (
-              <button
-                type="button"
-                onClick={handleToggleFollow}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl border transition-colors cursor-pointer whitespace-nowrap min-h-[40px] active:scale-95 ${
-                  data.viewerIsFollowing
-                    ? 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100'
-                    : 'bg-teal-700 text-white border-teal-700 hover:bg-teal-800'
-                }`}
-              >
-                {data.viewerIsFollowing ? (
-                  <>
-                    <UserCheck className="w-4 h-4" />
-                    <span>Đang theo dõi</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    <span>Theo dõi</span>
-                  </>
-                )}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={streakInviteBusy || Boolean(streakInviteStatus)}
+                  onClick={() => void handleInviteFriendStreak()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-800 transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap min-h-[40px]"
+                >
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <span>{streakInviteStatus || 'Mời nối Streak'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleFollow}
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl border transition-colors cursor-pointer whitespace-nowrap min-h-[40px] active:scale-95 ${
+                    data.viewerIsFollowing
+                      ? 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100'
+                      : 'bg-teal-700 text-white border-teal-700 hover:bg-teal-800'
+                  }`}
+                >
+                  {data.viewerIsFollowing ? (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>Đang theo dõi</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Theo dõi</span>
+                    </>
+                  )}
+                </button>
+              </>
             )}
           </div>
         </div>

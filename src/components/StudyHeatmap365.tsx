@@ -15,6 +15,7 @@ interface HeatmapCell {
   label: string;
   reviewed: number;
   level: 0 | 1 | 2 | 3 | 4;
+  isFrozen: boolean;
   isFuture: boolean;
   isToday: boolean;
 }
@@ -24,8 +25,13 @@ const MONTH_LABELS = [
   'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12',
 ];
 
-function getCellColorClass(level: 0 | 1 | 2 | 3 | 4, isFuture: boolean): string {
+function getCellColorClass(
+  level: 0 | 1 | 2 | 3 | 4,
+  isFrozen: boolean,
+  isFuture: boolean
+): string {
   if (isFuture) return 'bg-transparent border-transparent pointer-events-none';
+  if (isFrozen) return 'bg-sky-400 border-sky-500/40';
   switch (level) {
     case 4:
       return 'bg-teal-800 border-teal-900/30';
@@ -51,6 +57,7 @@ export const StudyHeatmap365: React.FC<StudyHeatmap365Props> = ({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayKey = getLocalDateKey(today);
+    const frozenSet = new Set(Array.isArray(stats.frozenDates) ? stats.frozenDates : []);
 
     // Day of week normalized so Monday = 0, Sunday = 6
     const jsDay = today.getDay();
@@ -80,6 +87,7 @@ export const StudyHeatmap365: React.FC<StudyHeatmap365Props> = ({
         const reviewed = isFuture
           ? 0
           : Math.max(0, Number(stats.activityByDate[key]?.reviewed || 0));
+        const isFrozen = !isFuture && reviewed === 0 && frozenSet.has(key);
 
         if (!isFuture && reviewed > 0) {
           activeDays += 1;
@@ -112,6 +120,7 @@ export const StudyHeatmap365: React.FC<StudyHeatmap365Props> = ({
           label: `${dd}/${mm}/${yyyy}`,
           reviewed,
           level,
+          isFrozen,
           isFuture,
           isToday: key === todayKey,
         });
@@ -198,11 +207,19 @@ export const StudyHeatmap365: React.FC<StudyHeatmap365Props> = ({
                       onFocus={() => !cell.isFuture && setHoveredCell(cell)}
                       onClick={() => !cell.isFuture && setHoveredCell(cell)}
                       disabled={cell.isFuture}
-                      aria-label={`${cell.label}: ${cell.reviewed} lượt ôn`}
-                      title={`${cell.label}: ${cell.reviewed} lượt ôn`}
+                      aria-label={
+                        cell.isFrozen
+                          ? `${cell.label}: Đã dùng Băng Streak bảo vệ`
+                          : `${cell.label}: ${cell.reviewed} lượt ôn`
+                      }
+                      title={
+                        cell.isFrozen
+                          ? `${cell.label}: Đã dùng Băng Streak bảo vệ`
+                          : `${cell.label}: ${cell.reviewed} lượt ôn`
+                      }
                       className={`w-[11px] h-[11px] rounded-[2px] border transition-transform ${
                         cell.isToday ? 'ring-1 ring-teal-700 ring-offset-1' : ''
-                      } ${getCellColorClass(cell.level, cell.isFuture)} ${
+                      } ${getCellColorClass(cell.level, cell.isFrozen, cell.isFuture)} ${
                         !cell.isFuture ? 'hover:scale-125 cursor-pointer' : ''
                       }`}
                     />
@@ -218,16 +235,27 @@ export const StudyHeatmap365: React.FC<StudyHeatmap365Props> = ({
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[11px] text-slate-500">
         <div className="tabular-nums min-h-[16px]">
           {hoveredCell ? (
-            <span>
-              <strong className="text-slate-800">{hoveredCell.label}</strong>:{' '}
-              <strong className="text-teal-800">{hoveredCell.reviewed}</strong> lượt ôn
-            </span>
+            hoveredCell.isFrozen ? (
+              <span>
+                <strong className="text-slate-800">{hoveredCell.label}</strong>:{' '}
+                <strong className="text-sky-700">Đã dùng Băng Streak bảo vệ</strong>
+              </span>
+            ) : (
+              <span>
+                <strong className="text-slate-800">{hoveredCell.label}</strong>:{' '}
+                <strong className="text-teal-800">{hoveredCell.reviewed}</strong> lượt ôn
+              </span>
+            )
           ) : (
             <span>Chạm hoặc di chuột vào ô ngày để xem chi tiết</span>
           )}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 select-none">
+          <span className="inline-flex items-center gap-1 mr-1">
+            <span className="w-[10px] h-[10px] rounded-[2px] bg-sky-400 border border-sky-500/40" />
+            <span>Băng</span>
+          </span>
           <span>Ít</span>
           <span className="w-[10px] h-[10px] rounded-[2px] bg-slate-100 border border-slate-200/70" />
           <span className="w-[10px] h-[10px] rounded-[2px] bg-teal-200 border border-teal-300/30" />

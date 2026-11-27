@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Play,
   Target,
+  Snowflake,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -106,7 +108,7 @@ export const HeaderStreakControl: React.FC = () => {
             ? 'ring-2 ring-orange-400/40'
             : ''
         }`}
-        title={`Chuỗi ${metrics.currentStreak} ngày · Hôm nay ${metrics.todayReviewed}/${metrics.dailyGoal} thẻ`}
+        title={`Chuỗi ${metrics.currentStreak} ngày · ${metrics.streakFreezes}/2 Băng Streak · Hôm nay ${metrics.todayReviewed}/${metrics.dailyGoal} thẻ`}
         aria-label={`Chuỗi ngày học: ${metrics.currentStreak} ngày`}
         aria-expanded={isPopoverOpen}
         aria-haspopup="dialog"
@@ -119,7 +121,7 @@ export const HeaderStreakControl: React.FC = () => {
         <div
           role="dialog"
           aria-label="Chi tiết chuỗi ngày học"
-          className="fixed inset-x-3 top-[68px] sm:inset-x-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-[344px] bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 z-50 space-y-3.5 animate-in fade-in zoom-in-95 duration-100"
+          className="fixed inset-x-3 top-[68px] sm:inset-x-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-[356px] bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 z-50 space-y-3.5 animate-in fade-in zoom-in-95 duration-100"
         >
           {/* Streak Status Header */}
           <div className="flex items-start justify-between gap-3">
@@ -142,6 +144,37 @@ export const HeaderStreakControl: React.FC = () => {
                   {flame.label} · Kỷ lục {metrics.longestStreak} ngày
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Streak Freeze Shield Row */}
+          <div className="px-3 py-2 rounded-xl bg-sky-50/90 border border-sky-200/80 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <Snowflake className="w-4 h-4 text-sky-600 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-bold text-sky-950 tabular-nums">
+                  Băng Streak: {metrics.streakFreezes}/2
+                </div>
+                <div className="text-[10px] text-sky-800/80 tabular-nums truncate">
+                  {metrics.streakFreezes >= 2
+                    ? 'Kho băng đã đầy · Tự bảo vệ khi lỡ 1 ngày'
+                    : `Hồi +1 băng sau ${10 - metrics.freezeRechargeDays} ngày học (${metrics.freezeRechargeDays}/10)`}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0" aria-hidden="true">
+              {[0, 1].map((idx) => (
+                <span
+                  key={idx}
+                  className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
+                    idx < metrics.streakFreezes
+                      ? 'bg-sky-500 border-sky-600 text-white'
+                      : 'bg-white border-sky-200 text-sky-200'
+                  }`}
+                >
+                  <Snowflake className="w-3 h-3" />
+                </span>
+              ))}
             </div>
           </div>
 
@@ -211,23 +244,28 @@ export const HeaderStreakControl: React.FC = () => {
             </div>
             <div className="flex items-center justify-between gap-[3px]">
               {metrics.last30Days.map((day) => {
-                const intensityClass =
-                  day.reviewed === 0
-                    ? 'bg-slate-100 border-slate-200/70'
-                    : day.metGoal
-                    ? 'bg-emerald-500 border-emerald-600/30'
-                    : day.reviewed >= Math.ceil(metrics.dailyGoal / 2)
-                    ? 'bg-teal-500 border-teal-600/30'
-                    : 'bg-teal-200 border-teal-300/60';
+                const intensityClass = day.isFrozen
+                  ? 'bg-sky-400 border-sky-500/50'
+                  : day.reviewed === 0
+                  ? 'bg-slate-100 border-slate-200/70'
+                  : day.metGoal
+                  ? 'bg-emerald-500 border-emerald-600/30'
+                  : day.reviewed >= Math.ceil(metrics.dailyGoal / 2)
+                  ? 'bg-teal-500 border-teal-600/30'
+                  : 'bg-teal-200 border-teal-300/60';
                 return (
                   <div
                     key={day.dateKey}
                     className={`flex-1 h-3.5 rounded-[3px] border ${intensityClass} ${
                       day.isToday ? 'ring-1 ring-orange-400 ring-offset-1' : ''
                     }`}
-                    title={`${day.label}: ${day.reviewed} lượt ôn${
-                      day.metGoal ? ' (Đạt mục tiêu)' : ''
-                    }`}
+                    title={
+                      day.isFrozen
+                        ? `${day.label}: Đã dùng Băng Streak bảo vệ chuỗi`
+                        : `${day.label}: ${day.reviewed} lượt ôn${
+                            day.metGoal ? ' (Đạt mục tiêu)' : ''
+                          }`
+                    }
                   />
                 );
               })}
@@ -240,12 +278,24 @@ export const HeaderStreakControl: React.FC = () => {
               type="button"
               onClick={() => {
                 setIsPopoverOpen(false);
+                navigate('/leaderboard?tab=friends');
+              }}
+              className="flex-1 py-2 px-2.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Users className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span>Streak Bạn Bè</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsPopoverOpen(false);
                 navigate('/leaderboard');
               }}
-              className="flex-1 py-2 px-3 text-xs font-bold text-orange-800 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              className="py-2 px-2.5 text-xs font-bold text-orange-800 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
             >
               <Trophy className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-              <span>Mở BXH Streak</span>
+              <span>BXH</span>
             </button>
 
             {location.pathname !== '/decks' && (
@@ -255,10 +305,10 @@ export const HeaderStreakControl: React.FC = () => {
                   setIsPopoverOpen(false);
                   navigate('/decks');
                 }}
-                className="py-2 px-3 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                className="py-2 px-2.5 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Play className="w-3.5 h-3.5 fill-current shrink-0" />
-                <span>Ôn tập</span>
+                <span>Ôn</span>
               </button>
             )}
           </div>

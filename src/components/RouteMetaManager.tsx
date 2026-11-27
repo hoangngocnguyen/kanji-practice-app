@@ -138,6 +138,14 @@ function resolveSeoForPath(pathname: string): RouteSeoMeta {
         'Xem thông tin hồ sơ, chuỗi Streak học tập và các bộ thẻ Kanji công khai được chia sẻ bởi thành viên trong cộng đồng.',
     };
   }
+  if (pathname.startsWith('/invite/')) {
+    return {
+      title: 'Lời Mời Nối Streak Bạn Bè | Luyện Kanji Pro',
+      description:
+        'Chấp nhận lời mời kết nối Streak bạn bè để cùng nhau duy trì chuỗi ngày học Kanji và bảo vệ chuỗi bằng Băng Streak.',
+      robots: PRIVATE_ROBOTS,
+    };
+  }
   return DEFAULT_SEO;
 }
 

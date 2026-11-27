@@ -8,11 +8,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ArrowUp } from 'lucide-react';
 import { KanjiProvider, useKanji } from './context/KanjiContext';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { DeckProvider } from './context/DeckContext';
 import { LoadingProvider } from './context/LoadingContext';
 import { TopProgressBar } from './components/TopProgressBar';
 import { RouteMetaManager } from './components/RouteMetaManager';
 import { Header } from './components/Header';
+import { NotificationBannerToast } from './components/NotificationBannerToast';
 import { AppSidebar } from './components/AppSidebar';
 import { InputSection } from './components/InputSection';
 import { KanjiStrokesView } from './components/KanjiStrokesView';
@@ -25,6 +27,7 @@ import { SharedDecksPage } from './pages/SharedDecksPage';
 import { KanjiByLevelPage } from './pages/KanjiByLevelPage';
 import { KanjiSearchPage } from './pages/KanjiSearchPage';
 import { StreakLeaderboardPage } from './pages/StreakLeaderboardPage';
+import { StreakInvitePage } from './pages/StreakInvitePage';
 import { ArenaPage } from './pages/ArenaPage';
 import { AuthModal } from './components/auth/AuthModal';
 import { AuthGuardModal } from './components/auth/AuthGuardModal';
@@ -144,6 +147,7 @@ function AppLayout() {
               <Route path="/decks/:folderId" element={<DeckDetailView />} />
               <Route path="/arena" element={<ArenaPage />} />
               <Route path="/leaderboard" element={<StreakLeaderboardPage />} />
+              <Route path="/invite/streak/:code" element={<StreakInvitePage />} />
               <Route path="/share/:slug" element={<PublicShareView />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/shares" element={<SharedDecksPage />} />
@@ -229,6 +233,9 @@ function AppLayout() {
       <ReviewSyncModal />
       <CloudInspectorModal />
 
+      {/* Notification Arrival & Realtime Banner */}
+      <NotificationBannerToast />
+
       {/* Floating Scroll to Top */}
       {showScrollTop && (
         <button
@@ -250,11 +257,13 @@ export default function App() {
     <BrowserRouter>
       <LoadingProvider>
         <AuthProvider>
-          <KanjiProvider>
-            <DeckProvider>
-              <AppLayout />
-            </DeckProvider>
-          </KanjiProvider>
+          <NotificationProvider>
+            <KanjiProvider>
+              <DeckProvider>
+                <AppLayout />
+              </DeckProvider>
+            </KanjiProvider>
+          </NotificationProvider>
         </AuthProvider>
       </LoadingProvider>
     </BrowserRouter>

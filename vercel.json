@@ -1,5 +1,11 @@
 {
   "framework": "vite",
+  "crons": [
+    {
+      "path": "/api/notifications?action=cron_daily_reminders",
+      "schedule": "0 13 * * *"
+    }
+  ],
   "rewrites": [
     { 
       "source": "/api/(.*)", 

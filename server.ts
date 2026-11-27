@@ -9,6 +9,7 @@ import syncMergeHandler from './api/sync/merge.js';
 import syncPushHandler from './api/sync/push.js';
 import syncPullHandler from './api/sync/pull.js';
 import communityHandler from './api/community.js';
+import notificationsHandler from './api/notifications.js';
 import arenaHandler from './api/arena.js';
 import authCallbackHandler from './api/auth/callback.js';
 
@@ -33,7 +34,7 @@ async function startServer() {
     });
   };
 
-  // Server-side translation & Supabase Auth/Sync/Community/Arena routes
+  // Server-side translation & Supabase Auth/Sync/Community/Arena/Notifications routes
   mountHandler('/api/translate', translateHandler);
   mountHandler('/api/profile', profileHandler);
   mountHandler('/api/sync/check', syncCheckHandler);
@@ -41,6 +42,7 @@ async function startServer() {
   mountHandler('/api/sync/push', syncPushHandler);
   mountHandler('/api/sync/pull', syncPullHandler);
   mountHandler('/api/community', communityHandler);
+  mountHandler('/api/notifications', notificationsHandler);
   mountHandler('/api/arena', arenaHandler);
   mountHandler('/api/auth/callback', authCallbackHandler);
   mountHandler('/api/auth/callback/', authCallbackHandler);
