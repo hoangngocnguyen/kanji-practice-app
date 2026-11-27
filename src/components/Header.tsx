@@ -144,9 +144,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
 
             {/* Brand Logo & Web Name */}
             <NavLink
-              to="/input"
+              to="/"
+              end
               className="flex items-center gap-2 sm:gap-2.5 min-w-0 group"
-              title="Trang chủ / Nhập văn bản"
+              title="Về Trang chủ"
             >
               <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-teal-900/15 ring-1 ring-emerald-400/30 group-hover:scale-105 transition-transform">
                 <span className="font-kanji font-black text-lg sm:text-xl leading-none">

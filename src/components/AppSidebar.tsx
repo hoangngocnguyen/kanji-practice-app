@@ -332,7 +332,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
           {/* Mobile Drawer Brand Header */}
           <div className="md:hidden flex items-center justify-between w-full">
-            <NavLink to="/input" onClick={onCloseMobile} className="flex items-center gap-2 shrink-0 group">
+            <NavLink to="/" end onClick={onCloseMobile} className="flex items-center gap-2 shrink-0 group" title="Về Trang chủ">
               <div className="w-8 h-8 shrink-0 rounded-xl bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-teal-900/15">
                 <span className="font-kanji font-black text-lg leading-none">漢</span>
               </div>
