@@ -1,6 +1,7 @@
 import { KanjiDetail, KanjiItem } from '../types/kanji';
 import { KANJI_DICTIONARY, SINO_VIETNAMESE_MAP } from '../data/kanjiDictionary';
 import { katakanaToHiragana } from '../utils/kanji';
+import { isNoisyClassicalGloss } from '../utils/kanjiApi';
 import {
   JlptLevel,
   KanjiCatalogEntry,
@@ -158,7 +159,8 @@ export async function loadUnifiedKanjiSearchIndex(): Promise<KanjiSearchDocument
             clean.includes('Bấm "Xem nét') ||
             clean.startsWith('Âm Hán Việt:') ||
             clean.startsWith('Đang cập nhật') ||
-            clean.startsWith('Chữ Kanji ')
+            clean.startsWith('Chữ Kanji ') ||
+            isNoisyClassicalGloss(clean)
           ) {
             return;
           }

@@ -1,5 +1,5 @@
 import { KanjiDetail, KanjiItem } from '../types/kanji';
-import { getKanjiInfo } from '../data/kanjiDictionary';
+import { getKanjiInfo, KANJI_DICTIONARY } from '../data/kanjiDictionary';
 
 export type JlptLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type KanjiLevelTab = JlptLevel | 'JOYO';
@@ -171,11 +171,29 @@ export function getStaticSentencesForKanji(kanji: string, limit = 4): KanjiExamp
 }
 
 export function catalogEntryToKanjiDetail(entry: KanjiCatalogEntry): KanjiDetail {
-  const localDict = getKanjiInfo(entry.c);
+  const curatedDict = KANJI_DICTIONARY[entry.c];
+  const localDict = curatedDict || getKanjiInfo(entry.c);
   const hanViet = entry.hv || localDict?.hanViet || 'Chưa rõ';
-  const meanings = entry.vi.length > 0 ? entry.vi : localDict?.meanings || [];
-  const on = entry.on.length > 0 ? entry.on : localDict?.on || [];
-  const kun = entry.kun.length > 0 ? entry.kun : localDict?.kun || [];
+  const curatedMeanings =
+    curatedDict?.meanings && curatedDict.meanings.length > 0 ? curatedDict.meanings : [];
+  const meanings =
+    curatedMeanings.length > 0
+      ? curatedMeanings
+      : entry.vi.length > 0
+        ? entry.vi
+        : localDict?.meanings || [];
+  const on =
+    curatedDict?.on && curatedDict.on.length > 0
+      ? curatedDict.on
+      : entry.on.length > 0
+        ? entry.on
+        : localDict?.on || [];
+  const kun =
+    curatedDict?.kun && curatedDict.kun.length > 0
+      ? curatedDict.kun
+      : entry.kun.length > 0
+        ? entry.kun
+        : localDict?.kun || [];
 
   return {
     kanji: entry.c,
@@ -184,9 +202,9 @@ export function catalogEntryToKanjiDetail(entry: KanjiCatalogEntry): KanjiDetail
     on,
     kun,
     jlpt: entry.lv,
-    radical: localDict?.radical,
+    radical: localDict?.radical && localDict.radical !== 'Bộ thủ' ? localDict.radical : undefined,
     strokeCount: entry.st || localDict?.strokeCount,
-    examples: localDict?.examples || [],
+    examples: curatedDict?.examples || [],
   };
 }
 

@@ -33,6 +33,7 @@ import {
   cleanReadingsList,
   getFullKanjiDetail,
   hasMissingKanjiData,
+  isNoisyClassicalGloss,
 } from '../utils/kanjiApi';
 import {
   ParsedCompoundWordInput,
@@ -1115,12 +1116,19 @@ export const DeckProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (it.id !== current.id) return it;
                 const prevCleanOn = cleanReadingsList(it.onReadings);
                 const prevCleanKun = cleanReadingsList(it.kunReadings);
+                const prevHasNoisyMeaning =
+                  Array.isArray(it.meanings) &&
+                  it.meanings.some((m) => isNoisyClassicalGloss(m));
                 const prevCleanMeanings = cleanMeaningsList(it.meanings);
 
                 const finalOn = prevCleanOn.length > 0 ? prevCleanOn : cleanedOn;
                 const finalKun = prevCleanKun.length > 0 ? prevCleanKun : cleanedKun;
                 const finalMeanings =
-                  prevCleanMeanings.length > 0 ? prevCleanMeanings : cleanedMeanings;
+                  !prevHasNoisyMeaning && prevCleanMeanings.length > 0
+                    ? prevCleanMeanings
+                    : cleanedMeanings.length > 0
+                    ? cleanedMeanings
+                    : prevCleanMeanings;
                 const finalHv = it.hanViet || nextHv;
                 const finalStroke = it.strokeCount || detail?.strokeCount;
 

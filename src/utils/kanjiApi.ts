@@ -291,6 +291,25 @@ export function isPlaceholderKanjiText(text?: string | null): boolean {
   );
 }
 
+export function isNoisyClassicalGloss(text?: string | null): boolean {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  return (
+    /[\u4e00-\u9faf]/.test(trimmed) ||
+    /\(xem:/i.test(trimmed) ||
+    /tiếng xưng hô/i.test(trimmed) ||
+    /từ xưng hô/i.test(trimmed) ||
+    /Hán văn Nhật/i.test(trimmed) ||
+    /xưa dùng như/i.test(trimmed) ||
+    /giản thể của/i.test(trimmed) ||
+    /phồn thể của/i.test(trimmed) ||
+    /\bnhư chữ\b/i.test(trimmed) ||
+    /Kinh Dịch/i.test(trimmed) ||
+    /Nhị thập bát tú/i.test(trimmed)
+  );
+}
+
 export function cleanReadingsList(list?: string[] | null): string[] {
   if (!Array.isArray(list)) return [];
   return list
@@ -302,7 +321,9 @@ export function cleanMeaningsList(list?: string[] | null): string[] {
   if (!Array.isArray(list)) return [];
   return list
     .map((s) => String(s || '').trim())
-    .filter((s) => Boolean(s) && !isPlaceholderKanjiText(s));
+    .filter(
+      (s) => Boolean(s) && !isPlaceholderKanjiText(s) && !isNoisyClassicalGloss(s)
+    );
 }
 
 export function hasMissingKanjiData(item: {
@@ -317,7 +338,7 @@ export function hasMissingKanjiData(item: {
   const hasPlaceholderInRaw =
     rawOn.some((s) => isPlaceholderKanjiText(s)) ||
     rawKun.some((s) => isPlaceholderKanjiText(s)) ||
-    rawMeanings.some((s) => isPlaceholderKanjiText(s));
+    rawMeanings.some((s) => isPlaceholderKanjiText(s) || isNoisyClassicalGloss(s));
 
   if (hasPlaceholderInRaw) return true;
 
