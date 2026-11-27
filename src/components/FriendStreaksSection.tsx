@@ -28,6 +28,7 @@ import {
   apiNudgeFriendStreak,
   apiRescueFriendStreak,
   apiRespondFriendStreakInvite,
+  FRIEND_STREAKS_UPDATED_EVENT,
   FriendStreakPair,
   FriendStreaksHubData,
 } from '../services/friendStreakService';
@@ -37,7 +38,10 @@ import {
   FollowUserItem,
   SearchUserResult,
 } from '../services/communityService';
-import { syncStudyStatsFromCloud } from '../services/studyStatsService';
+import {
+  STUDY_STATS_UPDATED_EVENT,
+  syncStudyStatsFromCloud,
+} from '../services/studyStatsService';
 import { UserAvatar } from './UserAvatar';
 
 export const FriendStreaksSection: React.FC = () => {
@@ -62,26 +66,48 @@ export const FriendStreaksSection: React.FC = () => {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const loadHub = useCallback(async () => {
-    if (!user) {
-      setHub(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiGetFriendStreaksHub();
-      setHub(data);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể tải danh sách Streak bạn bè.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const loadHub = useCallback(
+    async (silent = false) => {
+      if (!user) {
+        setHub(null);
+        return;
+      }
+      if (!silent) {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const data = await apiGetFriendStreaksHub();
+        setHub(data);
+      } catch (err: any) {
+        if (!silent) {
+          setError(err?.message || 'Không thể tải danh sách Streak bạn bè.');
+        }
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [user]
+  );
 
   useEffect(() => {
-    void loadHub();
+    void loadHub(false);
   }, [loadHub]);
+
+  useEffect(() => {
+    if (!user) return;
+    const onRefresh = () => {
+      void loadHub(true);
+    };
+    window.addEventListener(FRIEND_STREAKS_UPDATED_EVENT, onRefresh);
+    window.addEventListener(STUDY_STATS_UPDATED_EVENT, onRefresh);
+    return () => {
+      window.removeEventListener(FRIEND_STREAKS_UPDATED_EVENT, onRefresh);
+      window.removeEventListener(STUDY_STATS_UPDATED_EVENT, onRefresh);
+    };
+  }, [user, loadHub]);
 
   // Load follow list & search users when Invite modal opens
   useEffect(() => {

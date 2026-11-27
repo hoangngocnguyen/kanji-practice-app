@@ -1,5 +1,7 @@
 import { getSupabaseAccessToken } from '../utils/supabaseClient';
 
+export const FRIEND_STREAKS_UPDATED_EVENT = 'lk-friend-streaks-updated';
+
 export interface FreezeState {
   streakFreezes: number;
   maxFreezes: number;

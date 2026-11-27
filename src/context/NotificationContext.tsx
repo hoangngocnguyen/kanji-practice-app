@@ -21,6 +21,7 @@ import {
   subscribeBrowserToWebPush,
   unsubscribeBrowserFromWebPush,
 } from '../services/notificationService';
+import { FRIEND_STREAKS_UPDATED_EVENT } from '../services/friendStreakService';
 
 interface ArrivalBannerState {
   id: string;
@@ -202,6 +203,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
               actionUrl: newItem.actionUrl,
               unreadCount: 1,
             });
+          }
+
+          if (
+            typeof newItem.type === 'string' &&
+            newItem.type.startsWith('friend_streak_')
+          ) {
+            window.dispatchEvent(new CustomEvent(FRIEND_STREAKS_UPDATED_EVENT));
           }
 
           // Hydrate actor metadata in background

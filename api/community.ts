@@ -1549,10 +1549,73 @@ export default async function handler(
       const viewerStudiedToday =
         viewerRow?.last_study_date === todayVn || (viewerAct[todayVn]?.reviewed || 0) > 0;
 
+      // Self-heal any orphaned 'accepted' invites missing from friend_streaks (caused by legacy RPC bug)
+      try {
+        const [{ data: acceptedRows }, { data: allMyPairs }] = await Promise.all([
+          supabaseAdmin
+            .from('friend_streak_invites')
+            .select('id, inviter_id, invitee_id, responded_at, created_at')
+            .eq('status', 'accepted')
+            .not('invitee_id', 'is', null)
+            .or(`inviter_id.eq.${user.id},invitee_id.eq.${user.id}`)
+            .order('responded_at', { ascending: true }),
+          supabaseAdmin
+            .from('friend_streaks')
+            .select('id, user_low, user_high, status')
+            .or(`user_low.eq.${user.id},user_high.eq.${user.id}`),
+        ]);
+
+        const existingPairKeySet = new Set(
+          (allMyPairs || []).map((p: any) => `${p.user_low}:${p.user_high}`)
+        );
+        let myActiveCount = (allMyPairs || []).filter((p: any) => p.status === 'active').length;
+        let healedAny = false;
+
+        for (const acc of acceptedRows || []) {
+          if (myActiveCount >= MAX_FRIEND_STREAK_SLOTS) break;
+          if (!acc.invitee_id || acc.inviter_id === acc.invitee_id) continue;
+          const low = acc.inviter_id < acc.invitee_id ? acc.inviter_id : acc.invitee_id;
+          const high = acc.inviter_id < acc.invitee_id ? acc.invitee_id : acc.inviter_id;
+          const key = `${low}:${high}`;
+          if (existingPairKeySet.has(key)) continue;
+
+          const otherId = acc.inviter_id === user.id ? acc.invitee_id : acc.inviter_id;
+          const { count: otherActiveCount } = await supabaseAdmin
+            .from('friend_streaks')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'active')
+            .or(`user_low.eq.${otherId},user_high.eq.${otherId}`);
+
+          if ((otherActiveCount || 0) >= MAX_FRIEND_STREAK_SLOTS) continue;
+
+          const { error: healErr } = await supabaseAdmin
+            .from('friend_streaks')
+            .insert({
+              user_low: low,
+              user_high: high,
+              pair_streak: 0,
+              longest_pair_streak: 0,
+              status: 'active',
+            });
+
+          if (!healErr) {
+            existingPairKeySet.add(key);
+            myActiveCount += 1;
+            healedAny = true;
+          }
+        }
+
+        if (healedAny && viewerStudiedToday) {
+          await advanceFriendStreaksForUser(supabaseAdmin, user.id, todayVn);
+        }
+      } catch {
+        // Non-blocking self-heal
+      }
+
       const [
         { data: pairRows, error: pairErr },
-        { data: incomingRows, error: incErr },
-        { data: outgoingRows, error: outErr },
+        { data: incomingRowsRaw, error: incErr },
+        { data: outgoingRowsRaw, error: outErr },
       ] = await Promise.all([
         supabaseAdmin
           .from('friend_streaks')
@@ -1597,6 +1660,16 @@ export default async function handler(
         }
         throw err;
       }
+
+      const activePartnerSet = new Set(
+        (pairRows || []).map((p: any) => (p.user_low === user.id ? p.user_high : p.user_low))
+      );
+      const incomingRows = (incomingRowsRaw || []).filter(
+        (r: any) => !activePartnerSet.has(r.inviter_id)
+      );
+      const outgoingRows = (outgoingRowsRaw || []).filter(
+        (r: any) => !r.invitee_id || !activePartnerSet.has(r.invitee_id)
+      );
 
       const partnerIds = (pairRows || []).map((p: any) =>
         p.user_low === user.id ? p.user_high : p.user_low
@@ -1831,26 +1904,41 @@ export default async function handler(
       if (targetUserId) {
         const low = user.id < targetUserId ? user.id : targetUserId;
         const high = user.id < targetUserId ? targetUserId : user.id;
-        const [{ data: existingPair }, { data: existingInvite }] = await Promise.all([
-          supabaseAdmin
-            .from('friend_streaks')
-            .select('id, status')
-            .eq('user_low', low)
-            .eq('user_high', high)
-            .maybeSingle(),
-          supabaseAdmin
-            .from('friend_streak_invites')
-            .select('id, invite_code, expires_at')
-            .eq('inviter_id', user.id)
-            .eq('invitee_id', targetUserId)
-            .eq('status', 'pending')
-            .gt('expires_at', new Date().toISOString())
-            .maybeSingle(),
-        ]);
+        const [{ data: existingPair }, { data: existingInvite }, { data: reverseInvite }] =
+          await Promise.all([
+            supabaseAdmin
+              .from('friend_streaks')
+              .select('id, status')
+              .eq('user_low', low)
+              .eq('user_high', high)
+              .maybeSingle(),
+            supabaseAdmin
+              .from('friend_streak_invites')
+              .select('id, invite_code, expires_at')
+              .eq('inviter_id', user.id)
+              .eq('invitee_id', targetUserId)
+              .eq('status', 'pending')
+              .gt('expires_at', new Date().toISOString())
+              .maybeSingle(),
+            supabaseAdmin
+              .from('friend_streak_invites')
+              .select('id, invite_code')
+              .eq('inviter_id', targetUserId)
+              .eq('invitee_id', user.id)
+              .eq('status', 'pending')
+              .gt('expires_at', new Date().toISOString())
+              .maybeSingle(),
+          ]);
 
         if (existingPair?.status === 'active') {
           return res.status(400).json({
             error: 'Hai bạn đã đang nối Streak cùng nhau rồi.',
+          });
+        }
+        if (reverseInvite) {
+          return res.status(400).json({
+            error:
+              'Bạn ấy đã gửi lời mời nối Streak cho bạn — hãy bấm Chấp nhận ngay trong danh sách Lời mời đang chờ!',
           });
         }
         if (existingInvite) {
@@ -1982,20 +2070,99 @@ export default async function handler(
         });
       }
 
+      // Defense-in-depth: ensure friend_streaks row actually exists even if an older RPC returned null pairId
+      let finalPairId: string | null = rpcRes.pairId || null;
+      const inviterId = String(rpcRes.inviterId || inviteRow.inviter_id);
+      const low = inviterId < user.id ? inviterId : user.id;
+      const high = inviterId < user.id ? user.id : inviterId;
+
+      if (!finalPairId) {
+        const [{ data: existingPair }, { count: inviterCount }, { count: accepterCount }] =
+          await Promise.all([
+            supabaseAdmin
+              .from('friend_streaks')
+              .select('id, status')
+              .eq('user_low', low)
+              .eq('user_high', high)
+              .maybeSingle(),
+            supabaseAdmin
+              .from('friend_streaks')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'active')
+              .or(`user_low.eq.${inviterId},user_high.eq.${inviterId}`),
+            supabaseAdmin
+              .from('friend_streaks')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'active')
+              .or(`user_low.eq.${user.id},user_high.eq.${user.id}`),
+          ]);
+
+        if (existingPair?.status === 'active') {
+          finalPairId = existingPair.id;
+        } else {
+          if ((inviterCount || 0) >= MAX_FRIEND_STREAK_SLOTS) {
+            return res.status(400).json({
+              error: 'Người mời đã đạt tối đa 6 kết nối Streak bạn bè.',
+              code: 'INVITER_MAX_SLOTS',
+            });
+          }
+          if ((accepterCount || 0) >= MAX_FRIEND_STREAK_SLOTS) {
+            return res.status(400).json({
+              error: 'Bạn đã đạt tối đa 6 kết nối Streak bạn bè.',
+              code: 'ACCEPTER_MAX_SLOTS',
+            });
+          }
+
+          const { data: upsertedPair, error: upsertPairErr } = await supabaseAdmin
+            .from('friend_streaks')
+            .upsert(
+              {
+                user_low: low,
+                user_high: high,
+                pair_streak: 0,
+                longest_pair_streak: existingPair ? undefined : 0,
+                last_pair_date: null,
+                frozen_dates: [],
+                status: 'active',
+              },
+              { onConflict: 'user_low,user_high' }
+            )
+            .select('id')
+            .single();
+
+          if (upsertPairErr) throw upsertPairErr;
+          finalPairId = upsertedPair?.id || null;
+        }
+      }
+
+      if (!finalPairId) {
+        return res.status(500).json({
+          error: 'Không thể tạo kết nối Streak bạn bè trên máy chủ. Vui lòng thử lại.',
+        });
+      }
+
+      // Close any opposite-direction pending invites between the same pair
+      await supabaseAdmin
+        .from('friend_streak_invites')
+        .update({ status: 'accepted', responded_at: new Date().toISOString() })
+        .eq('status', 'pending')
+        .neq('id', inviteRow.id)
+        .or(`and(inviter_id.eq.${low},invitee_id.eq.${high}),and(inviter_id.eq.${high},invitee_id.eq.${low})`);
+
       const todayVn = getVnDateKey();
       await advanceFriendStreaksForUser(supabaseAdmin, user.id, todayVn);
 
-      if (!rpcRes.alreadyConnected && rpcRes.inviterId && rpcRes.inviterId !== user.id) {
+      if (!rpcRes.alreadyConnected && inviterId && inviterId !== user.id) {
         const usersMap = await fetchPublicUsersMap(supabaseAdmin, [user.id]);
         const accepterName = usersMap.get(user.id)?.displayName || 'Bạn học';
         await createNotificationAndPush(supabaseAdmin, {
-          userId: rpcRes.inviterId,
+          userId: inviterId,
           actorId: user.id,
           type: 'friend_streak_accepted',
           title: `${accepterName} đã nhận lời nối Streak cùng bạn!`,
           body: 'Hai bạn đã bắt đầu chuỗi Streak chung. Hãy ôn tập hôm nay để thắp lửa nhé.',
           actionUrl: '/leaderboard?tab=friends',
-          metadata: { pairId: rpcRes.pairId },
+          metadata: { pairId: finalPairId },
           sendPush: true,
         });
       }
@@ -2003,7 +2170,7 @@ export default async function handler(
       return res.status(200).json({
         ok: true,
         status: 'accepted',
-        pairId: rpcRes.pairId,
+        pairId: finalPairId,
         alreadyConnected: Boolean(rpcRes.alreadyConnected),
       });
     }

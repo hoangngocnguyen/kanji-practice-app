@@ -150,6 +150,7 @@ declare
   v_inviter_count integer;
   v_accepter_count integer;
   v_existing_pair public.friend_streaks%rowtype;
+  v_pair_exists boolean := false;
   v_pair_id uuid;
 begin
   select * into v_invite
@@ -189,12 +190,26 @@ begin
 
   select * into v_existing_pair
   from public.friend_streaks
-  where user_low = v_low and user_high = v_high;
+  where user_low = v_low and user_high = v_high
+  for update;
 
-  if found and v_existing_pair.status = 'active' then
+  -- Lưu cờ tồn tại ngay lập tức vì các câu lệnh SELECT COUNT(*) bên dưới sẽ ghi đè biến FOUND
+  v_pair_exists := found;
+
+  if v_pair_exists and v_existing_pair.status = 'active' then
     update public.friend_streak_invites
     set status = 'accepted', invitee_id = p_accepter_id, responded_at = now()
     where id = v_invite.id;
+
+    update public.friend_streak_invites
+    set status = 'accepted', responded_at = now()
+    where id <> v_invite.id
+      and status = 'pending'
+      and (
+        (inviter_id = v_low and invitee_id = v_high)
+        or (inviter_id = v_high and invitee_id = v_low)
+      );
+
     return jsonb_build_object(
       'ok', true,
       'alreadyConnected', true,
@@ -228,7 +243,7 @@ begin
     );
   end if;
 
-  if found then
+  if v_pair_exists and v_existing_pair.id is not null then
     update public.friend_streaks
     set status = 'active',
         pair_streak = 0,
@@ -240,6 +255,12 @@ begin
   else
     insert into public.friend_streaks (user_low, user_high, pair_streak, longest_pair_streak, status)
     values (v_low, v_high, 0, 0, 'active')
+    on conflict (user_low, user_high) do update
+      set status = 'active',
+          pair_streak = 0,
+          last_pair_date = null,
+          frozen_dates = '[]'::jsonb,
+          updated_at = now()
     returning id into v_pair_id;
   end if;
 
@@ -249,6 +270,16 @@ begin
       responded_at = now()
   where id = v_invite.id;
 
+  update public.friend_streak_invites
+  set status = 'accepted',
+      responded_at = now()
+  where id <> v_invite.id
+    and status = 'pending'
+    and (
+      (inviter_id = v_low and invitee_id = v_high)
+      or (inviter_id = v_high and invitee_id = v_low)
+    );
+
   return jsonb_build_object(
     'ok', true,
     'pairId', v_pair_id,
@@ -257,6 +288,49 @@ begin
   );
 end;
 $$;
+
+-- Khôi phục tự động (idempotent) các cặp Streak đã bấm chấp nhận trước khi vá lỗi RPC
+do $$
+declare
+  rec record;
+  v_low uuid;
+  v_high uuid;
+  v_low_count integer;
+  v_high_count integer;
+begin
+  for rec in
+    select inviter_id, invitee_id
+    from public.friend_streak_invites
+    where status = 'accepted'
+      and invitee_id is not null
+      and inviter_id <> invitee_id
+    order by coalesce(responded_at, created_at) asc
+  loop
+    v_low := least(rec.inviter_id, rec.invitee_id);
+    v_high := greatest(rec.inviter_id, rec.invitee_id);
+
+    if exists (
+      select 1 from public.friend_streaks
+      where user_low = v_low and user_high = v_high
+    ) then
+      continue;
+    end if;
+
+    select count(*) into v_low_count
+    from public.friend_streaks
+    where status = 'active' and (user_low = v_low or user_high = v_low);
+
+    select count(*) into v_high_count
+    from public.friend_streaks
+    where status = 'active' and (user_low = v_high or user_high = v_high);
+
+    if v_low_count < 6 and v_high_count < 6 then
+      insert into public.friend_streaks (user_low, user_high, pair_streak, longest_pair_streak, status)
+      values (v_low, v_high, 0, 0, 'active')
+      on conflict (user_low, user_high) do nothing;
+    end if;
+  end loop;
+end $$;
 
 -- ----------------------------------------------------------------------------
 -- 5. Bảng Thông báo Realtime (notifications)
